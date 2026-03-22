@@ -1,3 +1,4 @@
+use super::fa_test::{FA, TokenType, run_tests};
 use super::regex::Regex;
 use super::subset::{EpsilonClosure, Subset};
 use itertools::Itertools;
@@ -145,98 +146,40 @@ where
 
         result
     }
-
-    // Not intended for external use, just to test (though this is
-    // effectively the subset construction).
-    fn test(&self, input: &str) -> Option<T> {
-        let mut closure = EpsilonClosure::make();
-        let mut active_states =
-            closure.compute(self, Subset::make(std::iter::once(self.initial_state)));
-
-        for c in input.chars() {
-            let next_states = active_states
-                .into_iter()
-                .filter_map(|s| self[s].transitions.get(&c).map(|x| *x))
-                .collect();
-
-            active_states = closure.compute(self, next_states);
-        }
-
-        active_states
-            .into_iter()
-            .filter_map(|x| self.terminal_states.get(&x))
-            .max_by_key(|t| self.rank.get(&t).copied().unwrap_or(0))
-            .copied()
-    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
 
-    #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-    enum Token {
-        Literal,
-        BetterLiteral,
-        A,
-        AStar,
-        AB,
-        Alt,
-    }
+    impl FA<TokenType> for NFA<TokenType> {
+        fn make(token_defs: Vec<(TokenType, Regex)>) -> Self {
+            Self::make(token_defs)
+        }
+        fn classify(&self, input: &str) -> Option<TokenType> {
+            let mut closure = EpsilonClosure::make();
+            let mut active_states =
+                closure.compute(self, Subset::make(std::iter::once(self.initial_state)));
 
-    fn make_nfa(tokens: Vec<(Token, &str)>) -> NFA<Token> {
-        let as_regex = tokens
-            .into_iter()
-            .map(|(token, regex_str)| (token, Regex::make(regex_str).unwrap()))
-            .collect();
+            for c in input.chars() {
+                let next_states = active_states
+                    .into_iter()
+                    .filter_map(|s| self[s].transitions.get(&c).map(|x| *x))
+                    .collect();
 
-        NFA::make(as_regex)
-    }
+                active_states = closure.compute(self, next_states);
+            }
 
-    #[test]
-    fn test_literals() {
-        let nfa = make_nfa(vec![(Token::Literal, ("abc"))]);
-
-        assert!(nfa.test("").is_none());
-        assert!(nfa.test("ab").is_none());
-        assert!(nfa.test("abcd").is_none());
-        assert_eq!(nfa.test("abc").unwrap(), Token::Literal);
+            active_states
+                .into_iter()
+                .filter_map(|x| self.terminal_states.get(&x))
+                .max_by_key(|t| self.rank.get(&t).copied().unwrap_or(0))
+                .copied()
+        }
     }
 
     #[test]
-    fn test_ambiguous() {
-        let nfa = make_nfa(vec![(Token::Literal, ("a*a"))]);
-
-        assert!(nfa.test("").is_none());
-        assert!(nfa.test("b").is_none());
-        assert_eq!(nfa.test("a").unwrap(), Token::Literal);
-        assert_eq!(nfa.test("aa").unwrap(), Token::Literal);
-        assert_eq!(nfa.test("aaaaaaaa").unwrap(), Token::Literal);
-    }
-
-    #[test]
-    fn test_token_precedence() {
-        let nfa = make_nfa(vec![
-            (Token::BetterLiteral, ("[a-z]*")),
-            (Token::Literal, ("[a-z]*")),
-        ]);
-
-        assert_eq!(nfa.test("asbjasdflasdf").unwrap(), Token::BetterLiteral);
-        assert_eq!(nfa.test("slasdf").unwrap(), Token::BetterLiteral);
-        assert!(nfa.test("slasdf1alfs2").is_none());
-    }
-
-    #[test]
-    fn test_everything() {
-        let nfa = make_nfa(vec![
-            (Token::A, ("a")),
-            (Token::AStar, ("a*")),
-            (Token::AB, ("ab")),
-            (Token::Alt, ("a|b")),
-        ]);
-
-        assert_eq!(nfa.test("").unwrap(), Token::AStar);
-        assert_eq!(nfa.test("a").unwrap(), Token::A);
-        assert_eq!(nfa.test("ab").unwrap(), Token::AB);
+    fn test_nfa() {
+        run_tests::<NFA<TokenType>>();
     }
 }

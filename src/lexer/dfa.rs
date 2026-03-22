@@ -1,3 +1,4 @@
+use super::fa_test::{FA, TokenType, run_tests};
 use super::nfa;
 use super::nfa::NFA;
 use super::regex::Regex;
@@ -89,23 +90,6 @@ where
 {
     pub fn make(nfa: NFA<T>) -> Self {
         DFABuilder::make().build(nfa)
-    }
-
-    fn test(&self, input: &str) -> Option<T> {
-        let mut current_state = self.initial_state;
-
-        for c in input.chars() {
-            match self[current_state].transitions.get(&c) {
-                Some(state) => {
-                    current_state = *state;
-                }
-                None => {
-                    return None;
-                }
-            }
-        }
-
-        self.terminal_states.get(&current_state).cloned()
     }
 }
 
@@ -204,83 +188,32 @@ where
 mod test {
     use super::*;
 
-    #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-    enum Token {
-        Literal,
-        BetterLiteral,
-        A,
-        AStar,
-        AB,
-        Alt,
-    }
+    impl FA<TokenType> for DFA<TokenType> {
+        fn make(token_defs: Vec<(TokenType, Regex)>) -> Self {
+            let nfa = NFA::make(token_defs);
+            Self::make(nfa)
+        }
 
-    impl Display for Token {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            match self {
-                Token::Literal => write!(f, "Literal"),
-                Token::BetterLiteral => write!(f, "BetterLiteral"),
-                Token::A => write!(f, "A"),
-                Token::AStar => write!(f, "AStar"),
-                Token::AB => write!(f, "AB"),
-                Token::Alt => write!(f, "Alt"),
+        fn classify(&self, input: &str) -> Option<TokenType> {
+            let mut current_state = self.initial_state;
+
+            for c in input.chars() {
+                match self[current_state].transitions.get(&c) {
+                    Some(state) => {
+                        current_state = *state;
+                    }
+                    None => {
+                        return None;
+                    }
+                }
             }
+
+            self.terminal_states.get(&current_state).cloned()
         }
     }
 
-    fn make_dfa(tokens: Vec<(Token, &str)>) -> DFA<Token> {
-        let as_regex = tokens
-            .into_iter()
-            .map(|(token, regex_str)| (token, Regex::make(regex_str).unwrap()))
-            .collect();
-
-        let nfa = NFA::make(as_regex);
-        DFA::make(nfa)
-    }
-
     #[test]
-    fn test_literals() {
-        let dfa = make_dfa(vec![(Token::Literal, ("abc"))]);
-
-        assert!(dfa.test("").is_none());
-        assert!(dfa.test("ab").is_none());
-        assert!(dfa.test("abcd").is_none());
-        assert_eq!(dfa.test("abc").unwrap(), Token::Literal);
-    }
-
-    #[test]
-    fn test_ambiguous() {
-        let dfa = make_dfa(vec![(Token::Literal, ("a*a"))]);
-
-        assert!(dfa.test("").is_none());
-        assert!(dfa.test("b").is_none());
-        assert_eq!(dfa.test("a").unwrap(), Token::Literal);
-        assert_eq!(dfa.test("aa").unwrap(), Token::Literal);
-        assert_eq!(dfa.test("aaaaaaaa").unwrap(), Token::Literal);
-    }
-
-    #[test]
-    fn test_token_precedence() {
-        let dfa = make_dfa(vec![
-            (Token::BetterLiteral, ("[a-z]*")),
-            (Token::Literal, ("[a-z]*")),
-        ]);
-
-        assert_eq!(dfa.test("asbjasdflasdf").unwrap(), Token::BetterLiteral);
-        assert_eq!(dfa.test("slasdf").unwrap(), Token::BetterLiteral);
-        assert!(dfa.test("slasdf1alfs2").is_none());
-    }
-
-    #[test]
-    fn test_everything() {
-        let dfa = make_dfa(vec![
-            (Token::A, ("a")),
-            (Token::AStar, ("a*")),
-            (Token::AB, ("ab")),
-            (Token::Alt, ("a|b")),
-        ]);
-
-        assert_eq!(dfa.test("").unwrap(), Token::AStar);
-        assert_eq!(dfa.test("a").unwrap(), Token::A);
-        assert_eq!(dfa.test("ab").unwrap(), Token::AB);
+    fn test_dfa() {
+        run_tests::<DFA<TokenType>>();
     }
 }
