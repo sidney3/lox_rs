@@ -2,6 +2,7 @@ use super::dfa::DFA;
 use super::error::{Error, Result};
 use super::nfa::NFA;
 use super::regex::Regex;
+use super::token::{Token, TokenType};
 use lasso::{Rodeo, Spur};
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
@@ -10,17 +11,7 @@ pub struct Lexer<T> {
     dfa: DFA<T>,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Token<T> {
-    pub lexeme: Spur,
-    pub token_type: T,
-    pub line: usize,
-}
-
-impl<T> Lexer<T>
-where
-    T: Hash + Copy + Clone + Eq + PartialEq + Display,
-{
+impl<T: TokenType> Lexer<T> {
     pub fn make(tokens: Vec<(T, &str)>) -> Result<Self> {
         let regex_mappings = tokens
             .into_iter()
