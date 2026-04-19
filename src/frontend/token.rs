@@ -1,4 +1,5 @@
 use crate::lexer;
+use lasso::Rodeo;
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 use std::sync::OnceLock;
@@ -54,7 +55,7 @@ pub enum TokenType {
     Ident,
 }
 
-type Token<'a> = lexer::Token<'a, TokenType>;
+type Token<'a> = lexer::Token<TokenType>;
 
 impl Display for TokenType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -122,38 +123,42 @@ mod test {
             "/samples/hello_world.lox"
         ));
 
+        let mut rodeo = Rodeo::default();
+
         let tokens: Vec<_> = lexer()
-            .lex(program)
+            .lex(program, &mut rodeo)
             .unwrap()
             .into_iter()
             .filter(|token| token.token_type != TokenType::WhiteSpace)
             .collect();
 
+        let mut spur = |s| rodeo.get_or_intern(s);
+
         assert_eq!(
             tokens,
             vec![
                 Token {
-                    lexeme: "print",
+                    lexeme: spur("print"),
                     token_type: TokenType::Print,
                     line: 1
                 },
                 Token {
-                    lexeme: "(",
+                    lexeme: spur("("),
                     token_type: TokenType::LParen,
                     line: 1,
                 },
                 Token {
-                    lexeme: "\"Hello world!\"",
+                    lexeme: spur("\"Hello world!\""),
                     token_type: TokenType::String,
                     line: 1
                 },
                 Token {
-                    lexeme: ")",
+                    lexeme: spur(")"),
                     token_type: TokenType::RParen,
                     line: 1,
                 },
                 Token {
-                    lexeme: ";",
+                    lexeme: spur(";"),
                     token_type: TokenType::Semicolon,
                     line: 1
                 },

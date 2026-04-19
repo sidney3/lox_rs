@@ -2,6 +2,7 @@ use super::dfa::DFA;
 use super::error::{Error, Result};
 use super::nfa::NFA;
 use super::regex::Regex;
+use lasso::{Rodeo, Spur};
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 
@@ -10,8 +11,8 @@ pub struct Lexer<T> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Token<'a, T> {
-    pub lexeme: &'a str,
+pub struct Token<T> {
+    pub lexeme: Spur,
     pub token_type: T,
     pub line: usize,
 }
@@ -39,11 +40,11 @@ where
         })
     }
 
-    pub fn lex<'a>(&self, program: &'a str) -> Result<Vec<Token<'a, T>>> {
+    pub fn lex(&self, program: &str, mut rodeo: &mut Rodeo) -> Result<Vec<Token<T>>> {
         let mut cursor = Cursor::make(program);
         let mut out = Vec::new();
 
-        while let Some(token) = self.parse_token(&mut cursor) {
+        while let Some(token) = self.parse_token(&mut rodeo, &mut cursor) {
             out.push(token);
         }
 
@@ -56,7 +57,7 @@ where
         }
     }
 
-    fn parse_token<'a>(&self, cursor: &mut Cursor<'a>) -> Option<Token<'a, T>> {
+    fn parse_token(&self, rodeo: &mut Rodeo, cursor: &mut Cursor) -> Option<Token<T>> {
         let mut curr_state = self.dfa.initial_state;
         let mut history = vec![curr_state];
         let start = cursor.mark();
@@ -86,7 +87,7 @@ where
                         return None;
                     }
                     return Some(Token {
-                        lexeme: lexeme,
+                        lexeme: rodeo.get_or_intern(lexeme),
                         token_type,
                         line,
                     });
@@ -189,42 +190,50 @@ mod test {
         ])
         .unwrap();
 
+        let mut rodeo = Rodeo::default();
+
+        let mut spur = |s| rodeo.get_or_intern(s);
+
         let ws_token = Token {
-            lexeme: " ",
+            lexeme: spur(" "),
             token_type: TokenT::Whitespace,
             line: 1,
         };
         let struct_token = Token {
-            lexeme: "struct",
+            lexeme: spur("struct"),
             token_type: TokenT::Struct,
             line: 1,
         };
 
+        let expected_tokens = vec![
+            struct_token,
+            ws_token,
+            Token {
+                lexeme: spur("structa"),
+                token_type: TokenT::Literal,
+                line: 1,
+            },
+            ws_token,
+            Token {
+                lexeme: spur("structs"),
+                token_type: TokenT::Literal,
+                line: 1,
+            },
+            ws_token,
+            Token {
+                lexeme: spur("sstruct"),
+                token_type: TokenT::Literal,
+                line: 1,
+            },
+            ws_token,
+            struct_token,
+        ];
+
         assert_eq!(
-            lexer.lex("struct structa structs sstruct struct").unwrap(),
-            vec![
-                struct_token,
-                ws_token,
-                Token {
-                    lexeme: "structa",
-                    token_type: TokenT::Literal,
-                    line: 1
-                },
-                ws_token,
-                Token {
-                    lexeme: "structs",
-                    token_type: TokenT::Literal,
-                    line: 1
-                },
-                ws_token,
-                Token {
-                    lexeme: "sstruct",
-                    token_type: TokenT::Literal,
-                    line: 1
-                },
-                ws_token,
-                struct_token,
-            ]
+            lexer
+                .lex("struct structa structs sstruct struct", &mut rodeo)
+                .unwrap(),
+            expected_tokens
         )
     }
 }
