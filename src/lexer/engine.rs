@@ -39,6 +39,12 @@ impl<T: TokenType> Lexer<T> {
             out.push(token);
         }
 
+        out.push(Token {
+            lexeme: rodeo.get_or_intern("EOF"),
+            token_type: T::eof(),
+            line: cursor.line(),
+        });
+
         if cursor.is_eof() {
             Ok(out)
         } else {
@@ -160,6 +166,13 @@ mod test {
         Literal,
         Struct,
         Whitespace,
+        Eof,
+    }
+
+    impl TokenType for TokenT {
+        fn eof() -> Self {
+            TokenT::Eof
+        }
     }
 
     impl Display for TokenT {
@@ -168,6 +181,7 @@ mod test {
                 TokenT::Literal => write!(f, "Literal"),
                 TokenT::Struct => write!(f, "Struct"),
                 TokenT::Whitespace => write!(f, "Whitespace"),
+                TokenT::Eof => write!(f, "Eof"),
             }
         }
     }
@@ -218,6 +232,11 @@ mod test {
             },
             ws_token,
             struct_token,
+            Token {
+                lexeme: spur("EOF"),
+                token_type: TokenT::Eof,
+                line: 1,
+            },
         ];
 
         assert_eq!(

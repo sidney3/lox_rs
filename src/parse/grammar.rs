@@ -1,11 +1,13 @@
 use super::rule::Rule;
 use crate::core::ordinal::Ordinal;
-use crate::lexer::Token;
+use crate::lexer::{Token, TokenType};
+use crate::parse::action::Action;
 use crate::usize_id;
 use either::Either;
+use itertools::Itertools;
 use nonempty::NonEmpty;
 use smallvec::SmallVec;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::Hash;
 
@@ -99,13 +101,12 @@ pub struct Grammar<R: Rule> {
 impl<R: Rule> Grammar<R> {
     pub fn new(productions: Vec<Production<R>>, target_rule: R::RuleType) -> Self {
         let mut productions_for_rule = Vec::new();
-        let mut tokens: HashSet<R::TokenType> = HashSet::new();
-        let mut rules: HashSet<R::RuleType> = HashSet::new();
+        let mut tokens = HashSet::new();
+        let mut rules = HashSet::new();
 
         for (i, production) in productions.iter().enumerate() {
             if production.rule.ord() >= productions_for_rule.len() {
-                productions_for_rule
-                    .resize_with(production.rule.ord() + 1, || ProductionList::new());
+                productions_for_rule.resize_with(production.rule.ord() + 1, ProductionList::new);
             }
             productions_for_rule[production.rule.ord()].push(ProductionId(i));
             rules.insert(production.rule);
@@ -116,6 +117,8 @@ impl<R: Rule> Grammar<R> {
                 };
             }
         }
+
+        tokens.insert(R::TokenType::eof());
 
         Self {
             productions,
@@ -131,6 +134,9 @@ impl<R: Rule> Grammar<R> {
     }
     pub fn productions_for_rule(&self, r: R::RuleType) -> &ProductionList {
         &self.productions_for_rule[r.ord()]
+    }
+    pub fn productions<'a>(&'a self) -> impl Iterator<Item = &Production<R>> + 'a {
+        self.productions.iter()
     }
     pub fn tokens(&self) -> &Vec<R::TokenType> {
         &self.tokens

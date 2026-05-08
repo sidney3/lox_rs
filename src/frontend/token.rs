@@ -1,5 +1,5 @@
 use crate::core::ordinal::Ordinal;
-use crate::lexer::Result;
+use crate::lexer::{Result, TokenType};
 use crate::{lexer, ordinal_enum};
 use lasso::Rodeo;
 use std::fmt::{self, Display, Formatter};
@@ -54,7 +54,15 @@ ordinal_enum!(LoxTokenType {
 
     // Other
     Ident,
+
+    Eof,
 });
+
+impl TokenType for LoxTokenType {
+    fn eof() -> Self {
+        LoxTokenType::Eof
+    }
+}
 
 pub type LoxToken = lexer::Token<LoxTokenType>;
 
@@ -164,6 +172,11 @@ mod test {
                     token_type: LoxTokenType::Semicolon,
                     line: 1
                 },
+                LoxToken {
+                    lexeme: spur("EOF"),
+                    token_type: LoxTokenType::Eof,
+                    line: 2,
+                }
             ]
         )
     }

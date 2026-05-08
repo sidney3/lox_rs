@@ -1,9 +1,13 @@
+use super::action::Action;
 use super::grammar::{Grammar, ProductionId, Symbol};
 use super::item::{Item, ItemList};
 use super::rule::Rule;
+use crate::core::ordinal::Ordinal;
+use crate::lexer::TokenType;
 use crate::usize_id;
 use itertools::Itertools;
 use smallvec::SmallVec;
+use std::collections::HashSet;
 use std::hash::Hash;
 
 usize_id!(StateId);
@@ -92,6 +96,32 @@ impl State {
             next_items.into_iter(),
             finished_productions.into_iter(),
         )
+    }
+
+    pub fn action<R: Rule>(
+        &self,
+        grammar: &Grammar<R>,
+        follow: &Vec<HashSet<R::TokenType>>,
+        token_type: &R::TokenType,
+    ) -> Action {
+        if *token_type == R::TokenType::eof() && self.is_accepting() {
+            Action::Accept
+        } else {
+            let longest_complete = self
+                .complete()
+                .iter()
+                .sorted() // to disambiguate
+                .filter(|production_id| {
+                    let rule_type = grammar.production(**production_id).rule;
+                    follow[rule_type.ord()].contains(token_type)
+                })
+                .max_by_key(|production_id| grammar.production(**production_id).definition.len());
+
+            match longest_complete {
+                Some(&production_id) => Action::Reduce(production_id),
+                None => Action::Shift,
+            }
+        }
     }
 }
 
