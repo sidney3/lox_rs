@@ -148,39 +148,9 @@ mod test {
         Alpha,
         Group(Box<TestRule>),
         Beta(Box<TestRule>, Box<TestRule>),
-        Expr(Box<TestRule>),
         Plus(Box<TestRule>, Box<TestRule>),
         Times(Box<TestRule>, Box<TestRule>),
         Literal(LoxToken),
-    }
-
-    impl TestRule {
-        pub fn reduce_expr(self) -> Self {
-            match self {
-                TestRule::Expr(_) => compact_expr(self),
-                TestRule::Plus(lhs, rhs) => {
-                    TestRule::Plus(Box::new(lhs.reduce_expr()), Box::new(rhs.reduce_expr()))
-                }
-                TestRule::Times(lhs, rhs) => {
-                    TestRule::Times(Box::new(lhs.reduce_expr()), Box::new(rhs.reduce_expr()))
-                }
-                _ => self,
-            }
-        }
-    }
-
-    fn compact_expr(e: TestRule) -> TestRule {
-        if let TestRule::Expr(inner) = e {
-            let mut inner_e = *inner;
-
-            while let TestRule::Expr(inner_inner_e) = inner_e {
-                inner_e = *inner_inner_e;
-            }
-
-            TestRule::Expr(Box::new(inner_e))
-        } else {
-            e
-        }
     }
 
     impl Rule for TestRule {
@@ -271,7 +241,7 @@ mod test {
             rule: TestRuleType::Expr,
             make_rule: Box::new(|nodes| {
                 if let [Node::NonTerminal(r)] = <[_; 1]>::try_from(nodes).unwrap() {
-                    TestRule::Expr(Box::new(r))
+                    r
                 } else {
                     panic!("unreachable")
                 }
@@ -426,40 +396,229 @@ mod test {
         )
     }
 
+    struct ExprFixture {
+        rodeo: Rodeo,
+        parser: Parser<TestRule>,
+        one: LoxToken,
+        two: LoxToken,
+        three: LoxToken,
+    }
+
+    impl ExprFixture {
+        fn new() -> Self {
+            let mut rodeo = Rodeo::default();
+            let num = |rodeo: &mut Rodeo, s: &str| Token {
+                lexeme: rodeo.get_or_intern(s),
+                token_type: LoxTokenType::Number,
+                line: 1,
+            };
+            let one = num(&mut rodeo, "1");
+            let two = num(&mut rodeo, "2");
+            let three = num(&mut rodeo, "3");
+            Self {
+                rodeo,
+                parser: Parser::new(expression_grammar()),
+                one,
+                two,
+                three,
+            }
+        }
+
+        fn parse(&mut self, input: &str) -> TestRule {
+            let tokens = lex(input, &mut self.rodeo).unwrap();
+            self.parser.parse(tokens.into_iter()).unwrap()
+        }
+
+        fn num(&mut self, s: &str) -> TestRule {
+            TestRule::Literal(Token {
+                lexeme: self.rodeo.get_or_intern(s),
+                token_type: LoxTokenType::Number,
+                line: 1,
+            })
+        }
+    }
+
+    fn plus(lhs: TestRule, rhs: TestRule) -> TestRule {
+        TestRule::Plus(Box::new(lhs), Box::new(rhs))
+    }
+
+    fn times(lhs: TestRule, rhs: TestRule) -> TestRule {
+        TestRule::Times(Box::new(lhs), Box::new(rhs))
+    }
+
     #[test]
-    fn expression_parsing() {
-        let mut rodeo = Rodeo::default();
-        let parser = Parser::new(expression_grammar());
+    fn expr_single_literal() {
+        let mut f = ExprFixture::new();
+        assert_eq!(f.parse("1"), TestRule::Literal(f.one));
+    }
 
-        let one = Token {
-            lexeme: rodeo.get_or_intern("1"),
-            token_type: LoxTokenType::Number,
-            line: 1,
-        };
-        let two = Token {
-            lexeme: rodeo.get_or_intern("2"),
-            token_type: LoxTokenType::Number,
-            line: 1,
-        };
-
-        let tokens = lex("1", &mut rodeo).unwrap();
+    #[test]
+    fn expr_simple_addition() {
+        let mut f = ExprFixture::new();
         assert_eq!(
-            parser.parse(tokens.into_iter()).unwrap(),
-            TestRule::Expr(Box::new(TestRule::Literal(one)))
+            f.parse("1+2"),
+            plus(TestRule::Literal(f.one), TestRule::Literal(f.two))
         );
-        let tokens = lex("1+2", &mut rodeo).unwrap();
-        assert_eq!(
-            parser.parse(tokens.into_iter()).unwrap(),
-            TestRule::Expr(Box::new(TestRule::Plus(
-                Box::new(TestRule::Literal(one)),
-                Box::new(TestRule::Literal(two)),
-            )))
-        );
+    }
 
-        let tokens = lex("((1))", &mut rodeo).unwrap();
+    #[test]
+    fn expr_deeply_nested_parens() {
+        let mut f = ExprFixture::new();
+        assert_eq!(f.parse("((((((((1))))))))"), TestRule::Literal(f.one));
+    }
+
+    #[test]
+    fn expr_nested_parens_with_multiply() {
+        let mut f = ExprFixture::new();
         assert_eq!(
-            parser.parse(tokens.into_iter()).unwrap().reduce_expr(),
-            TestRule::Expr(Box::new(TestRule::Literal(one)))
+            f.parse(r#"((((((((((1)))))))*((((((2)))))))))"#),
+            times(TestRule::Literal(f.one), TestRule::Literal(f.two))
+        );
+    }
+
+    #[test]
+    fn expr_precedence_mul_then_add() {
+        let mut f = ExprFixture::new();
+        assert_eq!(
+            f.parse("1*2+3"),
+            plus(
+                times(TestRule::Literal(f.one), TestRule::Literal(f.two)),
+                TestRule::Literal(f.three),
+            )
+        );
+    }
+
+    #[test]
+    fn expr_torture_nested_precedence() {
+        // (1+2*3)*(4+(5*6+7))+8*(9+10*11*(12+13)+14)+15
+        let mut f = ExprFixture::new();
+        let expected = plus(
+            times(
+                plus(f.num("1"), times(f.num("2"), f.num("3"))),
+                plus(f.num("4"), plus(times(f.num("5"), f.num("6")), f.num("7"))),
+            ),
+            plus(
+                times(
+                    f.num("8"),
+                    plus(
+                        f.num("9"),
+                        plus(
+                            times(
+                                f.num("10"),
+                                times(f.num("11"), plus(f.num("12"), f.num("13"))),
+                            ),
+                            f.num("14"),
+                        ),
+                    ),
+                ),
+                f.num("15"),
+            ),
+        );
+        assert_eq!(
+            f.parse("(1+2*3)*(4+(5*6+7))+8*(9+10*11*(12+13)+14)+15"),
+            expected
+        );
+    }
+
+    #[test]
+    fn expr_torture_chained_right_assoc() {
+        // 1+2+3*4*5+(6+7)*(8+9*1)+10*11*12+13+(14+15*16)*(17+18)+19+20
+        let mut f = ExprFixture::new();
+        let expected = plus(
+            f.num("1"),
+            plus(
+                f.num("2"),
+                plus(
+                    times(f.num("3"), times(f.num("4"), f.num("5"))),
+                    plus(
+                        times(
+                            plus(f.num("6"), f.num("7")),
+                            plus(f.num("8"), times(f.num("9"), f.num("1"))),
+                        ),
+                        plus(
+                            times(f.num("10"), times(f.num("11"), f.num("12"))),
+                            plus(
+                                f.num("13"),
+                                plus(
+                                    times(
+                                        plus(f.num("14"), times(f.num("15"), f.num("16"))),
+                                        plus(f.num("17"), f.num("18")),
+                                    ),
+                                    plus(f.num("19"), f.num("20")),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        );
+        assert_eq!(
+            f.parse("1+2+3*4*5+(6+7)*(8+9*1)+10*11*12+13+(14+15*16)*(17+18)+19+20"),
+            expected
+        );
+    }
+
+    #[test]
+    fn expr_torture_deep_nesting() {
+        // ((((1+2)*(3+4))+((5*6)+(7*8)))*((9+10)*(11+12)))+((13*14+15)*(16+17*18))
+        let mut f = ExprFixture::new();
+        let expected = plus(
+            times(
+                plus(
+                    times(
+                        plus(f.num("1"), f.num("2")),
+                        plus(f.num("3"), f.num("4")),
+                    ),
+                    plus(
+                        times(f.num("5"), f.num("6")),
+                        times(f.num("7"), f.num("8")),
+                    ),
+                ),
+                times(
+                    plus(f.num("9"), f.num("10")),
+                    plus(f.num("11"), f.num("12")),
+                ),
+            ),
+            times(
+                plus(times(f.num("13"), f.num("14")), f.num("15")),
+                plus(f.num("16"), times(f.num("17"), f.num("18"))),
+            ),
+        );
+        assert_eq!(
+            f.parse("((((1+2)*(3+4))+((5*6)+(7*8)))*((9+10)*(11+12)))+((13*14+15)*(16+17*18))"),
+            expected
+        );
+    }
+
+    #[test]
+    fn expr_torture_paren_heavy() {
+        // (((((1+2+3))*((4*5*6))+((7+8)*(9+10+11)))))+12*((13+14))*(15+16)+17+18
+        let mut f = ExprFixture::new();
+        let expected = plus(
+            plus(
+                times(
+                    plus(f.num("1"), plus(f.num("2"), f.num("3"))),
+                    times(f.num("4"), times(f.num("5"), f.num("6"))),
+                ),
+                times(
+                    plus(f.num("7"), f.num("8")),
+                    plus(f.num("9"), plus(f.num("10"), f.num("11"))),
+                ),
+            ),
+            plus(
+                times(
+                    f.num("12"),
+                    times(
+                        plus(f.num("13"), f.num("14")),
+                        plus(f.num("15"), f.num("16")),
+                    ),
+                ),
+                plus(f.num("17"), f.num("18")),
+            ),
+        );
+        assert_eq!(
+            f.parse("(((((1+2+3))*((4*5*6))+((7+8)*(9+10+11)))))+12*((13+14))*(15+16)+17+18"),
+            expected
         );
     }
 }
