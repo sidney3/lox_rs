@@ -2,7 +2,6 @@ use crate::core::ordinal::Ordinal;
 use crate::lexer::{Result, TokenType};
 use crate::{lexer, ordinal_enum};
 use lasso::Rodeo;
-use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 use std::sync::OnceLock;
 

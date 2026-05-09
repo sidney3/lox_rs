@@ -1,13 +1,11 @@
 use super::rule::Rule;
 use crate::core::ordinal::Ordinal;
 use crate::lexer::{Token, TokenType};
-use crate::parse::action::Action;
 use crate::usize_id;
 use either::Either;
-use itertools::Itertools;
 use nonempty::NonEmpty;
 use smallvec::SmallVec;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
 
@@ -15,15 +13,6 @@ use std::hash::Hash;
 pub enum Node<R: Rule> {
     NonTerminal(R),
     Terminal(Token<R::TokenType>),
-}
-
-impl<R: Rule> Node<R> {
-    pub fn symbol(&self) -> Symbol<R> {
-        match self {
-            Self::NonTerminal(r) => Symbol::Rule(r.get_type()),
-            Self::Terminal(t) => Symbol::Token(t.token_type),
-        }
-    }
 }
 
 #[derive(Debug, Hash, Eq, Clone, PartialEq)]
@@ -135,7 +124,7 @@ impl<R: Rule> Grammar<R> {
     pub fn productions_for_rule(&self, r: R::RuleType) -> &ProductionList {
         &self.productions_for_rule[r.ord()]
     }
-    pub fn productions<'a>(&'a self) -> impl Iterator<Item = &Production<R>> + 'a {
+    pub fn productions(&self) -> impl Iterator<Item = &Production<R>> {
         self.productions.iter()
     }
     pub fn tokens(&self) -> &Vec<R::TokenType> {
@@ -146,8 +135,5 @@ impl<R: Rule> Grammar<R> {
     }
     pub fn target_rule(&self) -> R::RuleType {
         self.target_rule
-    }
-    pub fn initial_productions(&self) -> &ProductionList {
-        self.productions_for_rule(self.target_rule())
     }
 }

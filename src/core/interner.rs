@@ -33,19 +33,12 @@ where
         }
     }
 
-    pub fn get_right(&self, t: &T) -> Option<Id> {
-        self.elt_to_id.get(t).cloned()
-    }
     pub fn get_left(&self, i: Id) -> &T {
         &self.id_to_elt[i.into()]
     }
 
     pub fn keys(&self) -> impl Iterator<Item = &Id> {
         self.elt_to_id.values()
-    }
-
-    pub fn values(&self) -> impl Iterator<Item = &T> {
-        self.id_to_elt.iter()
     }
 
     // total number of interned values

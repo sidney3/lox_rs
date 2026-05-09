@@ -138,9 +138,6 @@ impl State {
 /// items = {('b'.B)}
 /// closure(items) = {('b'.B), (.C), (.'a')}
 ///
-/// We do not add duplicate productions. If a production is already in progress, there
-/// is no point adding it twice (as our ``items`` represents the possible productions
-/// we can create).
 ///
 fn closure<R: Rule>(grammar: &Grammar<R>, mut items: ItemList) -> ItemList {
     let mut worklist: Vec<ProductionId> = items
@@ -148,12 +145,13 @@ fn closure<R: Rule>(grammar: &Grammar<R>, mut items: ItemList) -> ItemList {
         .flat_map(|i| i.current_symbol(grammar).productions(grammar))
         .collect();
 
+    let mut visited: HashSet<ProductionId> = HashSet::new();
+
     while let Some(production_id) = worklist.pop() {
-        if items
-            .iter()
-            .any(|item| item.production_id() == production_id)
-        {
+        if visited.contains(&production_id) {
             continue;
+        } else {
+            visited.insert(production_id);
         }
 
         items.push(Item::new(production_id));

@@ -3,7 +3,7 @@ use super::error::{Error, Result};
 use super::nfa::NFA;
 use super::regex::Regex;
 use super::token::{Token, TokenType};
-use lasso::{Rodeo, Spur};
+use lasso::Rodeo;
 use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 

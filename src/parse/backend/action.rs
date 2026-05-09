@@ -15,7 +15,6 @@ pub enum Action {
     Reduce(ProductionId), // reduce to this production
     Shift,                // shift
     Accept,
-    Abort, // Early eof
 }
 
 // Indexed by (StateId, TokenId)
@@ -42,7 +41,7 @@ pub fn make_action<R: Rule>(
 fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
     let mut changed = true;
     let mut follow_table: Vec<HashSet<R::TokenType>> =
-        (0..grammar.rules().len()).map(|_| HashSet::new()).collect();
+        (0..R::RuleType::COUNT).map(|_| HashSet::new()).collect();
 
     let initial_symbols: Vec<_> = grammar
         .productions()
@@ -74,6 +73,7 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
             };
             for (s1, s2) in production.definition.iter().tuple_windows() {
                 if let (Symbol::Rule(r), &Symbol::Token(t)) = (s1, s2) {
+                    println!("token {t:?} follows rule {r:?} by definition");
                     add_follow(r, t);
                 }
             }
@@ -91,12 +91,20 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
             // A = ....B;
             //
             // Then B should contain FOLLOW(A)
-            if let (Symbol::Rule(r)) = production.definition.last() {
+            if let Symbol::Rule(r) = production.definition.last() {
+                let base = production.rule;
                 for t in follows {
+                    println!("token {t:?} follows rule {r:?} by association with {base:?}");
                     add_follow(r, t);
                 }
             }
         }
+    }
+
+    for r in grammar.rules() {
+        let follow = &follow_table[r.ord()];
+
+        println!("Follow({r:?}) := {follow:?}");
     }
 
     follow_table

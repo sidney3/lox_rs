@@ -8,5 +8,5 @@ mod subset;
 mod token;
 
 pub use engine::Lexer;
-pub use error::{Error, Result};
+pub use error::Result;
 pub use token::{Token, TokenType};

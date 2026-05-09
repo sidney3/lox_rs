@@ -1,5 +1,5 @@
-use lasso::{Rodeo, Spur};
-use std::fmt::{self, Display, Formatter};
+use lasso::Spur;
+use std::fmt::Display;
 use std::hash::Hash;
 
 pub trait TokenType: Hash + Eq + Clone + Copy + PartialEq + Display {
