@@ -6,3 +6,7 @@ mod item;
 mod parser;
 mod rule;
 mod state;
+
+pub use grammar::Symbol;
+pub use parser::{Node, Parser, Tree};
+pub use rule::Rule;

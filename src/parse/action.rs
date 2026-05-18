@@ -41,7 +41,7 @@ pub fn make_action<R: Rule>(
 fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
     let mut changed = true;
     let mut follow_table: Vec<HashSet<R::TokenType>> =
-        (0..R::RuleType::COUNT).map(|_| HashSet::new()).collect();
+        (0..R::COUNT).map(|_| HashSet::new()).collect();
 
     let initial_symbols: Vec<_> = grammar
         .productions()
@@ -65,7 +65,7 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
                 .cloned()
                 .collect();
 
-            let mut add_follow = |rule: &R::RuleType, token: R::TokenType| {
+            let mut add_follow = |rule: &R, token: R::TokenType| {
                 if !follow_table[rule.ord()].contains(&token) {
                     changed = true;
                     follow_table[rule.ord()].insert(token);

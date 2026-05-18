@@ -6,12 +6,33 @@ use super::rule::Rule;
 use super::state::{State, StateId};
 use crate::core::interner::Interner;
 use crate::core::ordinal::Ordinal;
-use crate::lexer::Token;
+use crate::lexer::{Token, TokenType};
 use crate::ordinal_enum;
 use ndarray::Array2;
 use nonempty::nonempty;
 
-struct Parser<R: Rule> {
+#[derive(Debug)]
+pub struct Tree<R: Rule> {
+    pub rule: R,
+    pub children: Vec<Node<R>>,
+}
+
+#[derive(Debug)]
+pub enum Node<R: Rule> {
+    Leaf(Token<R::TokenType>),
+    Tree(Tree<R>),
+}
+
+impl<R: Rule> Node<R> {
+    pub fn symbol(&self) -> Symbol<R> {
+        match self {
+            Self::Leaf(token) => Symbol::Token(token.token_type),
+            Self::Tree(Tree { rule, children }) => Symbol::Rule(*rule),
+        }
+    }
+}
+
+pub struct Parser<R: Rule> {
     grammar: Grammar<R>,
 
     state_table: Interner<StateId, State>,
@@ -20,7 +41,7 @@ struct Parser<R: Rule> {
     initial_state_id: StateId,
 }
 
-type Stack<R> = Vec<(StateId, Symbol<R>, Node<R>)>;
+type Stack<R> = Vec<(StateId, Node<R>)>;
 
 impl<R: Rule> Parser<R> {
     pub fn new(grammar: Grammar<R>) -> Self {
@@ -39,7 +60,10 @@ impl<R: Rule> Parser<R> {
         }
     }
 
-    pub fn parse(&self, token_stream: impl Iterator<Item = Token<R::TokenType>>) -> Result<R> {
+    pub fn parse(
+        &self,
+        token_stream: impl Iterator<Item = Token<R::TokenType>>,
+    ) -> Result<Tree<R>> {
         println!("------ START PARSE ------");
         let mut curr_state_id = self.initial_state_id;
         let mut stack = Stack::<R>::new();
@@ -52,72 +76,70 @@ impl<R: Rule> Parser<R> {
             let next_token = iter.peek().ok_or(Error::IncompleteProgram)?;
 
             // We want to support rules that return nodes that are _not_ of the type of that rule.
-            let (next_symbol, next_node): (Symbol<R>, Node<R>) =
-                match self.action_table[[curr_state_id.0, next_token.token_type.ord()]] {
-                    Action::Shift => {
-                        println!("[PARSE TIME] shifting");
+            let next_node: Node<R> = match self.action_table
+                [[curr_state_id.0, next_token.token_type.ord()]]
+            {
+                Action::Shift => {
+                    println!("[PARSE TIME] shifting");
 
-                        match iter.next() {
-                            Some(token) => (Symbol::Token(token.token_type), Node::Terminal(token)),
-                            None => return Err(Error::ExpectedToken),
+                    match iter.next() {
+                        Some(token) => Node::Leaf(token),
+                        None => return Err(Error::ExpectedToken),
+                    }
+                }
+                Action::Reduce(production_id) => {
+                    let production = self.grammar.production(production_id);
+                    let reducing_to_rule = production.rule;
+                    println!("[PARSE TIME] reducing to {reducing_to_rule:?}");
+
+                    match stack.len().checked_sub(production.len()) {
+                        Some(drain_from) => {
+                            curr_state_id = stack[drain_from].0;
+                            println!("[PARSE TIME] returning to {curr_state_id:?}");
+
+                            Node::Tree(Tree {
+                                rule: production.rule,
+                                children: stack.drain(drain_from..).map(|(_, node)| node).collect(),
+                            })
+                        }
+                        None => {
+                            return Err(Error::StackTooSmall);
                         }
                     }
-                    Action::Reduce(production_id) => {
-                        let production = self.grammar.production(production_id);
-                        let reducing_to_rule = production.rule;
-                        println!("[PARSE TIME] reducing to {reducing_to_rule:?}");
+                }
 
-                        match stack.len().checked_sub(production.len()) {
-                            Some(drain_from) => {
-                                curr_state_id = stack[drain_from].0;
-                                println!("[PARSE TIME] returning to {curr_state_id:?}");
-                                let drained: Vec<_> =
-                                    stack.drain(drain_from..).map(|(_, _, node)| node).collect();
-
-                                let make_rule = &production.make_rule;
-                                (
-                                    Symbol::Rule(production.rule),
-                                    Node::NonTerminal(make_rule(drained)),
-                                )
-                            }
-                            None => {
-                                return Err(Error::StackTooSmall);
-                            }
-                        }
+                Action::Accept => {
+                    if stack.len() > 1 {
+                        return Err(Error::ExcessProgram);
                     }
 
-                    Action::Accept => {
-                        if stack.len() > 1 {
-                            return Err(Error::ExcessProgram);
+                    println!("[PARSE TIME] accepting. stack is {stack:?}");
+
+                    return match stack.pop() {
+                        Some((_, Node::Tree(Tree { rule, children })))
+                            if rule == self.grammar.target_rule() =>
+                        {
+                            Ok(Tree { rule, children })
                         }
-
-                        println!("[PARSE TIME] accepting. stack is {stack:?}");
-
-                        return match stack.pop() {
-                            Some((_, Symbol::Rule(rule_type), Node::NonTerminal(rule)))
-                                if rule_type == self.grammar.target_rule() =>
-                            {
-                                Ok(rule)
-                            }
-                            _ => Err(Error::IncompleteProgram),
-                        };
-                    }
-                };
+                        _ => Err(Error::IncompleteProgram),
+                    };
+                }
+            };
 
             let prev_state = curr_state_id;
 
-            match self.goto_table[[curr_state_id.0, next_symbol.ord()]] {
+            match self.goto_table[[curr_state_id.0, next_node.symbol().ord()]] {
                 Some(next_state_id) => {
                     curr_state_id = next_state_id;
                 }
                 None => {
-                    println!("Unrecognized token {next_symbol:?}");
+                    println!("Unrecognized token {:?}", next_node.symbol());
                     return Err(Error::UnrecognizedToken);
                 }
             }
 
             println!("[PARSE TIME] push into stack ({prev_state:?},{next_node:?})");
-            stack.push((prev_state, next_symbol, next_node));
+            stack.push((prev_state, next_node));
         }
     }
 }
@@ -129,9 +151,11 @@ mod test {
     use crate::frontend::token::{LoxToken, LoxTokenType, lex};
     use lasso::Rodeo;
 
-    ordinal_enum!(TestRuleType {
-        Alpha,
-        Beta,
+    // Grammar (BNF, start symbol = <Beta>):
+    //   <Beta>  ::= <Alpha> <Alpha>
+    //   <Alpha> ::= "unit"
+    //             | "(" <Beta> ")"
+    ordinal_enum!(TestRule {
         Plus,
         Times,
         Literal,
@@ -139,83 +163,77 @@ mod test {
         Paren,
     });
 
-    // Grammar (BNF, start symbol = <Beta>):
-    //   <Beta>  ::= <Alpha> <Alpha>
-    //   <Alpha> ::= "unit"
-    //             | "(" <Beta> ")"
-    #[derive(Hash, PartialEq, Eq, Clone, Debug)]
-    enum TestRule {
-        Alpha,
-        Group(Box<TestRule>),
-        Beta(Box<TestRule>, Box<TestRule>),
-        Plus(Box<TestRule>, Box<TestRule>),
-        Times(Box<TestRule>, Box<TestRule>),
-        Literal(LoxToken),
-    }
-
     impl Rule for TestRule {
-        type RuleType = TestRuleType;
         type TokenType = LoxTokenType;
+
+        fn goal() -> Self {
+            TestRule::Expr
+        }
     }
 
     type TestProduction = Production<TestRule>;
 
-    ///
-    /// alpha := 'True' | '(' beta ')'
-    /// beta := alpha alpha
-    ///
-    /// target_rule = beta
-    ///
-    fn test_grammar() -> Grammar<TestRule> {
-        let alpha_unit = TestProduction {
-            rule: TestRuleType::Alpha,
-            make_rule: Box::new(|nodes| {
-                let [t1] = <[_; 1]>::try_from(nodes).unwrap();
-                match t1 {
-                    Node::Terminal(t) if t.token_type == LoxTokenType::True => TestRule::Alpha,
-                    _ => panic!("unreachable"),
-                }
-            }),
-            definition: nonempty![Symbol::Token(LoxTokenType::True)],
-        };
-        let alpha_group = TestProduction {
-            rule: TestRuleType::Alpha,
-            make_rule: Box::new(|nodes| {
-                let [l, b, r] = <[_; 3]>::try_from(nodes).unwrap();
-                match (l, b, r) {
-                    (Node::Terminal(lt), Node::NonTerminal(beta), Node::Terminal(rt))
-                        if lt.token_type == LoxTokenType::LParen
-                            && rt.token_type == LoxTokenType::RParen =>
-                    {
-                        TestRule::Group(Box::new(beta))
-                    }
-                    _ => panic!("unreachable"),
-                }
-            }),
-            definition: nonempty![
-                Symbol::Token(LoxTokenType::LParen),
-                Symbol::Rule(TestRuleType::Beta),
-                Symbol::Token(LoxTokenType::RParen),
-            ],
-        };
-        let beta_def = TestProduction {
-            rule: TestRuleType::Beta,
-            make_rule: Box::new(|nodes| {
-                let [r1, r2] = <[_; 2]>::try_from(nodes).unwrap();
-                match (r1, r2) {
-                    (Node::NonTerminal(a), Node::NonTerminal(b)) => {
-                        TestRule::Beta(Box::new(a), Box::new(b))
-                    }
-                    _ => panic!("unreachable"),
-                }
-            }),
-            definition: nonempty![
-                Symbol::Rule(TestRuleType::Alpha),
-                Symbol::Rule(TestRuleType::Alpha)
-            ],
-        };
+    type ExprNode = Node<TestRule>;
 
-        Grammar::new(vec![alpha_unit, alpha_group, beta_def], TestRuleType::Beta)
+    enum Expression {
+        Sum(Box<Expression>, Box<Expression>),
+        Times(Box<Expression>, Box<Expression>),
+        Literal(Token<LoxTokenType>),
+    }
+
+    impl Expression {
+        pub fn from_cst(node: &ExprNode) -> Self {
+            match node {
+                ExprNode::Leaf(token) => panic!("Tokens cannot be directly parsed as expr"),
+                ExprNode::Tree(node) => match (node.rule, node.children.as_slice()) {
+                    (TestRule::Plus, [lhs, ExprNode::Leaf(_plus), rhs])
+                        if _plus.token_type == LoxTokenType::Plus =>
+                    {
+                        Expression::Sum(
+                            Box::new(Self::from_cst(lhs)),
+                            Box::new(Self::from_cst(rhs)),
+                        )
+                    }
+                    (TestRule::Literal, [ExprNode::Leaf(literal)]) => Expression::Literal(*literal),
+                    (TestRule::Times, [lhs, ExprNode::Leaf(_times), rhs])
+                        if _times.token_type == LoxTokenType::Star =>
+                    {
+                        Expression::Times(
+                            Box::new(Self::from_cst(lhs)),
+                            Box::new(Self::from_cst(rhs)),
+                        )
+                    }
+                    (TestRule::Paren, [ExprNode::Leaf(lparen), x, ExprNode::Leaf(rparen)])
+                        if lparen.token_type == LoxTokenType::LParen
+                            && rparen.token_type == LoxTokenType::RParen =>
+                    {
+                        Self::from_cst(x)
+                    }
+                    // fallthrough
+                    (TestRule::Expr | TestRule::Paren | TestRule::Plus | TestRule::Times, [x]) => {
+                        Self::from_cst(x)
+                    }
+                    _ => {
+                        println!("Unreachable state: {node:?}");
+                        panic!("unreachable")
+                    }
+                },
+            }
+        }
+
+        pub fn eval(&self, rodeo: &Rodeo) -> i64 {
+            match self {
+                Expression::Sum(lhs, rhs) => lhs.eval(rodeo) + rhs.eval(rodeo),
+                Expression::Times(lhs, rhs) => lhs.eval(rodeo) * rhs.eval(rodeo),
+                Expression::Literal(token) => {
+                    if token.token_type == LoxTokenType::Number {
+                        rodeo.resolve(&token.lexeme).parse().unwrap()
+                    } else {
+                        panic!("Literal of non-int type")
+                    }
+                }
+            }
+        }
     }
 
     ///
@@ -238,387 +256,113 @@ mod test {
     ///
     fn expression_grammar() -> Grammar<TestRule> {
         let expr_def = TestProduction {
-            rule: TestRuleType::Expr,
-            make_rule: Box::new(|nodes| {
-                if let [Node::NonTerminal(r)] = <[_; 1]>::try_from(nodes).unwrap() {
-                    r
-                } else {
-                    panic!("unreachable")
-                }
-            }),
-            definition: nonempty![Symbol::Rule(TestRuleType::Plus)],
+            rule: TestRule::Expr,
+            definition: nonempty![Symbol::Rule(TestRule::Plus)],
         };
 
         let sum_recursive_def = TestProduction {
-            rule: TestRuleType::Plus,
-            make_rule: Box::new(|nodes| {
-                if let [Node::NonTerminal(lhs), _, Node::NonTerminal(rhs)] =
-                    <[_; 3]>::try_from(nodes).unwrap()
-                {
-                    TestRule::Plus(Box::new(lhs), Box::new(rhs))
-                } else {
-                    panic!("unreachable")
-                }
-            }),
+            rule: TestRule::Plus,
             definition: nonempty![
-                Symbol::Rule(TestRuleType::Times),
+                Symbol::Rule(TestRule::Times),
                 Symbol::Token(LoxTokenType::Plus),
-                Symbol::Rule(TestRuleType::Plus),
+                Symbol::Rule(TestRule::Plus),
             ],
         };
 
         let sum_fallthrough_def = TestProduction {
-            rule: TestRuleType::Plus,
-            make_rule: Box::new(|nodes| {
-                if let [Node::NonTerminal(r)] = <[_; 1]>::try_from(nodes).unwrap() {
-                    r
-                } else {
-                    panic!("unreachable")
-                }
-            }),
-            definition: nonempty![Symbol::Rule(TestRuleType::Times),],
+            rule: TestRule::Plus,
+            definition: nonempty![Symbol::Rule(TestRule::Times),],
         };
 
         let term_recursive_def = TestProduction {
-            rule: TestRuleType::Times,
-            make_rule: Box::new(|nodes| {
-                if let [Node::NonTerminal(lhs), _, Node::NonTerminal(rhs)] =
-                    <[_; 3]>::try_from(nodes).unwrap()
-                {
-                    TestRule::Times(Box::new(lhs), Box::new(rhs))
-                } else {
-                    panic!("unreachable")
-                }
-            }),
+            rule: TestRule::Times,
             definition: nonempty![
-                Symbol::Rule(TestRuleType::Paren),
+                Symbol::Rule(TestRule::Paren),
                 Symbol::Token(LoxTokenType::Star),
-                Symbol::Rule(TestRuleType::Times),
+                Symbol::Rule(TestRule::Times),
             ],
         };
 
         let term_fallthrough_def = TestProduction {
-            rule: TestRuleType::Times,
-            make_rule: Box::new(|nodes| {
-                if let [Node::NonTerminal(r)] = <[_; 1]>::try_from(nodes).unwrap() {
-                    r
-                } else {
-                    panic!("unreachable")
-                }
-            }),
-            definition: nonempty![Symbol::Rule(TestRuleType::Paren),],
+            rule: TestRule::Times,
+            definition: nonempty![Symbol::Rule(TestRule::Paren),],
         };
 
         let paren_recursive_def = TestProduction {
-            rule: TestRuleType::Paren,
-            make_rule: Box::new(|nodes| {
-                if let [_, Node::NonTerminal(expr), _] = <[_; 3]>::try_from(nodes).unwrap() {
-                    expr
-                } else {
-                    panic!("unreachable")
-                }
-            }),
+            rule: TestRule::Paren,
             definition: nonempty![
                 Symbol::Token(LoxTokenType::LParen),
-                Symbol::Rule(TestRuleType::Expr),
+                Symbol::Rule(TestRule::Expr),
                 Symbol::Token(LoxTokenType::RParen),
             ],
         };
 
         let paren_fallthrough_def = TestProduction {
-            rule: TestRuleType::Paren,
-            make_rule: Box::new(|nodes| {
-                if let [Node::NonTerminal(r)] = <[_; 1]>::try_from(nodes).unwrap() {
-                    r
-                } else {
-                    panic!("unreachable")
-                }
-            }),
-            definition: nonempty![Symbol::Rule(TestRuleType::Literal),],
+            rule: TestRule::Paren,
+            definition: nonempty![Symbol::Rule(TestRule::Literal),],
         };
 
         let literal_def = TestProduction {
-            rule: TestRuleType::Literal,
-            make_rule: Box::new(|nodes| {
-                if let [Node::Terminal(t)] = <[_; 1]>::try_from(nodes).unwrap() {
-                    TestRule::Literal(t)
-                } else {
-                    panic!("unreachable")
-                }
-            }),
+            rule: TestRule::Literal,
             definition: nonempty![Symbol::Token(LoxTokenType::Number)],
         };
 
-        Grammar::new(
-            vec![
-                expr_def,
-                sum_recursive_def,
-                sum_fallthrough_def,
-                term_recursive_def,
-                term_fallthrough_def,
-                paren_recursive_def,
-                paren_fallthrough_def,
-                literal_def,
-            ],
-            TestRuleType::Expr,
-        )
-    }
-
-    #[test]
-    fn trivial_parsing() {
-        let mut rodeo = Rodeo::default();
-        let tokens = lex("true true", &mut rodeo).unwrap();
-        let parser = Parser::new(test_grammar());
-
-        assert_eq!(
-            parser.parse(tokens.into_iter()).unwrap(),
-            TestRule::Beta(Box::new(TestRule::Alpha), Box::new(TestRule::Alpha),)
-        )
-    }
-
-    #[test]
-    fn nested_parsing() {
-        // Input:    ( unit unit ) unit
-        // Expected: Beta(Group(Beta(Alpha, Alpha)), Alpha)
-        let mut rodeo = Rodeo::default();
-        let tokens = lex("( true true ) true", &mut rodeo).unwrap();
-        let parser = Parser::new(test_grammar());
-
-        assert_eq!(
-            parser.parse(tokens.into_iter()).unwrap(),
-            TestRule::Beta(
-                Box::new(TestRule::Group(Box::new(TestRule::Beta(
-                    Box::new(TestRule::Alpha),
-                    Box::new(TestRule::Alpha),
-                )))),
-                Box::new(TestRule::Alpha),
-            )
-        )
+        Grammar::new(vec![
+            expr_def,
+            sum_recursive_def,
+            sum_fallthrough_def,
+            term_recursive_def,
+            term_fallthrough_def,
+            paren_recursive_def,
+            paren_fallthrough_def,
+            literal_def,
+        ])
     }
 
     struct ExprFixture {
         rodeo: Rodeo,
         parser: Parser<TestRule>,
-        one: LoxToken,
-        two: LoxToken,
-        three: LoxToken,
     }
 
     impl ExprFixture {
         fn new() -> Self {
             let mut rodeo = Rodeo::default();
-            let num = |rodeo: &mut Rodeo, s: &str| Token {
-                lexeme: rodeo.get_or_intern(s),
-                token_type: LoxTokenType::Number,
-                line: 1,
-            };
-            let one = num(&mut rodeo, "1");
-            let two = num(&mut rodeo, "2");
-            let three = num(&mut rodeo, "3");
             Self {
                 rodeo,
                 parser: Parser::new(expression_grammar()),
-                one,
-                two,
-                three,
             }
         }
 
-        fn parse(&mut self, input: &str) -> TestRule {
+        fn eval(&mut self, input: &str) -> i64 {
             let tokens = lex(input, &mut self.rodeo).unwrap();
-            self.parser.parse(tokens.into_iter()).unwrap()
-        }
-
-        fn num(&mut self, s: &str) -> TestRule {
-            TestRule::Literal(Token {
-                lexeme: self.rodeo.get_or_intern(s),
-                token_type: LoxTokenType::Number,
-                line: 1,
-            })
+            let cst = self.parser.parse(tokens.into_iter()).unwrap();
+            Expression::from_cst(&Node::Tree(cst)).eval(&self.rodeo)
         }
     }
 
-    fn plus(lhs: TestRule, rhs: TestRule) -> TestRule {
-        TestRule::Plus(Box::new(lhs), Box::new(rhs))
-    }
-
-    fn times(lhs: TestRule, rhs: TestRule) -> TestRule {
-        TestRule::Times(Box::new(lhs), Box::new(rhs))
-    }
-
     #[test]
-    fn expr_single_literal() {
+    fn expr_test() {
         let mut f = ExprFixture::new();
-        assert_eq!(f.parse("1"), TestRule::Literal(f.one));
-    }
-
-    #[test]
-    fn expr_simple_addition() {
-        let mut f = ExprFixture::new();
+        assert_eq!(f.eval("1"), 1);
+        assert_eq!(f.eval("1+2"), 3);
+        assert_eq!(f.eval("((((((((1))))))))"), 1);
+        assert_eq!(f.eval(r#"((((((((((1)))))))*((((((2)))))))))"#), 2);
+        assert_eq!(f.eval("1*2+3"), 5);
         assert_eq!(
-            f.parse("1+2"),
-            plus(TestRule::Literal(f.one), TestRule::Literal(f.two))
-        );
-    }
-
-    #[test]
-    fn expr_deeply_nested_parens() {
-        let mut f = ExprFixture::new();
-        assert_eq!(f.parse("((((((((1))))))))"), TestRule::Literal(f.one));
-    }
-
-    #[test]
-    fn expr_nested_parens_with_multiply() {
-        let mut f = ExprFixture::new();
-        assert_eq!(
-            f.parse(r#"((((((((((1)))))))*((((((2)))))))))"#),
-            times(TestRule::Literal(f.one), TestRule::Literal(f.two))
-        );
-    }
-
-    #[test]
-    fn expr_precedence_mul_then_add() {
-        let mut f = ExprFixture::new();
-        assert_eq!(
-            f.parse("1*2+3"),
-            plus(
-                times(TestRule::Literal(f.one), TestRule::Literal(f.two)),
-                TestRule::Literal(f.three),
-            )
-        );
-    }
-
-    #[test]
-    fn expr_torture_nested_precedence() {
-        // (1+2*3)*(4+(5*6+7))+8*(9+10*11*(12+13)+14)+15
-        let mut f = ExprFixture::new();
-        let expected = plus(
-            times(
-                plus(f.num("1"), times(f.num("2"), f.num("3"))),
-                plus(f.num("4"), plus(times(f.num("5"), f.num("6")), f.num("7"))),
-            ),
-            plus(
-                times(
-                    f.num("8"),
-                    plus(
-                        f.num("9"),
-                        plus(
-                            times(
-                                f.num("10"),
-                                times(f.num("11"), plus(f.num("12"), f.num("13"))),
-                            ),
-                            f.num("14"),
-                        ),
-                    ),
-                ),
-                f.num("15"),
-            ),
+            f.eval("(1+2*3)*(4+(5*6+7))+8*(9+10*11*(12+13)+14)+15"),
+            22486
         );
         assert_eq!(
-            f.parse("(1+2*3)*(4+(5*6+7))+8*(9+10*11*(12+13)+14)+15"),
-            expected
-        );
-    }
-
-    #[test]
-    fn expr_torture_chained_right_assoc() {
-        // 1+2+3*4*5+(6+7)*(8+9*1)+10*11*12+13+(14+15*16)*(17+18)+19+20
-        let mut f = ExprFixture::new();
-        let expected = plus(
-            f.num("1"),
-            plus(
-                f.num("2"),
-                plus(
-                    times(f.num("3"), times(f.num("4"), f.num("5"))),
-                    plus(
-                        times(
-                            plus(f.num("6"), f.num("7")),
-                            plus(f.num("8"), times(f.num("9"), f.num("1"))),
-                        ),
-                        plus(
-                            times(f.num("10"), times(f.num("11"), f.num("12"))),
-                            plus(
-                                f.num("13"),
-                                plus(
-                                    times(
-                                        plus(f.num("14"), times(f.num("15"), f.num("16"))),
-                                        plus(f.num("17"), f.num("18")),
-                                    ),
-                                    plus(f.num("19"), f.num("20")),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
+            f.eval("1+2+3*4*5+(6+7)*(8+9*1)+10*11*12+13+(14+15*16)*(17+18)+19+20"),
+            10546
         );
         assert_eq!(
-            f.parse("1+2+3*4*5+(6+7)*(8+9*1)+10*11*12+13+(14+15*16)*(17+18)+19+20"),
-            expected
-        );
-    }
-
-    #[test]
-    fn expr_torture_deep_nesting() {
-        // ((((1+2)*(3+4))+((5*6)+(7*8)))*((9+10)*(11+12)))+((13*14+15)*(16+17*18))
-        let mut f = ExprFixture::new();
-        let expected = plus(
-            times(
-                plus(
-                    times(
-                        plus(f.num("1"), f.num("2")),
-                        plus(f.num("3"), f.num("4")),
-                    ),
-                    plus(
-                        times(f.num("5"), f.num("6")),
-                        times(f.num("7"), f.num("8")),
-                    ),
-                ),
-                times(
-                    plus(f.num("9"), f.num("10")),
-                    plus(f.num("11"), f.num("12")),
-                ),
-            ),
-            times(
-                plus(times(f.num("13"), f.num("14")), f.num("15")),
-                plus(f.num("16"), times(f.num("17"), f.num("18"))),
-            ),
+            f.eval("((((1+2)*(3+4))+((5*6)+(7*8)))*((9+10)*(11+12)))+((13*14+15)*(16+17*18))"),
+            110193
         );
         assert_eq!(
-            f.parse("((((1+2)*(3+4))+((5*6)+(7*8)))*((9+10)*(11+12)))+((13*14+15)*(16+17*18))"),
-            expected
-        );
-    }
-
-    #[test]
-    fn expr_torture_paren_heavy() {
-        // (((((1+2+3))*((4*5*6))+((7+8)*(9+10+11)))))+12*((13+14))*(15+16)+17+18
-        let mut f = ExprFixture::new();
-        let expected = plus(
-            plus(
-                times(
-                    plus(f.num("1"), plus(f.num("2"), f.num("3"))),
-                    times(f.num("4"), times(f.num("5"), f.num("6"))),
-                ),
-                times(
-                    plus(f.num("7"), f.num("8")),
-                    plus(f.num("9"), plus(f.num("10"), f.num("11"))),
-                ),
-            ),
-            plus(
-                times(
-                    f.num("12"),
-                    times(
-                        plus(f.num("13"), f.num("14")),
-                        plus(f.num("15"), f.num("16")),
-                    ),
-                ),
-                plus(f.num("17"), f.num("18")),
-            ),
-        );
-        assert_eq!(
-            f.parse("(((((1+2+3))*((4*5*6))+((7+8)*(9+10+11)))))+12*((13+14))*(15+16)+17+18"),
-            expected
+            f.eval("(((((1+2+3))*((4*5*6))+((7+8)*(9+10+11)))))+12*((13+14))*(15+16)+17+18"),
+            11249
         );
     }
 }
