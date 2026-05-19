@@ -1,24 +1,22 @@
 use std::fmt::{self, Display, Formatter};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
-    UnterminatedEscape,
-    UnterminatedRegex,
-    MalformattedRange,
+    #[error("Unterminated escape character: '{0}")]
+    UnterminatedEscape(String),
+
+    #[error("Unterminated regex: '{0}")]
+    UnterminatedRegex(String),
+
+    #[error("Malformatted range: '{0}")]
+    MalformattedRange(String),
+
+    #[error("Unordered range: '{0}'-'{1}'")]
     UnorderedRange(char, char),
-    NoMatchingToken { line: usize },
+
+    #[error("At line {line_number}, no matching token for {line}")]
+    NoMatchingToken { line: String, line_number: usize },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::UnterminatedEscape => write!(f, "UnterminatedEscape"),
-            Error::UnterminatedRegex => write!(f, "UnterminatedRegex"),
-            Error::MalformattedRange => write!(f, "MalformattedRange"),
-            Error::UnorderedRange(l, r) => write!(f, "Out of order range [{}, {}]", l, r),
-            Error::NoMatchingToken { line } => write!(f, "No matching token on line {}", line),
-        }
-    }
-}

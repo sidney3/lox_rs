@@ -1,5 +1,6 @@
+use super::error::{Error, Result};
 use crate::core::ordinal::Ordinal;
-use crate::lexer::{Result, TokenType};
+use crate::lexer::TokenType;
 use crate::{lexer, ordinal_enum};
 use lasso::Rodeo;
 use std::hash::Hash;
@@ -111,7 +112,7 @@ pub fn lex(program: &str, rodeo: &mut Rodeo) -> Result<Vec<LoxToken>> {
         (LoxTokenType::String, "\"[\u{20}-\u{7E}]*\""),
         (LoxTokenType::Ident, "[a-zA-Z]([a-zA-Z0-9]|_)*"),
     ];
-    LEXER
+    let result = LEXER
         .get_or_init(|| lexer::Lexer::make(lexical_spec).unwrap())
         .lex(program, rodeo)
         .map(|tokens| {
@@ -119,7 +120,12 @@ pub fn lex(program: &str, rodeo: &mut Rodeo) -> Result<Vec<LoxToken>> {
                 .into_iter()
                 .filter(|t| t.token_type != LoxTokenType::WhiteSpace)
                 .collect()
-        })
+        });
+
+    match result {
+        Ok(tokens) => Ok(tokens),
+        Err(e) => Err(Error::Lex(e)),
+    }
 }
 
 #[cfg(test)]

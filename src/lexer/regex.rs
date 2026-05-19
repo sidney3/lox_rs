@@ -66,7 +66,7 @@ fn lex(program: &str) -> Result<Vec<Token>> {
             '|' => Token::Pipe,
             '\\' => match iter.next() {
                 Some(c) => Token::Literal(c),
-                None => return Err(Error::UnterminatedEscape),
+                None => return Err(Error::UnterminatedEscape(program.to_owned())),
             },
             '[' => Token::LBrace,
             ']' => Token::RBrace,
@@ -91,15 +91,17 @@ fn lex(program: &str) -> Result<Vec<Token>> {
 // CharClass -> '[' (Literal '-' Literal)+ ']'
 //
 //
-struct Parser {
+struct Parser<'a> {
     iter: Peekable<std::vec::IntoIter<Token>>,
+    source: &'a str,
 }
 
-impl Parser {
-    fn make(source: &str) -> Result<Self> {
+impl<'a> Parser<'a> {
+    fn make(source: &'a str) -> Result<Self> {
         let tokens = lex(source)?;
         Ok(Parser {
             iter: tokens.into_iter().peekable(),
+            source,
         })
     }
 
@@ -153,7 +155,7 @@ impl Parser {
             }
             Some(Token::LBrace) => self.parse_class()?,
             Some(Token::Literal(c)) => Regex::Literal(c),
-            _ => return Err(Error::UnterminatedRegex),
+            _ => return Err(Error::UnterminatedRegex(self.source.to_owned())),
         };
 
         Ok(res)
@@ -167,22 +169,22 @@ impl Parser {
                 Some(Token::Literal(lhs)) => {
                     self.expect(Token::Dash);
                     let Some(Token::Literal(rhs)) = self.iter.next() else {
-                        return Err(Error::MalformattedRange);
+                        return Err(Error::MalformattedRange(self.source.to_owned()));
                     };
-                    if !(lhs < rhs) {
+                    if lhs >= rhs {
                         return Err(Error::UnorderedRange(lhs, rhs));
                     }
                     ranges.push((lhs, rhs))
                 }
                 Some(Token::RBrace) => break,
-                _ => return Err(Error::MalformattedRange),
+                _ => return Err(Error::MalformattedRange(self.source.to_owned())),
             }
         }
 
         Ok(Regex::CharClass(CharClass { ranges }))
     }
 
-    fn expect(&mut self, token: Token) -> () {
+    fn expect(&mut self, token: Token) {
         assert_eq!(self.iter.next(), Some(token));
     }
 }

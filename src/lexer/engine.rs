@@ -4,8 +4,6 @@ use super::nfa::NFA;
 use super::regex::Regex;
 use super::token::{Token, TokenType};
 use lasso::Rodeo;
-use std::fmt::{self, Display, Formatter};
-use std::hash::Hash;
 
 pub struct Lexer<T> {
     dfa: DFA<T>,
@@ -45,12 +43,12 @@ impl<T: TokenType> Lexer<T> {
             line: cursor.line(),
         });
 
-        if cursor.is_eof() {
-            Ok(out)
-        } else {
-            Err(Error::NoMatchingToken {
-                line: cursor.line(),
-            })
+        match cursor.next_word() {
+            None => Ok(out),
+            Some(next_token) => Err(Error::NoMatchingToken {
+                line: next_token.to_owned(),
+                line_number: cursor.line(),
+            }),
         }
     }
 
@@ -151,6 +149,16 @@ impl<'a> Cursor<'a> {
         self.line
     }
 
+    // Try to return the next word (space delimited).
+    fn next_word(&self) -> Option<&'a str> {
+        let rest = self.input.get(self.pos..)?;
+        if rest.is_empty() {
+            return None;
+        }
+        let end = rest.find(' ').unwrap_or(rest.len());
+        Some(&rest[..end])
+    }
+
     fn is_eof(&self) -> bool {
         self.pos >= self.input.len()
     }
@@ -172,17 +180,6 @@ mod test {
     impl TokenType for TokenT {
         fn eof() -> Self {
             TokenT::Eof
-        }
-    }
-
-    impl Display for TokenT {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-            match self {
-                TokenT::Literal => write!(f, "Literal"),
-                TokenT::Struct => write!(f, "Struct"),
-                TokenT::Whitespace => write!(f, "Whitespace"),
-                TokenT::Eof => write!(f, "Eof"),
-            }
         }
     }
 

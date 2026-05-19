@@ -103,7 +103,7 @@ impl<R: Rule> Parser<R> {
                             })
                         }
                         None => {
-                            return Err(Error::StackTooSmall);
+                            return Err(Error::IncompleteProgram);
                         }
                     }
                 }
