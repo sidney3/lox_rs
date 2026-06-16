@@ -1,3 +1,5 @@
 pub mod interner;
 pub mod macros;
-pub mod ordinal;
+mod ordinal;
+
+pub use ordinal::Ordinal;

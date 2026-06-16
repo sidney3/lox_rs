@@ -1,12 +1,15 @@
 use super::error::{Error, Result};
-use crate::core::ordinal::Ordinal;
+use crate::core::Ordinal;
+use crate::lexer;
 use crate::lexer::TokenType;
-use crate::{lexer, ordinal_enum};
 use lasso::Rodeo;
+use lox_derive::Ordinal;
 use std::hash::Hash;
 use std::sync::OnceLock;
+use strum::Display;
 
-ordinal_enum!(LoxTokenType {
+#[derive(Ordinal, Debug, Display, Hash)]
+pub enum LoxTokenType {
     WhiteSpace,
 
     LParen,
@@ -56,7 +59,7 @@ ordinal_enum!(LoxTokenType {
     Ident,
 
     Eof,
-});
+}
 
 impl TokenType for LoxTokenType {
     fn eof() -> Self {

@@ -1,3 +1,11 @@
+[workspace]
+members = ["lox_derive"]
+
+[workspace.dependencies]
+proc-macro2 = { version = "1.0.74" }
+quote = { version = "1.0.35" }
+syn = { version = "2.0.81" }
+
 [package]
 name = "lox_rs"
 version = "0.1.0"
@@ -12,3 +20,5 @@ ndarray = "0.17"
 either = "1"
 nonempty = "0.10"
 thiserror = "2"
+lox_derive = { path = "lox_derive" }
+strum = { version = "0.28.0", features = ["derive"] }

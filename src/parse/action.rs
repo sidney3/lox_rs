@@ -1,8 +1,8 @@
 use super::grammar::{Grammar, ProductionId, Symbol};
 use super::rule::Rule;
 use super::state::{State, StateId};
+use crate::core::Ordinal;
 use crate::core::interner::Interner;
-use crate::core::ordinal::Ordinal;
 use crate::lexer::TokenType;
 use itertools::Itertools;
 use itertools::iproduct;

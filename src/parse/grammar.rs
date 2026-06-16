@@ -1,5 +1,5 @@
 use super::rule::Rule;
-use crate::core::ordinal::Ordinal;
+use crate::core::Ordinal;
 use crate::lexer::{Token, TokenType};
 use crate::usize_id;
 use either::Either;

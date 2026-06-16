@@ -4,10 +4,10 @@ use super::goto::make_goto;
 use super::grammar::*;
 use super::rule::Rule;
 use super::state::{State, StateId};
+use crate::core::Ordinal;
 use crate::core::interner::Interner;
-use crate::core::ordinal::Ordinal;
 use crate::lexer::{Token, TokenType};
-use crate::ordinal_enum;
+use lox_derive::Ordinal;
 use ndarray::Array2;
 use nonempty::nonempty;
 
@@ -150,18 +150,20 @@ mod test {
     use super::*;
     use crate::frontend::token::{LoxToken, LoxTokenType, lex};
     use lasso::Rodeo;
+    use strum::Display;
 
     // Grammar (BNF, start symbol = <Beta>):
     //   <Beta>  ::= <Alpha> <Alpha>
     //   <Alpha> ::= "unit"
     //             | "(" <Beta> ")"
-    ordinal_enum!(TestRule {
+    #[derive(Ordinal, Debug, Display, PartialOrd, Ord, Hash)]
+    enum TestRule {
         Plus,
         Times,
         Literal,
         Expr,
         Paren,
-    });
+    }
 
     impl Rule for TestRule {
         type TokenType = LoxTokenType;

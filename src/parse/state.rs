@@ -2,7 +2,7 @@ use super::action::Action;
 use super::grammar::{Grammar, ProductionId, Symbol};
 use super::item::{Item, ItemList};
 use super::rule::Rule;
-use crate::core::ordinal::Ordinal;
+use crate::core::Ordinal;
 use crate::lexer::TokenType;
 use crate::usize_id;
 use itertools::Itertools;

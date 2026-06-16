@@ -1,11 +1,12 @@
 use super::error::{Error, Result};
 use super::token::{LoxToken, LoxTokenType};
-use crate::core::ordinal::Ordinal;
-use crate::ordinal_enum;
+use crate::core::Ordinal;
 use crate::parse::{Grammar, Node, Parser, Production, Rule, Symbol, Tree};
 use lasso::Spur;
+use lox_derive::Ordinal;
 use nonempty::nonempty;
 use std::sync::OnceLock;
+use strum::Display;
 
 pub enum BinOp {
     Times,
@@ -108,13 +109,14 @@ impl Ast {
     }
 }
 
-ordinal_enum!(LoxRule {
+#[derive(Ordinal, Hash, Display, Debug, PartialOrd)]
+enum LoxRule {
     Paren,
     Term,
     Expr,
     Literal,
     Unary,
-});
+}
 
 impl Rule for LoxRule {
     type TokenType = LoxTokenType;

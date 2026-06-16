@@ -1,4 +1,4 @@
-use crate::core::ordinal::Ordinal;
+use crate::core::Ordinal;
 use crate::lexer::TokenType;
 use std::fmt::Debug;
 use std::fmt::Display;

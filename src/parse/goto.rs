@@ -2,8 +2,8 @@ use super::grammar::{Grammar, Symbol};
 use super::rule::Rule;
 
 use super::state::{State, StateId};
+use crate::core::Ordinal;
 use crate::core::interner::Interner;
-use crate::core::ordinal::Ordinal;
 use ndarray::Array2;
 use std::collections::HashSet;
 
