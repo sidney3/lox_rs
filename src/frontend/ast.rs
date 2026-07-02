@@ -52,6 +52,10 @@ pub enum Expression {
     Lit(Literal),
 }
 
+// TODO: write a better parser-generator. The one we have right now
+// loses a lot of semantic information (and just emits the raw tokens
+// at each node). This is fine for the e2e api of this file (you give me
+// tokens, I give you AST), but it's duplicative.
 impl Expression {
     fn from_cst(node: &Node<LoxRule>) -> Self {
         if let Node::Tree(t) = node {
@@ -125,11 +129,10 @@ impl Rule for LoxRule {
     }
 }
 
-type CSTParser = Parser<LoxRule>;
 type P = Production<LoxRule>;
 
-fn parser() -> CSTParser {
-    let grammar = Grammar::new(vec![
+fn lox_grammar() -> Grammar<LoxRule> {
+    Grammar::new(vec![
         // Expr := Term
         P {
             rule: LoxRule::Expr,
@@ -203,11 +206,19 @@ fn parser() -> CSTParser {
             rule: LoxRule::Literal,
             definition: nonempty![Symbol::Token(LoxTokenKind::Number)],
         },
-    ]);
-
-    CSTParser::new(grammar)
+    ])
 }
 
-pub fn parse(tokens: Vec<LoxToken>) -> Result<Ast> {
-    todo!();
+pub struct LoxParser(Parser<LoxRule>);
+
+impl LoxParser {
+    pub fn new() -> Self {
+        Self(Parser::<LoxRule>::new(lox_grammar()))
+    }
+
+    pub fn parse(&self, tokens: Vec<LoxToken>) -> Result<Ast> {
+        let cst = self.0.parse(tokens.into_iter())?;
+
+        Ok(Ast::from_cst(cst))
+    }
 }
