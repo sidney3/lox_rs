@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 use strum::Display;
 
 #[derive(Ordinal, Debug, Display, Hash)]
-pub enum LoxTokenType {
+pub enum LoxTokenKind {
     WhiteSpace,
 
     LParen,
@@ -61,19 +61,19 @@ pub enum LoxTokenType {
     Eof,
 }
 
-impl TokenType for LoxTokenType {
+impl TokenType for LoxTokenKind {
     fn eof() -> Self {
-        LoxTokenType::Eof
+        LoxTokenKind::Eof
     }
 }
 
-pub type LoxToken = lexer::Token<LoxTokenType>;
+pub type LoxToken = lexer::Token<LoxTokenKind>;
 
-pub struct LoxLexer(lexer::Lexer<LoxTokenType>);
+pub struct LoxLexer(lexer::Lexer<LoxTokenKind>);
 
 impl LoxLexer {
     pub fn new() -> Result<Self> {
-        Ok(Self(lexer::Lexer::<LoxTokenType>::new(LEXICAL_SPEC)?))
+        Ok(Self(lexer::Lexer::<LoxTokenKind>::new(LEXICAL_SPEC)?))
     }
 
     pub fn lex(&self, program: &str, arena: &mut Rodeo) -> Result<Vec<LoxToken>> {
@@ -81,55 +81,55 @@ impl LoxLexer {
 
         let filtered = tokens
             .into_iter()
-            .filter(|t| t.token_type != LoxTokenType::WhiteSpace)
+            .filter(|t| t.token_type != LoxTokenKind::WhiteSpace)
             .collect();
 
         Ok(filtered)
     }
 }
 
-const LEXICAL_SPEC: &[(LoxTokenType, &str)] = &[
-    (LoxTokenType::WhiteSpace, " "),
-    (LoxTokenType::WhiteSpace, "\t"),
-    (LoxTokenType::WhiteSpace, "\n"),
-    (LoxTokenType::LParen, "\\("),
-    (LoxTokenType::RParen, "\\)"),
-    (LoxTokenType::LBrace, "\\["),
-    (LoxTokenType::RBrace, "\\]"),
-    (LoxTokenType::Comma, ","),
-    (LoxTokenType::Dot, "\\."),
-    (LoxTokenType::Minus, "\\-"),
-    (LoxTokenType::Plus, "\\+"),
-    (LoxTokenType::Semicolon, ";"),
-    (LoxTokenType::Slash, "/"),
-    (LoxTokenType::Star, "\\*"),
-    (LoxTokenType::Bang, "!"),
-    (LoxTokenType::BangEqual, "!="),
-    (LoxTokenType::Equal, "="),
-    (LoxTokenType::EqualEqual, "=="),
-    (LoxTokenType::Greater, ">"),
-    (LoxTokenType::GreaterEqual, ">="),
-    (LoxTokenType::Less, "<"),
-    (LoxTokenType::LessEqual, "<="),
-    (LoxTokenType::For, "for"),
-    (LoxTokenType::False, "false"),
-    (LoxTokenType::And, "and"),
-    (LoxTokenType::Class, "class"),
-    (LoxTokenType::Else, "else"),
-    (LoxTokenType::Fun, "fun"),
-    (LoxTokenType::If, "if"),
-    (LoxTokenType::Nil, "nil"),
-    (LoxTokenType::Or, "or"),
-    (LoxTokenType::Return, "return"),
-    (LoxTokenType::Super, "super"),
-    (LoxTokenType::This, "this"),
-    (LoxTokenType::True, "true"),
-    (LoxTokenType::Var, "var"),
-    (LoxTokenType::While, "while"),
-    (LoxTokenType::Print, "print"), // TODO: remove this token
-    (LoxTokenType::Number, "[1-9][0-9]*"),
-    (LoxTokenType::String, "\"[\u{20}-\u{7E}]*\""),
-    (LoxTokenType::Ident, "[a-zA-Z]([a-zA-Z0-9]|_)*"),
+const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
+    (LoxTokenKind::WhiteSpace, " "),
+    (LoxTokenKind::WhiteSpace, "\t"),
+    (LoxTokenKind::WhiteSpace, "\n"),
+    (LoxTokenKind::LParen, "\\("),
+    (LoxTokenKind::RParen, "\\)"),
+    (LoxTokenKind::LBrace, "\\["),
+    (LoxTokenKind::RBrace, "\\]"),
+    (LoxTokenKind::Comma, ","),
+    (LoxTokenKind::Dot, "\\."),
+    (LoxTokenKind::Minus, "\\-"),
+    (LoxTokenKind::Plus, "\\+"),
+    (LoxTokenKind::Semicolon, ";"),
+    (LoxTokenKind::Slash, "/"),
+    (LoxTokenKind::Star, "\\*"),
+    (LoxTokenKind::Bang, "!"),
+    (LoxTokenKind::BangEqual, "!="),
+    (LoxTokenKind::Equal, "="),
+    (LoxTokenKind::EqualEqual, "=="),
+    (LoxTokenKind::Greater, ">"),
+    (LoxTokenKind::GreaterEqual, ">="),
+    (LoxTokenKind::Less, "<"),
+    (LoxTokenKind::LessEqual, "<="),
+    (LoxTokenKind::For, "for"),
+    (LoxTokenKind::False, "false"),
+    (LoxTokenKind::And, "and"),
+    (LoxTokenKind::Class, "class"),
+    (LoxTokenKind::Else, "else"),
+    (LoxTokenKind::Fun, "fun"),
+    (LoxTokenKind::If, "if"),
+    (LoxTokenKind::Nil, "nil"),
+    (LoxTokenKind::Or, "or"),
+    (LoxTokenKind::Return, "return"),
+    (LoxTokenKind::Super, "super"),
+    (LoxTokenKind::This, "this"),
+    (LoxTokenKind::True, "true"),
+    (LoxTokenKind::Var, "var"),
+    (LoxTokenKind::While, "while"),
+    (LoxTokenKind::Print, "print"), // TODO: remove this token
+    (LoxTokenKind::Number, "[1-9][0-9]*"),
+    (LoxTokenKind::String, "\"[\u{20}-\u{7E}]*\""),
+    (LoxTokenKind::Ident, "[a-zA-Z]([a-zA-Z0-9]|_)*"),
 ];
 
 #[cfg(test)]
@@ -150,7 +150,7 @@ mod test {
             .lex(program, &mut rodeo)
             .unwrap()
             .into_iter()
-            .filter(|token| token.token_type != LoxTokenType::WhiteSpace)
+            .filter(|token| token.token_type != LoxTokenKind::WhiteSpace)
             .collect();
 
         let mut spur = |s| rodeo.get_or_intern(s);
@@ -160,32 +160,32 @@ mod test {
             vec![
                 LoxToken {
                     lexeme: spur("print"),
-                    token_type: LoxTokenType::Print,
+                    token_type: LoxTokenKind::Print,
                     line: 1
                 },
                 LoxToken {
                     lexeme: spur("("),
-                    token_type: LoxTokenType::LParen,
+                    token_type: LoxTokenKind::LParen,
                     line: 1,
                 },
                 LoxToken {
                     lexeme: spur("\"Hello world!\""),
-                    token_type: LoxTokenType::String,
+                    token_type: LoxTokenKind::String,
                     line: 1
                 },
                 LoxToken {
                     lexeme: spur(")"),
-                    token_type: LoxTokenType::RParen,
+                    token_type: LoxTokenKind::RParen,
                     line: 1,
                 },
                 LoxToken {
                     lexeme: spur(";"),
-                    token_type: LoxTokenType::Semicolon,
+                    token_type: LoxTokenKind::Semicolon,
                     line: 1
                 },
                 LoxToken {
                     lexeme: spur("EOF"),
-                    token_type: LoxTokenType::Eof,
+                    token_type: LoxTokenKind::Eof,
                     line: 2,
                 }
             ]

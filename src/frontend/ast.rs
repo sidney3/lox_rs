@@ -1,5 +1,5 @@
 use super::error::{Error, Result};
-use super::token::{LoxToken, LoxTokenType};
+use super::token::{LoxToken, LoxTokenKind};
 use crate::core::Ordinal;
 use crate::parse::{Grammar, Node, Parser, Production, Rule, Symbol, Tree};
 use lasso::Spur;
@@ -16,12 +16,12 @@ pub enum BinOp {
 }
 
 impl BinOp {
-    fn from_token(token: LoxTokenType) -> Option<Self> {
+    fn from_token(token: LoxTokenKind) -> Option<Self> {
         match token {
-            LoxTokenType::Star => Some(Self::Times),
-            LoxTokenType::Slash => Some(Self::Divide),
-            LoxTokenType::Plus => Some(Self::Plus),
-            LoxTokenType::Minus => Some(Self::Minus),
+            LoxTokenKind::Star => Some(Self::Times),
+            LoxTokenKind::Slash => Some(Self::Divide),
+            LoxTokenKind::Plus => Some(Self::Plus),
+            LoxTokenKind::Minus => Some(Self::Minus),
             _ => None,
         }
     }
@@ -59,10 +59,10 @@ impl Expression {
                 (LoxRule::Expr | LoxRule::Term, [lhs, Node::Leaf(op), rhs])
                     if matches!(
                         op.token_type,
-                        LoxTokenType::Plus
-                            | LoxTokenType::Minus
-                            | LoxTokenType::Slash
-                            | LoxTokenType::Star
+                        LoxTokenKind::Plus
+                            | LoxTokenKind::Minus
+                            | LoxTokenKind::Slash
+                            | LoxTokenKind::Star
                     ) =>
                 {
                     Expression::Bin(Binary {
@@ -72,13 +72,13 @@ impl Expression {
                     })
                 }
                 (LoxRule::Paren, [Node::Leaf(lparen), expr, Node::Leaf(rparen)])
-                    if lparen.token_type == LoxTokenType::LParen
-                        && rparen.token_type == LoxTokenType::RParen =>
+                    if lparen.token_type == LoxTokenKind::LParen
+                        && rparen.token_type == LoxTokenKind::RParen =>
                 {
                     Self::from_cst(expr)
                 }
 
-                (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenType::Number => {
+                (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::Number => {
                     Expression::Lit(Literal::Num(num.lexeme))
                 }
 
@@ -119,7 +119,7 @@ enum LoxRule {
 }
 
 impl Rule for LoxRule {
-    type TokenType = LoxTokenType;
+    type TokenType = LoxTokenKind;
     fn goal() -> Self {
         LoxRule::Expr
     }
@@ -140,7 +140,7 @@ fn parser() -> CSTParser {
             rule: LoxRule::Expr,
             definition: nonempty![
                 Symbol::Rule(LoxRule::Expr),
-                Symbol::Token(LoxTokenType::Plus),
+                Symbol::Token(LoxTokenKind::Plus),
                 Symbol::Rule(LoxRule::Term)
             ],
         },
@@ -149,7 +149,7 @@ fn parser() -> CSTParser {
             rule: LoxRule::Expr,
             definition: nonempty![
                 Symbol::Rule(LoxRule::Expr),
-                Symbol::Token(LoxTokenType::Minus),
+                Symbol::Token(LoxTokenKind::Minus),
                 Symbol::Rule(LoxRule::Term)
             ],
         },
@@ -163,7 +163,7 @@ fn parser() -> CSTParser {
             rule: LoxRule::Term,
             definition: nonempty![
                 Symbol::Rule(LoxRule::Term),
-                Symbol::Token(LoxTokenType::Star),
+                Symbol::Token(LoxTokenKind::Star),
                 Symbol::Rule(LoxRule::Unary)
             ],
         },
@@ -172,7 +172,7 @@ fn parser() -> CSTParser {
             rule: LoxRule::Term,
             definition: nonempty![
                 Symbol::Rule(LoxRule::Term),
-                Symbol::Token(LoxTokenType::Slash),
+                Symbol::Token(LoxTokenKind::Slash),
                 Symbol::Rule(LoxRule::Unary)
             ],
         },
@@ -180,7 +180,7 @@ fn parser() -> CSTParser {
         P {
             rule: LoxRule::Unary,
             definition: nonempty![
-                Symbol::Token(LoxTokenType::Bang),
+                Symbol::Token(LoxTokenKind::Bang),
                 Symbol::Rule(LoxRule::Paren),
             ],
         },
@@ -193,15 +193,15 @@ fn parser() -> CSTParser {
         P {
             rule: LoxRule::Paren,
             definition: nonempty![
-                Symbol::Token(LoxTokenType::LParen),
+                Symbol::Token(LoxTokenKind::LParen),
                 Symbol::Rule(LoxRule::Expr),
-                Symbol::Token(LoxTokenType::RParen),
+                Symbol::Token(LoxTokenKind::RParen),
             ],
         },
         // Literal := 'Num'
         P {
             rule: LoxRule::Literal,
-            definition: nonempty![Symbol::Token(LoxTokenType::Number)],
+            definition: nonempty![Symbol::Token(LoxTokenKind::Number)],
         },
     ]);
 

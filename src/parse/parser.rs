@@ -148,7 +148,7 @@ impl<R: Rule> Parser<R> {
 mod test {
 
     use super::*;
-    use crate::frontend::token::{LoxLexer, LoxToken, LoxTokenType};
+    use crate::frontend::token::{LoxLexer, LoxToken, LoxTokenKind};
     use lasso::Rodeo;
     use strum::Display;
 
@@ -166,7 +166,7 @@ mod test {
     }
 
     impl Rule for TestRule {
-        type TokenType = LoxTokenType;
+        type TokenType = LoxTokenKind;
 
         fn goal() -> Self {
             TestRule::Expr
@@ -180,7 +180,7 @@ mod test {
     enum Expression {
         Sum(Box<Expression>, Box<Expression>),
         Times(Box<Expression>, Box<Expression>),
-        Literal(Token<LoxTokenType>),
+        Literal(Token<LoxTokenKind>),
     }
 
     impl Expression {
@@ -189,7 +189,7 @@ mod test {
                 ExprNode::Leaf(token) => panic!("Tokens cannot be directly parsed as expr"),
                 ExprNode::Tree(node) => match (node.rule, node.children.as_slice()) {
                     (TestRule::Plus, [lhs, ExprNode::Leaf(_plus), rhs])
-                        if _plus.token_type == LoxTokenType::Plus =>
+                        if _plus.token_type == LoxTokenKind::Plus =>
                     {
                         Expression::Sum(
                             Box::new(Self::from_cst(lhs)),
@@ -198,7 +198,7 @@ mod test {
                     }
                     (TestRule::Literal, [ExprNode::Leaf(literal)]) => Expression::Literal(*literal),
                     (TestRule::Times, [lhs, ExprNode::Leaf(_times), rhs])
-                        if _times.token_type == LoxTokenType::Star =>
+                        if _times.token_type == LoxTokenKind::Star =>
                     {
                         Expression::Times(
                             Box::new(Self::from_cst(lhs)),
@@ -206,8 +206,8 @@ mod test {
                         )
                     }
                     (TestRule::Paren, [ExprNode::Leaf(lparen), x, ExprNode::Leaf(rparen)])
-                        if lparen.token_type == LoxTokenType::LParen
-                            && rparen.token_type == LoxTokenType::RParen =>
+                        if lparen.token_type == LoxTokenKind::LParen
+                            && rparen.token_type == LoxTokenKind::RParen =>
                     {
                         Self::from_cst(x)
                     }
@@ -228,7 +228,7 @@ mod test {
                 Expression::Sum(lhs, rhs) => lhs.eval(rodeo) + rhs.eval(rodeo),
                 Expression::Times(lhs, rhs) => lhs.eval(rodeo) * rhs.eval(rodeo),
                 Expression::Literal(token) => {
-                    if token.token_type == LoxTokenType::Number {
+                    if token.token_type == LoxTokenKind::Number {
                         rodeo.resolve(&token.lexeme).parse().unwrap()
                     } else {
                         panic!("Literal of non-int type")
@@ -266,7 +266,7 @@ mod test {
             rule: TestRule::Plus,
             definition: nonempty![
                 Symbol::Rule(TestRule::Times),
-                Symbol::Token(LoxTokenType::Plus),
+                Symbol::Token(LoxTokenKind::Plus),
                 Symbol::Rule(TestRule::Plus),
             ],
         };
@@ -280,7 +280,7 @@ mod test {
             rule: TestRule::Times,
             definition: nonempty![
                 Symbol::Rule(TestRule::Paren),
-                Symbol::Token(LoxTokenType::Star),
+                Symbol::Token(LoxTokenKind::Star),
                 Symbol::Rule(TestRule::Times),
             ],
         };
@@ -293,9 +293,9 @@ mod test {
         let paren_recursive_def = TestProduction {
             rule: TestRule::Paren,
             definition: nonempty![
-                Symbol::Token(LoxTokenType::LParen),
+                Symbol::Token(LoxTokenKind::LParen),
                 Symbol::Rule(TestRule::Expr),
-                Symbol::Token(LoxTokenType::RParen),
+                Symbol::Token(LoxTokenKind::RParen),
             ],
         };
 
@@ -306,7 +306,7 @@ mod test {
 
         let literal_def = TestProduction {
             rule: TestRule::Literal,
-            definition: nonempty![Symbol::Token(LoxTokenType::Number)],
+            definition: nonempty![Symbol::Token(LoxTokenKind::Number)],
         };
 
         Grammar::new(vec![
