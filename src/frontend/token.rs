@@ -69,67 +69,68 @@ impl TokenType for LoxTokenType {
 
 pub type LoxToken = lexer::Token<LoxTokenType>;
 
-static LEXER: OnceLock<lexer::Lexer<LoxTokenType>> = OnceLock::new();
+pub struct LoxLexer(lexer::Lexer<LoxTokenType>);
 
-pub fn lex(program: &str, rodeo: &mut Rodeo) -> Result<Vec<LoxToken>> {
-    let lexical_spec = vec![
-        (LoxTokenType::WhiteSpace, " "),
-        (LoxTokenType::WhiteSpace, "\t"),
-        (LoxTokenType::WhiteSpace, "\n"),
-        (LoxTokenType::LParen, "\\("),
-        (LoxTokenType::RParen, "\\)"),
-        (LoxTokenType::LBrace, "\\["),
-        (LoxTokenType::RBrace, "\\]"),
-        (LoxTokenType::Comma, ","),
-        (LoxTokenType::Dot, "\\."),
-        (LoxTokenType::Minus, "\\-"),
-        (LoxTokenType::Plus, "\\+"),
-        (LoxTokenType::Semicolon, ";"),
-        (LoxTokenType::Slash, "/"),
-        (LoxTokenType::Star, "\\*"),
-        (LoxTokenType::Bang, "!"),
-        (LoxTokenType::BangEqual, "!="),
-        (LoxTokenType::Equal, "="),
-        (LoxTokenType::EqualEqual, "=="),
-        (LoxTokenType::Greater, ">"),
-        (LoxTokenType::GreaterEqual, ">="),
-        (LoxTokenType::Less, "<"),
-        (LoxTokenType::LessEqual, "<="),
-        (LoxTokenType::For, "for"),
-        (LoxTokenType::False, "false"),
-        (LoxTokenType::And, "and"),
-        (LoxTokenType::Class, "class"),
-        (LoxTokenType::Else, "else"),
-        (LoxTokenType::Fun, "fun"),
-        (LoxTokenType::If, "if"),
-        (LoxTokenType::Nil, "nil"),
-        (LoxTokenType::Or, "or"),
-        (LoxTokenType::Return, "return"),
-        (LoxTokenType::Super, "super"),
-        (LoxTokenType::This, "this"),
-        (LoxTokenType::True, "true"),
-        (LoxTokenType::Var, "var"),
-        (LoxTokenType::While, "while"),
-        (LoxTokenType::Print, "print"), // TODO: remove this token
-        (LoxTokenType::Number, "[1-9][0-9]*"),
-        (LoxTokenType::String, "\"[\u{20}-\u{7E}]*\""),
-        (LoxTokenType::Ident, "[a-zA-Z]([a-zA-Z0-9]|_)*"),
-    ];
-    let result = LEXER
-        .get_or_init(|| lexer::Lexer::make(lexical_spec).unwrap())
-        .lex(program, rodeo)
-        .map(|tokens| {
-            tokens
-                .into_iter()
-                .filter(|t| t.token_type != LoxTokenType::WhiteSpace)
-                .collect()
-        });
+impl LoxLexer {
+    pub fn new() -> Result<Self> {
+        Ok(Self(lexer::Lexer::<LoxTokenType>::new(LEXICAL_SPEC)?))
+    }
 
-    match result {
-        Ok(tokens) => Ok(tokens),
-        Err(e) => Err(Error::Lex(e)),
+    pub fn lex(&self, program: &str, arena: &mut Rodeo) -> Result<Vec<LoxToken>> {
+        let tokens = self.0.lex(program, arena)?;
+
+        let filtered = tokens
+            .into_iter()
+            .filter(|t| t.token_type != LoxTokenType::WhiteSpace)
+            .collect();
+
+        Ok(filtered)
     }
 }
+
+const LEXICAL_SPEC: &[(LoxTokenType, &str)] = &[
+    (LoxTokenType::WhiteSpace, " "),
+    (LoxTokenType::WhiteSpace, "\t"),
+    (LoxTokenType::WhiteSpace, "\n"),
+    (LoxTokenType::LParen, "\\("),
+    (LoxTokenType::RParen, "\\)"),
+    (LoxTokenType::LBrace, "\\["),
+    (LoxTokenType::RBrace, "\\]"),
+    (LoxTokenType::Comma, ","),
+    (LoxTokenType::Dot, "\\."),
+    (LoxTokenType::Minus, "\\-"),
+    (LoxTokenType::Plus, "\\+"),
+    (LoxTokenType::Semicolon, ";"),
+    (LoxTokenType::Slash, "/"),
+    (LoxTokenType::Star, "\\*"),
+    (LoxTokenType::Bang, "!"),
+    (LoxTokenType::BangEqual, "!="),
+    (LoxTokenType::Equal, "="),
+    (LoxTokenType::EqualEqual, "=="),
+    (LoxTokenType::Greater, ">"),
+    (LoxTokenType::GreaterEqual, ">="),
+    (LoxTokenType::Less, "<"),
+    (LoxTokenType::LessEqual, "<="),
+    (LoxTokenType::For, "for"),
+    (LoxTokenType::False, "false"),
+    (LoxTokenType::And, "and"),
+    (LoxTokenType::Class, "class"),
+    (LoxTokenType::Else, "else"),
+    (LoxTokenType::Fun, "fun"),
+    (LoxTokenType::If, "if"),
+    (LoxTokenType::Nil, "nil"),
+    (LoxTokenType::Or, "or"),
+    (LoxTokenType::Return, "return"),
+    (LoxTokenType::Super, "super"),
+    (LoxTokenType::This, "this"),
+    (LoxTokenType::True, "true"),
+    (LoxTokenType::Var, "var"),
+    (LoxTokenType::While, "while"),
+    (LoxTokenType::Print, "print"), // TODO: remove this token
+    (LoxTokenType::Number, "[1-9][0-9]*"),
+    (LoxTokenType::String, "\"[\u{20}-\u{7E}]*\""),
+    (LoxTokenType::Ident, "[a-zA-Z]([a-zA-Z0-9]|_)*"),
+];
 
 #[cfg(test)]
 mod test {
@@ -143,8 +144,10 @@ mod test {
         ));
 
         let mut rodeo = Rodeo::default();
+        let lexer = LoxLexer::new().unwrap();
 
-        let tokens: Vec<_> = lex(program, &mut rodeo)
+        let tokens: Vec<_> = lexer
+            .lex(program, &mut rodeo)
             .unwrap()
             .into_iter()
             .filter(|token| token.token_type != LoxTokenType::WhiteSpace)

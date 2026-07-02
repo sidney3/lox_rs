@@ -148,7 +148,7 @@ impl<R: Rule> Parser<R> {
 mod test {
 
     use super::*;
-    use crate::frontend::token::{LoxToken, LoxTokenType, lex};
+    use crate::frontend::token::{LoxLexer, LoxToken, LoxTokenType};
     use lasso::Rodeo;
     use strum::Display;
 
@@ -323,20 +323,23 @@ mod test {
 
     struct ExprFixture {
         rodeo: Rodeo,
+        lexer: LoxLexer,
         parser: Parser<TestRule>,
     }
 
     impl ExprFixture {
         fn new() -> Self {
-            let mut rodeo = Rodeo::default();
+            let rodeo = Rodeo::default();
+            let lexer = LoxLexer::new().unwrap();
             Self {
                 rodeo,
+                lexer,
                 parser: Parser::new(expression_grammar()),
             }
         }
 
         fn eval(&mut self, input: &str) -> i64 {
-            let tokens = lex(input, &mut self.rodeo).unwrap();
+            let tokens = self.lexer.lex(input, &mut self.rodeo).unwrap();
             let cst = self.parser.parse(tokens.into_iter()).unwrap();
             Expression::from_cst(&Node::Tree(cst)).eval(&self.rodeo)
         }

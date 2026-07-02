@@ -10,11 +10,11 @@ pub struct Lexer<T> {
 }
 
 impl<T: TokenType> Lexer<T> {
-    pub fn make(tokens: Vec<(T, &str)>) -> Result<Self> {
+    pub fn new(tokens: &[(T, &str)]) -> Result<Self> {
         let regex_mappings = tokens
             .into_iter()
             .map(|(token, regex_str)| match Regex::make(regex_str) {
-                Ok(regex) => Ok((token, regex)),
+                Ok(regex) => Ok((*token, regex)),
                 Err(error) => {
                     println!("Failed to parse regex str {}", regex_str);
                     Err(error)
@@ -185,7 +185,7 @@ mod test {
 
     #[test]
     fn test_literal_precedence() {
-        let lexer = Lexer::make(vec![
+        let lexer = Lexer::new(&[
             (TokenT::Whitespace, (" ")),
             (TokenT::Struct, ("struct")),
             (TokenT::Literal, ("[a-zA-Z]*")),
