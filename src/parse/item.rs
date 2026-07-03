@@ -59,15 +59,9 @@ impl<R: Rule> DisplayWithGrammar<R> for Item {
     fn fmt_with(&self, grammar: &Grammar<R>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let production = &grammar.production(self.production_id);
 
-        let before = production
-            .definition
-            .iter()
-            .take(usize::from(self.production_id()));
+        let before = production.definition.iter().take(self.pos);
 
-        let after = production
-            .definition
-            .iter()
-            .skip(usize::from(self.production_id()));
+        let after = production.definition.iter().skip(self.pos);
 
         for sym in before {
             write!(f, "{}", sym)?;
