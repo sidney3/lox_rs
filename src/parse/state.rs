@@ -4,6 +4,7 @@ use super::item::{Item, ItemList};
 use super::rule::Rule;
 use crate::core::Ordinal;
 use crate::lexer::TokenType;
+use crate::parse::debug::{DisplayWithGrammar, DisplayWithGrammarExt};
 use crate::usize_id;
 use itertools::Itertools;
 use smallvec::SmallVec;
@@ -122,6 +123,29 @@ impl State {
                 None => Action::Shift,
             }
         }
+    }
+}
+
+impl<R: Rule> DisplayWithGrammar<R> for State {
+    fn fmt_with(&self, grammar: &Grammar<R>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{{ in_progress: [")?;
+
+        for (i, item) in self.in_progress().iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", item.with(grammar))?;
+        }
+
+        write!(f, "], \n")?;
+
+        write!(f, "done: [")?;
+        for production_id in self.complete() {
+            production_id.fmt_with(grammar, f)?
+        }
+        write!(f, "] }}")?;
+
+        Ok(())
     }
 }
 

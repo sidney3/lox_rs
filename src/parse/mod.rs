@@ -1,4 +1,5 @@
 mod action;
+mod debug;
 mod error;
 mod goto;
 mod grammar;

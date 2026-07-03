@@ -1,3 +1,4 @@
+use super::debug::DisplayWithGrammar;
 use super::rule::Rule;
 use crate::core::Ordinal;
 use crate::lexer::{Token, TokenType};
@@ -60,6 +61,17 @@ impl<R: Rule> Symbol<R> {
 }
 
 usize_id!(ProductionId);
+
+impl<R: Rule> DisplayWithGrammar<R> for ProductionId {
+    fn fmt_with(&self, grammar: &Grammar<R>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        for sym in &grammar.production(*self).definition {
+            write!(f, "{}", sym)?;
+        }
+
+        Ok(())
+    }
+}
+
 pub type ProductionList = SmallVec<[ProductionId; 10]>;
 
 pub struct Grammar<R: Rule> {

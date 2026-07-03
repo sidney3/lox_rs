@@ -1,4 +1,5 @@
 use super::action::{Action, make_action};
+use super::debug::DisplayWithGrammarExt;
 use super::error::{Error, Result};
 use super::goto::make_goto;
 use super::grammar::*;
@@ -72,7 +73,10 @@ impl<R: Rule> Parser<R> {
 
         loop {
             let current_state = self.state_table.get_left(curr_state_id);
-            println!("[PARSE TIME] Currently at {current_state:?} with {curr_state_id:?}");
+            println!(
+                "[PARSE TIME] Currently at {}",
+                current_state.with(&self.grammar)
+            );
             let next_token = iter.peek().ok_or(Error::IncompleteProgram)?;
 
             // We want to support rules that return nodes that are _not_ of the type of that rule.

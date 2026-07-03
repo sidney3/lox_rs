@@ -1,3 +1,4 @@
+use super::debug::DisplayWithGrammar;
 use super::grammar::{Grammar, ProductionId, Symbol};
 use super::rule::Rule;
 use either::{Either, Left, Right};
@@ -51,6 +52,34 @@ impl Item {
     }
     pub fn production_id(&self) -> ProductionId {
         self.production_id
+    }
+}
+
+impl<R: Rule> DisplayWithGrammar<R> for Item {
+    fn fmt_with(&self, grammar: &Grammar<R>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let production = &grammar.production(self.production_id);
+
+        let before = production
+            .definition
+            .iter()
+            .take(usize::from(self.production_id()));
+
+        let after = production
+            .definition
+            .iter()
+            .skip(usize::from(self.production_id()));
+
+        for sym in before {
+            write!(f, "{}", sym)?;
+        }
+
+        write!(f, "•")?;
+
+        for sym in after {
+            write!(f, "{}", sym)?;
+        }
+
+        Ok(())
     }
 }
 
