@@ -73,7 +73,6 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
             };
             for (s1, s2) in production.definition.iter().tuple_windows() {
                 if let (Symbol::Rule(r), &Symbol::Token(t)) = (s1, s2) {
-                    println!("token {t:?} follows rule {r:?} by definition");
                     add_follow(r, t);
                 }
             }
@@ -94,7 +93,6 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
             if let Symbol::Rule(r) = production.definition.last() {
                 let base = production.rule;
                 for t in follows {
-                    println!("token {t:?} follows rule {r:?} by association with {base:?}");
                     add_follow(r, t);
                 }
             }
