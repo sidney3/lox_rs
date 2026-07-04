@@ -1,5 +1,4 @@
 use lasso::Spur;
-use std::fmt::Display;
 use std::hash::Hash;
 
 pub trait TokenType: Hash + Eq + Clone + Copy + PartialEq {

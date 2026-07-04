@@ -1,7 +1,5 @@
-use super::fa_test::{FA, TokenType, run_tests};
 use super::nfa;
 use super::nfa::NFA;
-use super::regex::Regex;
 use super::subset::{EpsilonClosure, Subset};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{self, Display, Formatter};
@@ -186,6 +184,8 @@ where
 
 #[cfg(test)]
 mod test {
+    use super::super::fa_test::{FA, TokenType, run_tests};
+    use super::super::regex::Regex;
     use super::*;
 
     impl FA<TokenType> for DFA<TokenType> {

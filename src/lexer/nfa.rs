@@ -1,11 +1,8 @@
-use super::fa_test::{FA, TokenType, run_tests};
 use super::regex::Regex;
-use super::subset::{EpsilonClosure, Subset};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::{Index, IndexMut};
-use std::option::Option;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateId(pub usize);
@@ -150,7 +147,10 @@ where
 
 #[cfg(test)]
 mod test {
+    use super::super::fa_test::{FA, TokenType, run_tests};
+    use super::super::subset::{EpsilonClosure, Subset};
     use super::*;
+    use std::option::Option;
 
     impl FA<TokenType> for NFA<TokenType> {
         fn make(token_defs: Vec<(TokenType, Regex)>) -> Self {

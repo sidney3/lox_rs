@@ -15,7 +15,7 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression) {
             compile_expression(builder, b.rhs.as_ref());
         }
 
-        Expression::Unary(u) => {
+        Expression::Unary(_u) => {
             todo!();
         }
         Expression::Lit(literal) => {
@@ -24,9 +24,9 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression) {
     }
 }
 
-fn compile_literal(builder: &mut ChunkBuilder, lit: &Literal) {
+fn compile_literal(_builder: &mut ChunkBuilder, lit: &Literal) {
     match lit {
-        Literal::Num(spur) => {
+        Literal::Num(_spur) => {
             todo!();
         }
     }

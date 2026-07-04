@@ -1,4 +1,3 @@
-use std::fmt::{self, Display, Formatter};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

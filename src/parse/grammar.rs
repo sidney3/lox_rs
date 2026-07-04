@@ -1,7 +1,7 @@
 use super::debug::DisplayWithGrammar;
 use super::rule::Rule;
 use crate::core::Ordinal;
-use crate::lexer::{Token, TokenType};
+use crate::lexer::TokenType;
 use crate::usize_id;
 use either::Either;
 use nonempty::NonEmpty;

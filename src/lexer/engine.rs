@@ -158,10 +158,6 @@ impl<'a> Cursor<'a> {
         let end = rest.find(' ').unwrap_or(rest.len());
         Some(&rest[..end])
     }
-
-    fn is_eof(&self) -> bool {
-        self.pos >= self.input.len()
-    }
 }
 
 #[cfg(test)]

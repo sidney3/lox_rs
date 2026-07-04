@@ -1,7 +1,6 @@
 use super::chunk::Chunk;
 use super::constant::Constant;
 use super::instruction::Instruction;
-use lasso::Rodeo;
 
 pub struct ChunkBuilder {
     constants: Vec<Constant>,

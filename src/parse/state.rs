@@ -2,7 +2,6 @@ use super::action::Action;
 use super::grammar::{Grammar, ProductionId, Symbol};
 use super::item::{Item, ItemList};
 use super::rule::Rule;
-use crate::core::Ordinal;
 use crate::lexer::TokenType;
 use crate::parse::debug::{DisplayWithGrammar, DisplayWithGrammarExt};
 use crate::usize_id;
@@ -142,7 +141,7 @@ impl<R: Rule> DisplayWithGrammar<R> for State {
             write!(f, "{}", item.with(grammar))?;
         }
 
-        write!(f, "], \n")?;
+        writeln!(f, "]")?;
 
         write!(f, "done: [")?;
         for production_id in self.complete() {

@@ -1,4 +1,3 @@
-use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Data;
 
@@ -38,12 +37,6 @@ fn expand(input: syn::DeriveInput) -> syn::Result<proc_macro::TokenStream> {
         impl Copy for #name {}
         impl Clone for #name {
             fn clone (&self) -> Self {*self}
-        }
-        impl Eq for #name {}
-        impl PartialEq for #name {
-            fn eq(&self, other: &Self) -> bool {
-                self.ord() == other.ord()
-            }
         }
     };
 

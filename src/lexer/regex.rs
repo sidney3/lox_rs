@@ -1,5 +1,5 @@
 use super::error::{Error, Result};
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 use std::iter::Peekable;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -192,6 +192,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use smallvec::smallvec;
 
     #[test]
     fn test_lex() {

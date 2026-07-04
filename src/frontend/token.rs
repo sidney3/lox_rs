@@ -1,14 +1,12 @@
-use super::error::{Error, Result};
-use crate::core::Ordinal;
+use super::error::Result;
 use crate::lexer;
 use crate::lexer::TokenType;
 use lasso::Rodeo;
 use lox_derive::Ordinal;
 use std::hash::Hash;
-use std::sync::OnceLock;
 use strum::Display;
 
-#[derive(Ordinal, Debug, Display, Hash)]
+#[derive(Ordinal, Eq, PartialEq, Debug, Display, Hash)]
 pub enum LoxTokenKind {
     WhiteSpace,
 

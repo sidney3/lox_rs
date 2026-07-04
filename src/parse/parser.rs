@@ -7,10 +7,8 @@ use super::rule::Rule;
 use super::state::{State, StateId};
 use crate::core::Ordinal;
 use crate::core::interner::Interner;
-use crate::lexer::{Token, TokenType};
-use lox_derive::Ordinal;
+use crate::lexer::Token;
 use ndarray::Array2;
-use nonempty::nonempty;
 
 #[derive(Debug)]
 pub struct Tree<R: Rule> {
@@ -28,7 +26,7 @@ impl<R: Rule> Node<R> {
     pub fn symbol(&self) -> Symbol<R> {
         match self {
             Self::Leaf(token) => Symbol::Token(token.token_type),
-            Self::Tree(Tree { rule, children }) => Symbol::Rule(*rule),
+            Self::Tree(Tree { rule, children: _ }) => Symbol::Rule(*rule),
         }
     }
 }
@@ -152,15 +150,17 @@ impl<R: Rule> Parser<R> {
 mod test {
 
     use super::*;
-    use crate::frontend::token::{LoxLexer, LoxToken, LoxTokenKind};
+    use crate::frontend::token::{LoxLexer, LoxTokenKind};
     use lasso::Rodeo;
+    use lox_derive::Ordinal;
+    use nonempty::nonempty;
     use strum::Display;
 
     // Grammar (BNF, start symbol = <Beta>):
     //   <Beta>  ::= <Alpha> <Alpha>
     //   <Alpha> ::= "unit"
     //             | "(" <Beta> ")"
-    #[derive(Ordinal, Debug, Display, PartialOrd, Ord, Hash)]
+    #[derive(Ordinal, Eq, PartialEq, Debug, Display, PartialOrd, Ord, Hash)]
     enum TestRule {
         Plus,
         Times,
@@ -190,8 +190,8 @@ mod test {
     impl Expression {
         pub fn from_cst(node: &ExprNode) -> Self {
             match node {
-                ExprNode::Leaf(token) => panic!("Tokens cannot be directly parsed as expr"),
-                ExprNode::Tree(node) => match (node.rule, node.children.as_slice()) {
+                ExprNode::Leaf(_token) => panic!("Tokens cannot be directly parsed as expr"),
+                ExprNode::Tree(node) => match (&node.rule, node.children.as_slice()) {
                     (TestRule::Plus, [lhs, ExprNode::Leaf(_plus), rhs])
                         if _plus.token_type == LoxTokenKind::Plus =>
                     {

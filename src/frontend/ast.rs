@@ -1,11 +1,9 @@
-use super::error::{Error, Result};
+use super::error::Result;
 use super::token::{LoxToken, LoxTokenKind};
-use crate::core::Ordinal;
 use crate::parse::{Grammar, Node, Parser, Production, Rule, Symbol, Tree};
 use lasso::Spur;
 use lox_derive::Ordinal;
 use nonempty::nonempty;
-use std::sync::OnceLock;
 use strum::Display;
 
 pub enum BinOp {
@@ -27,14 +25,25 @@ impl BinOp {
     }
 }
 
+pub enum UnaryOp {
+    Minus,
+    Not,
+}
+
+impl UnaryOp {
+    fn from_token(token: LoxTokenKind) -> Option<Self> {
+        match token {
+            LoxTokenKind::Minus => Some(Self::Minus),
+            LoxTokenKind::Bang => Some(Self::Not),
+            _ => None,
+        }
+    }
+}
+
 pub struct Binary {
     pub lhs: Box<Expression>,
     pub op: BinOp,
     pub rhs: Box<Expression>,
-}
-
-pub enum UnaryOp {
-    Minus,
 }
 
 pub struct Unary {
@@ -82,6 +91,15 @@ impl Expression {
                     Self::from_cst(expr)
                 }
 
+                (LoxRule::Unary, [Node::Leaf(op), operand])
+                    if matches!(op.token_type, LoxTokenKind::Minus) =>
+                {
+                    Expression::Unary(Unary {
+                        operand: Box::new(Self::from_cst(operand)),
+                        op: UnaryOp::from_token(op.token_type).unwrap(),
+                    })
+                }
+
                 (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::Number => {
                     Expression::Lit(Literal::Num(num.lexeme))
                 }
@@ -118,15 +136,14 @@ impl Ast {
     }
 }
 
-#[derive(Ordinal, Hash, Display, Debug, PartialOrd)]
-enum LoxRule {
+#[derive(Ordinal, Eq, PartialEq, Hash, Display, Debug, PartialOrd)]
+pub enum LoxRule {
     Paren,
     Term,
     Product,
     Expr,
     Literal,
     Unary,
-    Program,
 }
 
 impl Rule for LoxRule {

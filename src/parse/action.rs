@@ -91,7 +91,7 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
             //
             // Then B should contain FOLLOW(A)
             if let Symbol::Rule(r) = production.definition.last() {
-                let base = production.rule;
+                let _base = production.rule;
                 for t in follows {
                     add_follow(r, t);
                 }
