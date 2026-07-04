@@ -27,9 +27,7 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression) {
 fn compile_literal(builder: &mut ChunkBuilder, lit: &Literal) {
     match lit {
         Literal::Num(spur) => {
-            // TODO: we should just hoist this and emit the proper type
-            // in spur...
-            let x: f64 = builder.arena().resolve(spur).parse().unwrap();
+            todo!();
         }
     }
 }

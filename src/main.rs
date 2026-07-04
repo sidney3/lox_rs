@@ -25,7 +25,7 @@ fn main() {
     let source_code = std::fs::read_to_string(cli.script).unwrap();
     let tokens = lexer.lex(&source_code, &mut rodeo).unwrap();
     let ast = parser.parse(tokens).unwrap();
-    let chunk = codegen::Chunk::new(ast);
+    let chunk = codegen::Chunk::new(&ast);
     let vm = vm::Vm::new(chunk);
 
     vm.run();

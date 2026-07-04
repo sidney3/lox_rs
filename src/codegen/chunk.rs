@@ -12,8 +12,8 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new(ast: &Ast, arena: Rodeo) -> Self {
-        let mut builder = ChunkBuilder::new(arena);
+    pub fn new(ast: &Ast) -> Self {
+        let mut builder = ChunkBuilder::new();
         compile_ast(&mut builder, ast);
         builder.chunk()
     }

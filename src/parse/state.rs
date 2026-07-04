@@ -148,7 +148,7 @@ impl<R: Rule> DisplayWithGrammar<R> for State {
         for production_id in self.complete() {
             let production = grammar.production(*production_id);
 
-            write!(f, "{}", production.rule);
+            write!(f, "{}", production.rule)?;
         }
         write!(f, "] }}")?;
 
