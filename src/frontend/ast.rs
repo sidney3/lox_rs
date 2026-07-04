@@ -60,7 +60,7 @@ impl Expression {
     fn from_cst(node: &Node<LoxRule>) -> Self {
         if let Node::Tree(t) = node {
             match (t.rule, t.children.as_slice()) {
-                (LoxRule::Expr | LoxRule::Term, [lhs, Node::Leaf(op), rhs])
+                (LoxRule::Product | LoxRule::Term, [lhs, Node::Leaf(op), rhs])
                     if matches!(
                         op.token_type,
                         LoxTokenKind::Plus
@@ -87,9 +87,14 @@ impl Expression {
                 }
 
                 // passthroughs
-                (LoxRule::Paren | LoxRule::Expr | LoxRule::Unary | LoxRule::Term, [x]) => {
-                    Self::from_cst(x)
-                }
+                (
+                    LoxRule::Paren
+                    | LoxRule::Expr
+                    | LoxRule::Unary
+                    | LoxRule::Term
+                    | LoxRule::Product,
+                    [x],
+                ) => Self::from_cst(x),
                 _ => panic!("unreachable"),
             }
         } else {
@@ -117,9 +122,11 @@ impl Ast {
 enum LoxRule {
     Paren,
     Term,
+    Product,
     Expr,
     Literal,
     Unary,
+    Program,
 }
 
 impl Rule for LoxRule {
@@ -136,63 +143,69 @@ fn lox_grammar() -> Grammar<LoxRule> {
         // Expr := Term
         P {
             rule: LoxRule::Expr,
-            definition: nonempty![Symbol::Rule(LoxRule::Term)],
+            definition: nonempty![Symbol::Rule(LoxRule::Term),],
         },
-        // Expr := Expr '+' Term
-        P {
-            rule: LoxRule::Expr,
-            definition: nonempty![
-                Symbol::Rule(LoxRule::Expr),
-                Symbol::Token(LoxTokenKind::Plus),
-                Symbol::Rule(LoxRule::Term)
-            ],
-        },
-        // Expr := Expr '-' Term
-        P {
-            rule: LoxRule::Expr,
-            definition: nonempty![
-                Symbol::Rule(LoxRule::Expr),
-                Symbol::Token(LoxTokenKind::Minus),
-                Symbol::Rule(LoxRule::Term)
-            ],
-        },
-        // Term := Unary
-        P {
-            rule: LoxRule::Term,
-            definition: nonempty![Symbol::Rule(LoxRule::Unary)],
-        },
-        // Term := Term '*' Unary
+        // Term := Product '+' Term
+        //       | Product '-' Term
+        //       | Product
         P {
             rule: LoxRule::Term,
             definition: nonempty![
                 Symbol::Rule(LoxRule::Term),
+                Symbol::Token(LoxTokenKind::Plus),
+                Symbol::Rule(LoxRule::Product)
+            ],
+        },
+        P {
+            rule: LoxRule::Term,
+            definition: nonempty![
+                Symbol::Rule(LoxRule::Term),
+                Symbol::Token(LoxTokenKind::Minus),
+                Symbol::Rule(LoxRule::Product)
+            ],
+        },
+        P {
+            rule: LoxRule::Term,
+            definition: nonempty![Symbol::Rule(LoxRule::Product)],
+        },
+        // Product := Unary | Product '*' Unary | Product '/' Unary
+        P {
+            rule: LoxRule::Product,
+            definition: nonempty![Symbol::Rule(LoxRule::Unary)],
+        },
+        P {
+            rule: LoxRule::Product,
+            definition: nonempty![
+                Symbol::Rule(LoxRule::Product),
                 Symbol::Token(LoxTokenKind::Star),
                 Symbol::Rule(LoxRule::Unary)
             ],
         },
-        // Term := Term '/' Unary
         P {
-            rule: LoxRule::Term,
+            rule: LoxRule::Product,
             definition: nonempty![
-                Symbol::Rule(LoxRule::Term),
+                Symbol::Rule(LoxRule::Product),
                 Symbol::Token(LoxTokenKind::Slash),
                 Symbol::Rule(LoxRule::Unary)
             ],
         },
-        // Unary := '-' Paren
+        // Unary := '-' Unary | Paren
         P {
             rule: LoxRule::Unary,
             definition: nonempty![
                 Symbol::Token(LoxTokenKind::Bang),
-                Symbol::Rule(LoxRule::Paren),
+                Symbol::Rule(LoxRule::Unary),
             ],
         },
-        // Paren := Literal
+        P {
+            rule: LoxRule::Unary,
+            definition: nonempty![Symbol::Rule(LoxRule::Paren),],
+        },
+        // Paren := Literal | '(' Expr ')'
         P {
             rule: LoxRule::Paren,
             definition: nonempty![Symbol::Rule(LoxRule::Literal),],
         },
-        // Paren := '(' Expr ')'
         P {
             rule: LoxRule::Paren,
             definition: nonempty![

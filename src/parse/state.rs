@@ -66,7 +66,7 @@ impl State {
         &self.complete
     }
 
-    pub fn is_accepting(&self) -> bool {
+    fn is_accepting(&self) -> bool {
         self.in_progress().is_empty() && self.complete().is_empty()
     }
 
@@ -141,7 +141,9 @@ impl<R: Rule> DisplayWithGrammar<R> for State {
 
         write!(f, "done: [")?;
         for production_id in self.complete() {
-            production_id.fmt_with(grammar, f)?
+            let production = grammar.production(*production_id);
+
+            write!(f, "{}", production.rule);
         }
         write!(f, "] }}")?;
 
