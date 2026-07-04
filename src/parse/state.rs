@@ -105,6 +105,11 @@ impl State {
         follow: &Vec<HashSet<R::TokenType>>,
         token_type: &R::TokenType,
     ) -> Action {
+        // This is probably wrong: it will break any grammar where the
+        // target rule is a part of >1 other productiog, because
+        // `self.is_accepting()` won't fire. Really, we should just
+        // emit a signal saying "consume and you're done," when we
+        // produce the goal rule and next token is eof.
         if *token_type == R::TokenType::eof() && self.is_accepting() {
             Action::Accept
         } else {
