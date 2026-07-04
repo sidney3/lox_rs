@@ -1,17 +1,20 @@
 use super::chunk::Chunk;
 use super::constant::Constant;
 use super::instruction::Instruction;
+use lasso::Rodeo;
 
 pub struct ChunkBuilder {
     constants: Vec<Constant>,
     instructions: Vec<Instruction>,
+    arena: Rodeo,
 }
 
 impl ChunkBuilder {
-    pub fn new() -> Self {
+    pub fn new(arena: Rodeo) -> Self {
         Self {
             constants: Vec::new(),
             instructions: Vec::new(),
+            arena,
         }
     }
 
@@ -30,5 +33,9 @@ impl ChunkBuilder {
             constants: self.constants,
             instructions: self.instructions,
         }
+    }
+
+    pub fn arena(&self) -> &Rodeo {
+        &self.arena
     }
 }
