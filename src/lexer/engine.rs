@@ -9,6 +9,18 @@ pub struct Lexer<T> {
     dfa: DFA<T>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct Tokens<T: TokenType> {
+    pub tokens: Vec<Token<T>>,
+    pub lexeme_arena: Rodeo,
+}
+
+impl<T: TokenType> Tokens<T> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Token<T>> {
+        self.tokens.iter()
+    }
+}
+
 impl<T: TokenType> Lexer<T> {
     pub fn new(tokens: &[(T, &str)]) -> Result<Self> {
         let regex_mappings = tokens
@@ -29,9 +41,10 @@ impl<T: TokenType> Lexer<T> {
         })
     }
 
-    pub fn lex(&self, program: &str, mut rodeo: &mut Rodeo) -> Result<Vec<Token<T>>> {
+    pub fn lex(&self, program: &str) -> Result<Tokens<T>> {
         let mut cursor = Cursor::make(program);
         let mut out = Vec::new();
+        let mut rodeo = Rodeo::new();
 
         while let Some(token) = self.parse_token(&mut rodeo, &mut cursor) {
             out.push(token);
@@ -43,8 +56,13 @@ impl<T: TokenType> Lexer<T> {
             line: cursor.line(),
         });
 
+        let result = Tokens {
+            tokens: out,
+            lexeme_arena: rodeo,
+        };
+
         match cursor.next_word() {
-            None => Ok(out),
+            None => Ok(result),
             Some(next_token) => Err(Error::NoMatchingToken {
                 line: next_token.to_owned(),
                 line_number: cursor.line(),
@@ -188,9 +206,10 @@ mod test {
         ])
         .unwrap();
 
-        let mut rodeo = Rodeo::default();
+        let program = "struct structa structs sstruct struct";
+        let mut tokens = lexer.lex(program).unwrap();
 
-        let mut spur = |s| rodeo.get_or_intern(s);
+        let mut spur = |s| tokens.lexeme_arena.get_or_intern(s);
 
         let ws_token = Token {
             lexeme: spur(" "),
@@ -234,8 +253,9 @@ mod test {
 
         assert_eq!(
             lexer
-                .lex("struct structa structs sstruct struct", &mut rodeo)
-                .unwrap(),
+                .lex("struct structa structs sstruct struct")
+                .unwrap()
+                .tokens,
             expected_tokens
         )
     }

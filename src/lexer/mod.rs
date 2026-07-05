@@ -9,6 +9,6 @@ mod token;
 #[cfg(test)]
 mod fa_test;
 
-pub use engine::Lexer;
+pub use engine::{Lexer, Tokens};
 pub use error::Error;
 pub use token::{Token, TokenType};

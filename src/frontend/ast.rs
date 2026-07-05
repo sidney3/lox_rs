@@ -1,6 +1,7 @@
 use super::error::Result;
 use super::token::{LoxToken, LoxTokenKind};
-use crate::parse::{Grammar, Node, Parser, Production, Rule, Symbol, Tree};
+use crate::lexer::Tokens;
+use crate::parse::{Grammar, Node, Parent, Parser, Production, Rule, Symbol, Tree};
 use lasso::Spur;
 use lox_derive::Ordinal;
 use nonempty::nonempty;
@@ -52,7 +53,7 @@ pub struct Unary {
 }
 
 pub enum Literal {
-    Num(Spur),
+    Num(f64),
 }
 
 pub enum Expression {
@@ -66,8 +67,8 @@ pub enum Expression {
 // at each node). This is fine for the e2e api of this file (you give me
 // tokens, I give you AST), but it's duplicative.
 impl Expression {
-    fn from_cst(node: &Node<LoxRule>) -> Self {
-        if let Node::Tree(t) = node {
+    fn from_cst(root: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+        if let Node::Parent(t) = node {
             match (t.rule, t.children.as_slice()) {
                 (LoxRule::Product | LoxRule::Term, [lhs, Node::Leaf(op), rhs])
                     if matches!(
@@ -79,29 +80,31 @@ impl Expression {
                     ) =>
                 {
                     Expression::Bin(Binary {
-                        lhs: Box::new(Self::from_cst(lhs)),
+                        lhs: Box::new(Self::from_cst(root, lhs)),
                         op: BinOp::from_token(op.token_type).unwrap(),
-                        rhs: Box::new(Self::from_cst(rhs)),
+                        rhs: Box::new(Self::from_cst(root, rhs)),
                     })
                 }
                 (LoxRule::Paren, [Node::Leaf(lparen), expr, Node::Leaf(rparen)])
                     if lparen.token_type == LoxTokenKind::LParen
                         && rparen.token_type == LoxTokenKind::RParen =>
                 {
-                    Self::from_cst(expr)
+                    Self::from_cst(root, expr)
                 }
 
                 (LoxRule::Unary, [Node::Leaf(op), operand])
                     if matches!(op.token_type, LoxTokenKind::Minus) =>
                 {
                     Expression::Unary(Unary {
-                        operand: Box::new(Self::from_cst(operand)),
+                        operand: Box::new(Self::from_cst(root, operand)),
                         op: UnaryOp::from_token(op.token_type).unwrap(),
                     })
                 }
 
                 (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::Number => {
-                    Expression::Lit(Literal::Num(num.lexeme))
+                    Expression::Lit(Literal::Num(
+                        root.lexeme_arena.resolve(&num.lexeme).parse().unwrap(),
+                    ))
                 }
 
                 // passthroughs
@@ -112,7 +115,7 @@ impl Expression {
                     | LoxRule::Term
                     | LoxRule::Product,
                     [x],
-                ) => Self::from_cst(x),
+                ) => Self::from_cst(root, x),
                 _ => panic!("unreachable"),
             }
         } else {
@@ -121,17 +124,32 @@ impl Expression {
     }
 }
 
-pub enum Ast {
+pub enum AstNode {
     Expr(Expression),
 }
 
-impl Ast {
-    pub fn from_cst(node: Tree<LoxRule>) -> Self {
-        let rule = node.rule;
-
-        match rule {
-            LoxRule::Expr => Ast::Expr(Expression::from_cst(&Node::Tree(node))),
+impl AstNode {
+    pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+        match node {
+            Node::Parent(Parent { rule, children }) if *rule == LoxRule::Expr => {
+                AstNode::Expr(Expression::from_cst(ast, node))
+            }
             _ => panic!("unreachable"),
+        }
+    }
+}
+
+pub struct Ast {
+    pub lexeme_arena: lasso::Rodeo,
+    pub root: AstNode,
+}
+
+impl Ast {
+    pub fn from_cst(ast: Tree<LoxRule>) -> Self {
+        let root = AstNode::from_cst(&ast, &ast.root);
+        Ast {
+            root,
+            lexeme_arena: ast.lexeme_arena,
         }
     }
 }
@@ -246,8 +264,8 @@ impl LoxParser {
         Self(Parser::<LoxRule>::new(lox_grammar()))
     }
 
-    pub fn parse(&self, tokens: Vec<LoxToken>) -> Result<Ast> {
-        let cst = self.0.parse(tokens.into_iter())?;
+    pub fn parse(&self, tokens: Tokens<LoxTokenKind>) -> Result<Ast> {
+        let cst = self.0.parse(tokens)?;
 
         Ok(Ast::from_cst(cst))
     }

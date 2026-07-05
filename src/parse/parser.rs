@@ -7,11 +7,18 @@ use super::rule::Rule;
 use super::state::{State, StateId};
 use crate::core::Ordinal;
 use crate::core::interner::Interner;
-use crate::lexer::Token;
+use crate::lexer::{Token, Tokens};
+use lasso::Rodeo;
 use ndarray::Array2;
 
 #[derive(Debug)]
 pub struct Tree<R: Rule> {
+    pub lexeme_arena: Rodeo,
+    pub root: Node<R>,
+}
+
+#[derive(Debug)]
+pub struct Parent<R: Rule> {
     pub rule: R,
     pub children: Vec<Node<R>>,
 }
@@ -19,14 +26,14 @@ pub struct Tree<R: Rule> {
 #[derive(Debug)]
 pub enum Node<R: Rule> {
     Leaf(Token<R::TokenType>),
-    Tree(Tree<R>),
+    Parent(Parent<R>),
 }
 
 impl<R: Rule> Node<R> {
     pub fn symbol(&self) -> Symbol<R> {
         match self {
             Self::Leaf(token) => Symbol::Token(token.token_type),
-            Self::Tree(Tree { rule, children: _ }) => Symbol::Rule(*rule),
+            Self::Parent(Parent { rule, children: _ }) => Symbol::Rule(*rule),
         }
     }
 }
@@ -59,15 +66,12 @@ impl<R: Rule> Parser<R> {
         }
     }
 
-    pub fn parse(
-        &self,
-        token_stream: impl Iterator<Item = Token<R::TokenType>>,
-    ) -> Result<Tree<R>> {
+    pub fn parse(&self, tokens: Tokens<R::TokenType>) -> Result<Tree<R>> {
         println!("------ START PARSE ------");
         let mut curr_state_id = self.initial_state_id;
         let mut stack = Stack::<R>::new();
 
-        let mut iter = token_stream.peekable();
+        let mut iter = tokens.iter().peekable();
 
         loop {
             let current_state = self.state_table.get_left(curr_state_id);
@@ -85,7 +89,7 @@ impl<R: Rule> Parser<R> {
                     println!("[PARSE TIME] shifting");
 
                     match iter.next() {
-                        Some(token) => Node::Leaf(token),
+                        Some(token) => Node::Leaf(*token),
                         None => return Err(Error::ExpectedToken),
                     }
                 }
@@ -99,7 +103,7 @@ impl<R: Rule> Parser<R> {
                             curr_state_id = stack[drain_from].0;
                             println!("[PARSE TIME] returning to {curr_state_id:?}");
 
-                            Node::Tree(Tree {
+                            Node::Parent(Parent {
                                 rule: production.rule,
                                 children: stack.drain(drain_from..).map(|(_, node)| node).collect(),
                             })
@@ -118,10 +122,13 @@ impl<R: Rule> Parser<R> {
                     println!("[PARSE TIME] accepting. stack is {stack:?}");
 
                     return match stack.pop() {
-                        Some((_, Node::Tree(Tree { rule, children })))
+                        Some((_, Node::Parent(Parent { rule, children })))
                             if rule == self.grammar.target_rule() =>
                         {
-                            Ok(Tree { rule, children })
+                            Ok(Tree {
+                                lexeme_arena: tokens.lexeme_arena,
+                                root: Node::Parent(Parent { rule, children }),
+                            })
                         }
                         _ => Err(Error::IncompleteProgram),
                     };
@@ -180,44 +187,47 @@ mod test {
     type TestProduction = Production<TestRule>;
 
     type ExprNode = Node<TestRule>;
+    type TestTree = Tree<TestRule>;
 
     enum Expression {
         Sum(Box<Expression>, Box<Expression>),
         Times(Box<Expression>, Box<Expression>),
-        Literal(Token<LoxTokenKind>),
+        Literal(i64),
     }
 
     impl Expression {
-        pub fn from_cst(node: &ExprNode) -> Self {
+        pub fn from_cst(root: &TestTree, node: &ExprNode) -> Self {
             match node {
                 ExprNode::Leaf(_token) => panic!("Tokens cannot be directly parsed as expr"),
-                ExprNode::Tree(node) => match (&node.rule, node.children.as_slice()) {
+                ExprNode::Parent(Parent { rule, children }) => match (rule, children.as_slice()) {
                     (TestRule::Plus, [lhs, ExprNode::Leaf(_plus), rhs])
                         if _plus.token_type == LoxTokenKind::Plus =>
                     {
                         Expression::Sum(
-                            Box::new(Self::from_cst(lhs)),
-                            Box::new(Self::from_cst(rhs)),
+                            Box::new(Self::from_cst(root, lhs)),
+                            Box::new(Self::from_cst(root, rhs)),
                         )
                     }
-                    (TestRule::Literal, [ExprNode::Leaf(literal)]) => Expression::Literal(*literal),
+                    (TestRule::Literal, [ExprNode::Leaf(literal)]) => Expression::Literal(
+                        root.lexeme_arena.resolve(&literal.lexeme).parse().unwrap(),
+                    ),
                     (TestRule::Times, [lhs, ExprNode::Leaf(_times), rhs])
                         if _times.token_type == LoxTokenKind::Star =>
                     {
                         Expression::Times(
-                            Box::new(Self::from_cst(lhs)),
-                            Box::new(Self::from_cst(rhs)),
+                            Box::new(Self::from_cst(root, lhs)),
+                            Box::new(Self::from_cst(root, rhs)),
                         )
                     }
                     (TestRule::Paren, [ExprNode::Leaf(lparen), x, ExprNode::Leaf(rparen)])
                         if lparen.token_type == LoxTokenKind::LParen
                             && rparen.token_type == LoxTokenKind::RParen =>
                     {
-                        Self::from_cst(x)
+                        Self::from_cst(root, x)
                     }
                     // fallthrough
                     (TestRule::Expr | TestRule::Paren | TestRule::Plus | TestRule::Times, [x]) => {
-                        Self::from_cst(x)
+                        Self::from_cst(root, x)
                     }
                     _ => {
                         println!("Unreachable state: {node:?}");
@@ -227,17 +237,11 @@ mod test {
             }
         }
 
-        pub fn eval(&self, rodeo: &Rodeo) -> i64 {
+        pub fn eval(&self) -> i64 {
             match self {
-                Expression::Sum(lhs, rhs) => lhs.eval(rodeo) + rhs.eval(rodeo),
-                Expression::Times(lhs, rhs) => lhs.eval(rodeo) * rhs.eval(rodeo),
-                Expression::Literal(token) => {
-                    if token.token_type == LoxTokenKind::Number {
-                        rodeo.resolve(&token.lexeme).parse().unwrap()
-                    } else {
-                        panic!("Literal of non-int type")
-                    }
-                }
+                Expression::Sum(lhs, rhs) => lhs.eval() + rhs.eval(),
+                Expression::Times(lhs, rhs) => lhs.eval() * rhs.eval(),
+                &Expression::Literal(x) => x,
             }
         }
     }
@@ -343,9 +347,9 @@ mod test {
         }
 
         fn eval(&mut self, input: &str) -> i64 {
-            let tokens = self.lexer.lex(input, &mut self.rodeo).unwrap();
-            let cst = self.parser.parse(tokens.into_iter()).unwrap();
-            Expression::from_cst(&Node::Tree(cst)).eval(&self.rodeo)
+            let tokens = self.lexer.lex(input).unwrap();
+            let cst = self.parser.parse(tokens).unwrap();
+            Expression::from_cst(&cst, &cst.root).eval()
         }
     }
 

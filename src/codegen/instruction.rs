@@ -7,9 +7,12 @@ pub enum InstructionKind {
     Constant,
     Add,
     Sub,
+    Mult,
+    Divide,
+    Pop,
 }
 
 pub struct Instruction {
-    kind: InstructionKind,
-    operand: u8,
+    pub kind: InstructionKind,
+    pub operand: u8,
 }

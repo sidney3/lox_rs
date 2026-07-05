@@ -20,11 +20,10 @@ fn main() {
 
     let lexer = frontend::token::LoxLexer::new().unwrap();
     let parser = frontend::ast::LoxParser::new();
-    let mut rodeo = Rodeo::new();
 
     let source_code = std::fs::read_to_string(cli.script).unwrap();
-    let tokens = lexer.lex(&source_code, &mut rodeo).unwrap();
-    let ast = parser.parse(tokens).unwrap();
+    let token_result = lexer.lex(&source_code).unwrap();
+    let ast = parser.parse(token_result).unwrap();
     let chunk = codegen::Chunk::new(&ast);
     let vm = vm::Vm::new(chunk);
 

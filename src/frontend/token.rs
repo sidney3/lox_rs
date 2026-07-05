@@ -1,6 +1,6 @@
 use super::error::Result;
 use crate::lexer;
-use crate::lexer::TokenType;
+use crate::lexer::{TokenType, Tokens};
 use lasso::Rodeo;
 use lox_derive::Ordinal;
 use std::hash::Hash;
@@ -74,15 +74,19 @@ impl LoxLexer {
         Ok(Self(lexer::Lexer::<LoxTokenKind>::new(LEXICAL_SPEC)?))
     }
 
-    pub fn lex(&self, program: &str, arena: &mut Rodeo) -> Result<Vec<LoxToken>> {
-        let tokens = self.0.lex(program, arena)?;
+    pub fn lex(&self, program: &str) -> Result<Tokens<LoxTokenKind>> {
+        let result = self.0.lex(program)?;
 
-        let filtered = tokens
+        let filtered = result
+            .tokens
             .into_iter()
             .filter(|t| t.token_type != LoxTokenKind::WhiteSpace)
             .collect();
 
-        Ok(filtered)
+        Ok(Tokens {
+            tokens: filtered,
+            lexeme_arena: result.lexeme_arena,
+        })
     }
 }
 
@@ -141,20 +145,14 @@ mod test {
             "/samples/hello_world.lox"
         ));
 
-        let mut rodeo = Rodeo::default();
         let lexer = LoxLexer::new().unwrap();
 
-        let tokens: Vec<_> = lexer
-            .lex(program, &mut rodeo)
-            .unwrap()
-            .into_iter()
-            .filter(|token| token.token_type != LoxTokenKind::WhiteSpace)
-            .collect();
+        let mut tokens = lexer.lex(program).unwrap();
 
-        let mut spur = |s| rodeo.get_or_intern(s);
+        let mut spur = |s| tokens.lexeme_arena.get_or_intern(s);
 
         assert_eq!(
-            tokens,
+            tokens.tokens,
             vec![
                 LoxToken {
                     lexeme: spur("print"),
