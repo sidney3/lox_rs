@@ -6,7 +6,6 @@ mod parse;
 mod vm;
 
 use clap::Parser as ClapParser;
-use lasso::Rodeo;
 
 #[derive(ClapParser)]
 #[command(name = "lox", version, about = "A Lox Runtime")]

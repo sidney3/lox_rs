@@ -1,7 +1,6 @@
 use super::error::Result;
 use crate::lexer;
 use crate::lexer::{TokenType, Tokens};
-use lasso::Rodeo;
 use lox_derive::Ordinal;
 use std::hash::Hash;
 use strum::Display;

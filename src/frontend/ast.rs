@@ -1,8 +1,7 @@
 use super::error::Result;
-use super::token::{LoxToken, LoxTokenKind};
+use super::token::LoxTokenKind;
 use crate::lexer::Tokens;
 use crate::parse::{Grammar, Node, Parent, Parser, Production, Rule, Symbol, Tree};
-use lasso::Spur;
 use lox_derive::Ordinal;
 use nonempty::nonempty;
 use strum::Display;
