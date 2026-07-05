@@ -13,8 +13,9 @@ use std::collections::HashSet;
 #[derive(Debug, Clone)]
 pub enum Action {
     Reduce(ProductionId), // reduce to this production
-    Shift,                // shift
-    Accept,
+    Accept(ProductionId), // reduce to this production and accept it as
+    // final.
+    Shift, // shift
 }
 
 // Indexed by (StateId, TokenId)

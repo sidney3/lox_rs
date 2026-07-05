@@ -65,10 +65,6 @@ impl State {
         &self.complete
     }
 
-    fn is_accepting(&self) -> bool {
-        self.in_progress().is_empty() && self.complete().is_empty()
-    }
-
     pub fn edges<R: Rule>(&self, grammar: &Grammar<R>) -> impl Iterator<Item = Symbol<R>> {
         self.in_progress()
             .iter()
@@ -104,13 +100,16 @@ impl State {
         follow: &Vec<HashSet<R::TokenType>>,
         token_type: &R::TokenType,
     ) -> Action {
-        // This is probably wrong: it will break any grammar where the
-        // target rule is a part of >1 other productiog, because
-        // `self.is_accepting()` won't fire. Really, we should just
-        // emit a signal saying "consume and you're done," when we
-        // produce the goal rule and next token is eof.
-        if *token_type == R::TokenType::eof() && self.is_accepting() {
-            Action::Accept
+        let complete_target = self
+            .complete()
+            .iter()
+            .cloned()
+            .find(|&p| grammar.production(p).rule == grammar.target_rule());
+
+        if let Some(p) = complete_target
+            && *token_type == R::TokenType::eof()
+        {
+            Action::Accept(p)
         } else {
             let longest_complete = self
                 .complete()

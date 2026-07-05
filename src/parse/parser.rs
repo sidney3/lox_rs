@@ -82,9 +82,9 @@ impl<R: Rule> Parser<R> {
             let next_token = iter.peek().ok_or(Error::IncompleteProgram)?;
 
             // We want to support rules that return nodes that are _not_ of the type of that rule.
-            let next_node: Node<R> = match self.action_table
-                [[curr_state_id.0, next_token.token_type.ord()]]
-            {
+            let action = &self.action_table[[curr_state_id.0, next_token.token_type.ord()]];
+
+            let next_node: Node<R> = match action {
                 Action::Shift => {
                     println!("[PARSE TIME] shifting");
 
@@ -93,8 +93,8 @@ impl<R: Rule> Parser<R> {
                         None => return Err(Error::ExpectedToken),
                     }
                 }
-                Action::Reduce(production_id) => {
-                    let production = self.grammar.production(production_id);
+                Action::Reduce(production_id) | Action::Accept(production_id) => {
+                    let production = self.grammar.production(*production_id);
                     let reducing_to_rule = production.rule;
                     println!("[PARSE TIME] reducing to {reducing_to_rule:?}");
 
@@ -113,27 +113,23 @@ impl<R: Rule> Parser<R> {
                         }
                     }
                 }
-
-                Action::Accept => {
-                    if stack.len() > 1 {
-                        return Err(Error::ExcessProgram);
-                    }
-
-                    println!("[PARSE TIME] accepting. stack is {stack:?}");
-
-                    return match stack.pop() {
-                        Some((_, Node::Parent(Parent { rule, children })))
-                            if rule == self.grammar.target_rule() =>
-                        {
-                            Ok(Tree {
-                                lexeme_arena: tokens.lexeme_arena,
-                                root: Node::Parent(Parent { rule, children }),
-                            })
-                        }
-                        _ => Err(Error::IncompleteProgram),
-                    };
-                }
             };
+
+            if let Action::Accept(_) = action {
+                if !stack.is_empty() {
+                    return Err(Error::ExcessProgram);
+                }
+
+                match next_node {
+                    Node::Parent(p) if p.rule == self.grammar.target_rule() => {
+                        return Ok(Tree {
+                            lexeme_arena: tokens.lexeme_arena,
+                            root: Node::Parent(p),
+                        });
+                    }
+                    _ => panic!("unreachable"),
+                }
+            }
 
             let prev_state = curr_state_id;
 
