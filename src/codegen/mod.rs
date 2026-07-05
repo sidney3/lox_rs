@@ -5,3 +5,5 @@ mod constant;
 mod instruction;
 
 pub use chunk::Chunk;
+pub use constant::Constant;
+pub use instruction::{Instruction, InstructionKind};

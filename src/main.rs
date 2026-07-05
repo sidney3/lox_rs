@@ -24,7 +24,7 @@ fn main() {
     let token_result = lexer.lex(&source_code).unwrap();
     let ast = parser.parse(token_result).unwrap();
     let chunk = codegen::Chunk::new(&ast);
-    let vm = vm::Vm::new(chunk);
 
-    vm.run();
+    let mut vm = vm::Vm::new();
+    vm.run(&chunk).unwrap();
 }

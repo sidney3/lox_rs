@@ -2,6 +2,7 @@ use strum::FromRepr;
 
 #[derive(FromRepr)]
 #[repr(u8)]
+#[derive(Copy, Clone)]
 pub enum InstructionKind {
     Return,
     Constant,
@@ -12,6 +13,7 @@ pub enum InstructionKind {
     Pop,
 }
 
+#[derive(Copy, Clone)]
 pub struct Instruction {
     pub kind: InstructionKind,
     pub operand: u8,

@@ -14,11 +14,19 @@ pub fn compile_ast(builder: &mut ChunkBuilder, ast: &Ast) {
 }
 
 fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression, root: &Ast) {
+    compile_expression_impl(builder, expr, root);
+    builder.emit(Instruction {
+        kind: InstructionKind::Pop,
+        operand: 0,
+    })
+}
+
+fn compile_expression_impl(builder: &mut ChunkBuilder, expr: &Expression, root: &Ast) {
     // NOTE: need to emit a POP afterwards
     match expr {
         Expression::Bin(b) => {
-            compile_expression(builder, b.lhs.as_ref(), root);
-            compile_expression(builder, b.rhs.as_ref(), root);
+            compile_expression_impl(builder, b.lhs.as_ref(), root);
+            compile_expression_impl(builder, b.rhs.as_ref(), root);
             let instruction_kind = match b.op {
                 BinOp::Times => InstructionKind::Mult,
                 BinOp::Minus => InstructionKind::Sub,
@@ -35,17 +43,12 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression, root: &Ast)
             todo!();
         }
         Expression::Lit(literal) => {
-            compile_literal(builder, literal);
+            compile_literal(builder, literal, root);
         }
     }
-
-    builder.emit(Instruction {
-        kind: InstructionKind::Pop,
-        operand: 0,
-    })
 }
 
-fn compile_literal(builder: &mut ChunkBuilder, lit: &Literal) {
+fn compile_literal(builder: &mut ChunkBuilder, lit: &Literal, root: &Ast) {
     match lit {
         Literal::Num(x) => {
             let idx = builder.add_constant(Constant::Float(*x));
