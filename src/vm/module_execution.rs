@@ -88,6 +88,12 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
 
                     println!("POP {:?}", val);
                 }
+                InstructionKind::Print => {
+                    let val = self.vm.stack.pop().unwrap();
+                    println!("{:?}", val);
+                    println!("PRINT {:?}", val);
+                }
+
                 _ => todo!("Unsupported instruction"),
             }
         }
