@@ -67,41 +67,28 @@ impl<R: Rule> Parser<R> {
     }
 
     pub fn parse(&self, tokens: Tokens<R::TokenType>) -> Result<Tree<R>> {
-        println!("------ START PARSE ------");
         let mut curr_state_id = self.initial_state_id;
         let mut stack = Stack::<R>::new();
 
         let mut iter = tokens.iter().peekable();
 
         loop {
-            let current_state = self.state_table.get_left(curr_state_id);
-            println!(
-                "[PARSE TIME] Currently at {}",
-                current_state.with(&self.grammar)
-            );
             let next_token = iter.peek().ok_or(Error::IncompleteProgram)?;
 
             // We want to support rules that return nodes that are _not_ of the type of that rule.
             let action = &self.action_table[[curr_state_id.0, next_token.token_type.ord()]];
 
             let next_node: Node<R> = match action {
-                Action::Shift => {
-                    println!("[PARSE TIME] shifting");
-
-                    match iter.next() {
-                        Some(token) => Node::Leaf(*token),
-                        None => return Err(Error::ExpectedToken),
-                    }
-                }
+                Action::Shift => match iter.next() {
+                    Some(token) => Node::Leaf(*token),
+                    None => return Err(Error::ExpectedToken),
+                },
                 Action::Reduce(production_id) | Action::Accept(production_id) => {
                     let production = self.grammar.production(*production_id);
-                    let reducing_to_rule = production.rule;
-                    println!("[PARSE TIME] reducing to {reducing_to_rule:?}");
 
                     match stack.len().checked_sub(production.len()) {
                         Some(drain_from) => {
                             curr_state_id = stack[drain_from].0;
-                            println!("[PARSE TIME] returning to {curr_state_id:?}");
 
                             Node::Parent(Parent {
                                 rule: production.rule,
@@ -138,12 +125,10 @@ impl<R: Rule> Parser<R> {
                     curr_state_id = next_state_id;
                 }
                 None => {
-                    println!("Unrecognized token {:?}", next_node.symbol());
                     return Err(Error::UnrecognizedToken);
                 }
             }
 
-            println!("[PARSE TIME] push into stack ({prev_state:?},{next_node:?})");
             stack.push((prev_state, next_node));
         }
     }
@@ -226,8 +211,7 @@ mod test {
                         Self::from_cst(root, x)
                     }
                     _ => {
-                        println!("Unreachable state: {node:?}");
-                        panic!("unreachable")
+                        panic!("unreachable state: {:?}", node)
                     }
                 },
             }

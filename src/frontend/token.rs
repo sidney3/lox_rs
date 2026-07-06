@@ -159,19 +159,19 @@ mod test {
                     line: 1
                 },
                 LoxToken {
-                    lexeme: spur("("),
-                    token_type: LoxTokenKind::LParen,
-                    line: 1,
-                },
-                LoxToken {
-                    lexeme: spur("\"Hello world!\""),
-                    token_type: LoxTokenKind::String,
+                    lexeme: spur("9"),
+                    token_type: LoxTokenKind::Number,
                     line: 1
                 },
                 LoxToken {
-                    lexeme: spur(")"),
-                    token_type: LoxTokenKind::RParen,
-                    line: 1,
+                    lexeme: spur("+"),
+                    token_type: LoxTokenKind::Plus,
+                    line: 1
+                },
+                LoxToken {
+                    lexeme: spur("2"),
+                    token_type: LoxTokenKind::Number,
+                    line: 1
                 },
                 LoxToken {
                     lexeme: spur(";"),
