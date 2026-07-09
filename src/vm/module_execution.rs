@@ -3,6 +3,7 @@ use super::runtime_error::RuntimeError;
 use super::value::Value;
 use super::vm::Vm;
 use crate::codegen::{Chunk, Constant, Instruction, InstructionKind};
+use log::debug;
 use nonempty::{NonEmpty, nonempty};
 
 pub struct ModuleExecution<'a, 'b> {
@@ -65,7 +66,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
 
             match next_instruction.kind {
                 InstructionKind::Return => {
-                    println!("RETURN");
+                    debug!("RETURN");
                     return Ok(());
                 }
                 InstructionKind::Add => {
@@ -75,23 +76,23 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
                         (Value::Num(a), Value::Num(b)) => Value::Num(a + b),
                     };
 
-                    println!("ADD {:?} {:?}", lhs, rhs);
+                    debug!("ADD {:?} {:?}", lhs, rhs);
                     self.push_value(result);
                 }
                 InstructionKind::Constant => {
                     let val = self.constants[next_instruction.operand as usize].clone();
-                    println!("CONST {:?}", val);
+                    debug!("CONST {:?}", val);
                     self.push_value(val);
                 }
                 InstructionKind::Pop => {
                     let val = self.vm.stack.pop().unwrap();
 
-                    println!("POP {:?}", val);
+                    debug!("POP {:?}", val);
                 }
                 InstructionKind::Print => {
                     let val = self.vm.stack.pop().unwrap();
                     println!("{:?}", val);
-                    println!("PRINT {:?}", val);
+                    debug!("PRINT {:?}", val);
                 }
 
                 _ => todo!("Unsupported instruction"),

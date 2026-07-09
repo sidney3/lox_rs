@@ -6,6 +6,7 @@ use crate::core::interner::Interner;
 use crate::lexer::TokenType;
 use itertools::Itertools;
 use itertools::iproduct;
+use log::debug;
 use ndarray::Array2;
 use smallvec::SmallVec;
 use std::collections::HashSet;
@@ -103,7 +104,7 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
     for r in grammar.rules() {
         let follow = &follow_table[r.ord()];
 
-        println!("Follow({r:?}) := {follow:?}");
+        debug!("Follow({r:?}) := {follow:?}");
     }
 
     follow_table

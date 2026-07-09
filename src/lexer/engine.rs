@@ -4,6 +4,7 @@ use super::nfa::NFA;
 use super::regex::Regex;
 use super::token::{Token, TokenType};
 use lasso::Rodeo;
+use log::error;
 
 pub struct Lexer<T> {
     dfa: DFA<T>,
@@ -28,7 +29,7 @@ impl<T: TokenType> Lexer<T> {
             .map(|(token, regex_str)| match Regex::make(regex_str) {
                 Ok(regex) => Ok((*token, regex)),
                 Err(error) => {
-                    println!("Failed to parse regex str {}", regex_str);
+                    error!("Failed to parse regex str {}", regex_str);
                     Err(error)
                 }
             })

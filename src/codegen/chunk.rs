@@ -3,6 +3,8 @@ use super::compile::compile_ast;
 use super::constant::Constant;
 use super::instruction::Instruction;
 use crate::frontend::ast::Ast;
+use itertools::Itertools;
+use std::fmt;
 
 pub struct Chunk {
     pub constants: Vec<Constant>,
@@ -14,5 +16,14 @@ impl Chunk {
         let mut builder = ChunkBuilder::new();
         compile_ast(&mut builder, ast);
         builder.chunk()
+    }
+}
+
+impl fmt::Display for Chunk {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Constants: [{}]", self.constants.iter().join(", "))?;
+        writeln!(f, "Instructions: [{}]", self.instructions.iter().join(", "))?;
+
+        Ok(())
     }
 }

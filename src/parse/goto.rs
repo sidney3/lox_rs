@@ -26,13 +26,10 @@ pub fn make_goto<R: Rule>(
         }
 
         let state = interner.get_left(state_id).clone();
-        println!("[PRE-PARSE TIME] Currently exploring {state:?} with {state_id:?}");
 
         for edge in state.edges(grammar) {
             let next_state = state.transition(grammar, edge);
             let next_state_id = interner.intern(next_state);
-
-            println!("[PRE-PARSE TIME] edge {edge:?} maps ({state_id:?})->({next_state_id:?})");
 
             workset.push(next_state_id);
             wip_goto.push((state_id, edge, next_state_id));

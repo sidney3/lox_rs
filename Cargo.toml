@@ -23,3 +23,5 @@ thiserror = "2"
 lox_derive = { path = "lox_derive" }
 strum = { version = "0.28.0", features = ["derive"] }
 clap = { version = "4.6.1", features = ["derive"] }
+log = "0.4.33"
+env_logger = "0.11.11"

@@ -5,16 +5,24 @@ mod lexer;
 mod parse;
 mod vm;
 
-use clap::Parser as ClapParser;
+use std::path::PathBuf;
 
-#[derive(ClapParser)]
+use clap::{Parser, ValueEnum};
+
+#[derive(Parser)]
 #[command(name = "lox", version, about = "A Lox Runtime")]
 struct Cli {
     /// Path to the .lox source file (omit for REPL)
-    script: String,
+    #[arg(short, long)]
+    script: PathBuf,
+
+    #[arg(long, default_value_t = false)]
+    disasm: bool,
 }
 
 fn main() {
+    env_logger::init();
+
     let cli = Cli::parse();
 
     let lexer = frontend::token::LoxLexer::new().unwrap();
@@ -24,6 +32,10 @@ fn main() {
     let token_result = lexer.lex(&source_code).unwrap();
     let ast = parser.parse(token_result).unwrap();
     let chunk = codegen::Chunk::new(&ast);
+
+    if (cli.disasm) {
+        println!("{chunk}");
+    }
 
     let mut vm = vm::Vm::new();
     vm.run(&chunk).unwrap();
