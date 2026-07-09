@@ -1,13 +1,14 @@
-use lasso::Spur;
 use std::hash::Hash;
 
+use lasso::Spur;
+
 pub trait TokenType: Hash + Eq + Clone + Copy + PartialEq {
-    fn eof() -> Self;
+  fn eof() -> Self;
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Token<T: TokenType> {
-    pub lexeme: Spur,
-    pub token_type: T,
-    pub line: usize,
+  pub lexeme: Spur,
+  pub token_type: T,
+  pub line: usize,
 }

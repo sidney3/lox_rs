@@ -7,6 +7,6 @@ use std::hash::Hash;
 /// We use it to model our enumeration types (which are much
 /// cheaper to pass around and describe than the full types)
 pub trait Ordinal: Debug + Hash + Eq + Clone + Copy + PartialEq + Display {
-    const COUNT: usize;
-    fn ord(&self) -> usize;
+  const COUNT: usize;
+  fn ord(&self) -> usize;
 }
