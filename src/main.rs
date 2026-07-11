@@ -1,6 +1,7 @@
 mod codegen;
 mod core;
 mod frontend;
+mod gc;
 mod lexer;
 mod parse;
 mod vm;

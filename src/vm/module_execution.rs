@@ -13,22 +13,9 @@ pub struct ModuleExecution<'a, 'b> {
   constants: Vec<Value>,
 }
 
-enum StepSignal {
-  Stop,
-  Continue,
-  Abort,
-}
-
 impl<'a, 'b> ModuleExecution<'a, 'b> {
   pub fn new(vm: &'a mut Vm, module: &'b Chunk) -> Self {
-    let mut constants = Vec::new();
-
-    for x in &module.constants {
-      let value = match x {
-        Constant::Float(f) => Value::Num(*f),
-      };
-      constants.push(value);
-    }
+    let constants: Vec<_> = module.constants.iter().map(|c| vm.load_const(c)).collect();
     Self {
       vm,
       call_stack: nonempty![CallFrame {
@@ -40,19 +27,19 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
     }
   }
 
-  pub fn frame_mut(&mut self) -> &mut CallFrame<'b> {
+  fn frame_mut(&mut self) -> &mut CallFrame<'b> {
     self.call_stack.last_mut()
   }
 
-  pub fn pop_value(&mut self) -> Option<Value> {
+  fn pop_value(&mut self) -> Option<Value> {
     self.vm.stack.pop()
   }
 
-  pub fn pop_value_always(&mut self) -> Value {
+  fn pop_value_always(&mut self) -> Value {
     self.vm.stack.pop().unwrap()
   }
 
-  pub fn push_value(&mut self, val: Value) {
+  fn push_value(&mut self, val: Value) {
     self.vm.stack.push(val);
   }
 
@@ -74,6 +61,11 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           let rhs = self.pop_value_always();
           let result = match (&lhs, &rhs) {
             (Value::Num(a), Value::Num(b)) => Value::Num(a + b),
+            _ => {
+              return Err(RuntimeError {
+                msg: format!("Bad binary expression between: {}, {}", lhs, rhs,),
+              });
+            }
           };
 
           debug!("ADD {:?} {:?}", lhs, rhs);
@@ -91,7 +83,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
         }
         InstructionKind::Print => {
           let val = self.vm.stack.pop().unwrap();
-          println!("{:?}", val);
+          println!("{val}");
           debug!("PRINT {:?}", val);
         }
 

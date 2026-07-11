@@ -1,16 +1,18 @@
-use super::vm::Vm;
+use std::fmt;
 
-#[derive(Debug)]
+use crate::gc::RootedObj;
+
+#[derive(Debug, Clone)]
 pub enum Value {
   Num(f64),
+  Obj(RootedObj),
 }
 
-impl Value {
-  // TODO: this should also take in some
-  // sort of "add reference" function
-  pub fn clone(&mut self) -> Self {
+impl fmt::Display for Value {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
-      Self::Num(x) => Self::Num(*x),
+      Value::Num(x) => write!(f, "{}", x),
+      Value::Obj(handle) => write!(f, "{}", handle.deref()),
     }
   }
 }

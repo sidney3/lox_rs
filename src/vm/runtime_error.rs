@@ -1,2 +1,4 @@
 #[derive(Debug)]
-pub struct RuntimeError {}
+pub struct RuntimeError {
+  pub msg: String,
+}
