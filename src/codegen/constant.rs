@@ -4,7 +4,7 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub enum Constant {
   Float(f64),
-  String(Rc<str>),
+  String(String),
 }
 
 impl fmt::Display for Constant {

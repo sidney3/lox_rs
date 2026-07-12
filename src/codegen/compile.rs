@@ -65,16 +65,15 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression, root: &Ast)
 }
 
 fn compile_literal(builder: &mut ChunkBuilder, lit: &Literal, root: &Ast) {
-  match lit {
-    Literal::Num(x) => {
-      let idx = builder.add_constant(Constant::Float(*x));
-      match u8::try_from(idx) {
-        Ok(small_idx) => builder.emit(Instruction {
-          kind: InstructionKind::Constant,
-          operand: small_idx,
-        }),
-        Err(_) => todo!("support wide indices"),
-      }
-    }
+  let constant_idx = match lit {
+    Literal::Num(x) => builder.add_constant(Constant::Float(*x)),
+    Literal::String(x) => builder.add_constant(Constant::String(x.clone())),
+  };
+  match u8::try_from(constant_idx) {
+    Ok(small_idx) => builder.emit(Instruction {
+      kind: InstructionKind::Constant,
+      operand: small_idx,
+    }),
+    Err(_) => todo!("support wide indices"),
   }
 }

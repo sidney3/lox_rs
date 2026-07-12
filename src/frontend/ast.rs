@@ -83,6 +83,7 @@ pub struct Unary {
 
 pub enum Literal {
   Num(f64),
+  String(String),
 }
 
 pub enum Expression {
@@ -236,10 +237,14 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Token(LoxTokenKind::RParen),
       ],
     },
-    // Literal := 'Num'
+    // Literal := 'Num' | 'Str'
     P {
       rule: LoxRule::Literal,
       definition: nonempty![Symbol::Token(LoxTokenKind::Number)],
+    },
+    P {
+      rule: LoxRule::Literal,
+      definition: nonempty![Symbol::Token(LoxTokenKind::String)],
     },
   ])
 }
@@ -413,6 +418,12 @@ impl Expression {
         (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::Number => {
           Expression::Lit(Literal::Num(
             root.lexeme_arena.resolve(&num.lexeme).parse().unwrap(),
+          ))
+        }
+
+        (LoxRule::Literal, [Node::Leaf(s)]) if s.token_type == LoxTokenKind::String => {
+          Expression::Lit(Literal::String(
+            root.lexeme_arena.resolve(&s.lexeme).to_string(),
           ))
         }
 
