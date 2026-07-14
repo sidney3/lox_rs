@@ -1,8 +1,13 @@
 use super::module_execution::ModuleExecution;
+use super::obj::ObjData;
 use super::runtime_error::RuntimeError;
 use super::value::Value;
 use crate::codegen::{Chunk, Constant};
-use crate::gc::{Heap, ObjData};
+use crate::gc;
+
+pub type Heap = gc::Heap<ObjData>;
+pub type Handle = gc::Handle<ObjData>;
+pub type Root = gc::Root<ObjData>;
 
 pub struct Vm {
   pub stack: Vec<Value>,
@@ -24,7 +29,10 @@ impl Vm {
   pub fn load_const(&mut self, x: &Constant) -> Value {
     match x {
       Constant::Float(f) => Value::Num(*f),
-      Constant::String(s) => Value::Obj(self.heap.alloc(ObjData::String(s.to_string())).root()),
+      Constant::String(s) => {
+        let obj = ObjData::String(s.to_string());
+        Value::Obj(self.heap.alloc(obj))
+      }
     }
   }
 }

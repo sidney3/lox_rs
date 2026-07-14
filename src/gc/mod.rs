@@ -1,3 +1,3 @@
 mod heap;
 
-pub use heap::{GcObj, Heap, ObjData, RootedObj};
+pub use heap::{Handle, Heap, Root};

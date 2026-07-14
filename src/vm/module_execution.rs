@@ -6,6 +6,7 @@ use super::runtime_error::RuntimeError;
 use super::value::Value;
 use super::vm::Vm;
 use crate::codegen::{Chunk, Constant, Instruction, InstructionKind};
+use std::fmt;
 
 pub struct ModuleExecution<'a, 'b> {
   vm: &'a mut Vm,
@@ -63,7 +64,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
             (Value::Num(a), Value::Num(b)) => Value::Num(a + b),
             _ => {
               return Err(RuntimeError {
-                msg: format!("Bad binary expression between: {}, {}", lhs, rhs,),
+                msg: format!("Bad binary expression between: {:?}, {:?}", lhs, rhs,),
               });
             }
           };
@@ -83,7 +84,14 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
         }
         InstructionKind::Print => {
           let val = self.vm.stack.pop().unwrap();
-          println!("{val}");
+          let repr = match val {
+            Value::Num(x) => x.to_string(),
+            Value::Obj(handle) => {
+              let obj = self.vm.heap.root(handle);
+              format!("{}", *obj.borrow())
+            }
+          };
+          println!("{repr}");
           debug!("PRINT {:?}", val);
         }
 

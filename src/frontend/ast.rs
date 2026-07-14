@@ -422,9 +422,15 @@ impl Expression {
         }
 
         (LoxRule::Literal, [Node::Leaf(s)]) if s.token_type == LoxTokenKind::String => {
-          Expression::Lit(Literal::String(
-            root.lexeme_arena.resolve(&s.lexeme).to_string(),
-          ))
+          let inner = root
+            .lexeme_arena
+            .resolve(&s.lexeme)
+            .strip_prefix("\"")
+            .and_then(|s| s.strip_suffix("\""))
+            .unwrap()
+            .to_string();
+
+          Expression::Lit(Literal::String(inner))
         }
 
         // passthroughs
