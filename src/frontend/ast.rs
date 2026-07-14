@@ -14,11 +14,7 @@ pub enum LoxRule {
   Paren,
   Term,
   Product,
-  Equals,
-  GreaterEqual,
-  Greater,
-  Less,
-  LessEqual,
+  Compare,
   Expr,
   Literal,
   Unary,
@@ -42,6 +38,12 @@ pub enum BinOp {
   Divide,
   Plus,
   Minus,
+
+  Equals,
+  Less,
+  Leq,
+  Greater,
+  Geq,
 }
 
 impl BinOp {
@@ -51,6 +53,11 @@ impl BinOp {
       LoxTokenKind::Slash => Some(Self::Divide),
       LoxTokenKind::Plus => Some(Self::Plus),
       LoxTokenKind::Minus => Some(Self::Minus),
+      LoxTokenKind::EqualEqual => Some(Self::Equals),
+      LoxTokenKind::Less => Some(Self::Less),
+      LoxTokenKind::LessEqual => Some(Self::Leq),
+      LoxTokenKind::Greater => Some(Self::Greater),
+      LoxTokenKind::GreaterEqual => Some(Self::Geq),
       _ => None,
     }
   }
@@ -187,11 +194,64 @@ fn lox_grammar() -> Grammar<LoxRule> {
     // ------------------
     // EXPRESSION GRAMMAR
     // ------------------
-    // Expr := Term
+    // Expr := Compare
     P {
       rule: LoxRule::Expr,
+      definition: nonempty![Symbol::Rule(LoxRule::Compare),],
+    },
+    // Compare :=
+    //       | Term '==' Compare
+    //       | Term '>=' Compare
+    //       | Term '>' Compare
+    //       | Term '<' Compare
+    //       | Term '<=' Compare
+    //       | Term
+    //
+    P {
+      rule: LoxRule::Compare,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::Term),
+        Symbol::Token(LoxTokenKind::EqualEqual),
+        Symbol::Rule(LoxRule::Compare)
+      ],
+    },
+    P {
+      rule: LoxRule::Compare,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::Term),
+        Symbol::Token(LoxTokenKind::LessEqual),
+        Symbol::Rule(LoxRule::Compare)
+      ],
+    },
+    P {
+      rule: LoxRule::Compare,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::Term),
+        Symbol::Token(LoxTokenKind::Less),
+        Symbol::Rule(LoxRule::Compare)
+      ],
+    },
+    P {
+      rule: LoxRule::Compare,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::Term),
+        Symbol::Token(LoxTokenKind::GreaterEqual),
+        Symbol::Rule(LoxRule::Compare)
+      ],
+    },
+    P {
+      rule: LoxRule::Compare,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::Term),
+        Symbol::Token(LoxTokenKind::Greater),
+        Symbol::Rule(LoxRule::Compare)
+      ],
+    },
+    P {
+      rule: LoxRule::Compare,
       definition: nonempty![Symbol::Rule(LoxRule::Term),],
     },
+    //
     // Term := Product '+' Term
     //       | Product '-' Term
     //       | Product
@@ -439,12 +499,7 @@ impl Expression {
   fn from_cst(root: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     if let Node::Parent(t) = node {
       match (t.rule, t.children.as_slice()) {
-        (LoxRule::Product | LoxRule::Term, [lhs, Node::Leaf(op), rhs])
-          if matches!(
-            op.token_type,
-            LoxTokenKind::Plus | LoxTokenKind::Minus | LoxTokenKind::Slash | LoxTokenKind::Star
-          ) =>
-        {
+        (LoxRule::Product | LoxRule::Term | LoxRule::Compare, [lhs, Node::Leaf(op), rhs]) => {
           Expression::Bin(Binary {
             lhs: Box::new(Self::from_cst(root, lhs)),
             op: BinOp::from_token(op.token_type).unwrap(),
@@ -487,7 +542,12 @@ impl Expression {
 
         // passthroughs
         (
-          LoxRule::Paren | LoxRule::Expr | LoxRule::Unary | LoxRule::Term | LoxRule::Product,
+          LoxRule::Paren
+          | LoxRule::Expr
+          | LoxRule::Unary
+          | LoxRule::Term
+          | LoxRule::Product
+          | LoxRule::Compare,
           [x],
         ) => Self::from_cst(root, x),
         _ => panic!("unreachable: {:?}", node),

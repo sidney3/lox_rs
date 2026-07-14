@@ -11,6 +11,7 @@ use super::state::{State, StateId};
 use crate::core::Ordinal;
 use crate::core::interner::Interner;
 use crate::lexer::{Token, Tokens};
+use log::error;
 
 #[derive(Debug)]
 pub struct Tree<R: Rule> {
@@ -126,6 +127,7 @@ impl<R: Rule> Parser<R> {
           curr_state_id = next_state_id;
         }
         None => {
+          error!("Unrecognized token {}", next_node.symbol());
           return Err(Error::UnrecognizedToken);
         }
       }

@@ -75,8 +75,13 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
         InstructionKind::Divide => self.execute_binary(Value::divide)?,
         InstructionKind::Mult => self.execute_binary(Value::mult)?,
         InstructionKind::Sub => self.execute_binary(Value::sub)?,
+        InstructionKind::Geq => self.execute_binary(Value::geq)?,
+        InstructionKind::Leq => self.execute_binary(Value::leq)?,
+        InstructionKind::Equals => self.execute_binary(Value::equals)?,
+        InstructionKind::Greater => self.execute_binary(Value::greater)?,
+        InstructionKind::Less => self.execute_binary(Value::less)?,
         InstructionKind::Constant => {
-          let val = self.constants[next_instruction.operand as usize].clone();
+          let val = self.constants[next_instruction.operand as usize];
           debug!("CONST {:?}", val);
           self.push_value(val);
         }
@@ -93,6 +98,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
               let obj = self.vm.heap.root(handle);
               format!("{}", *obj.borrow())
             }
+            Value::Bool(b) => if b { "True" } else { "False" }.to_string(),
           };
           println!("{repr}");
           debug!("PRINT {:?}", val);

@@ -119,13 +119,13 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
   (LoxTokenKind::LessEqual, "<="),
   (LoxTokenKind::For, "for"),
   (LoxTokenKind::False, "false"),
-  (LoxTokenKind::And, "and"),
+  (LoxTokenKind::And, "&&"),
   (LoxTokenKind::Class, "class"),
   (LoxTokenKind::Else, "else"),
   (LoxTokenKind::Fun, "fun"),
   (LoxTokenKind::If, "if"),
   (LoxTokenKind::Nil, "nil"),
-  (LoxTokenKind::Or, "or"),
+  (LoxTokenKind::Or, "\\|\\|"),
   (LoxTokenKind::Return, "return"),
   (LoxTokenKind::Super, "super"),
   (LoxTokenKind::This, "this"),
@@ -135,7 +135,7 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
   (LoxTokenKind::Print, "print"), // TODO: remove this token
   (LoxTokenKind::Number, "[1-9][0-9]*"),
   (LoxTokenKind::Number, "[0-9]"),
-  (LoxTokenKind::String, "\"[\u{20}-\u{7E}]*\""),
+  (LoxTokenKind::String, "\"[\u{20}-\u{21}\u{23}-\u{7E}]*\""),
   (LoxTokenKind::Ident, "[a-zA-Z]([a-zA-Z0-9]|_)*"),
 ];
 

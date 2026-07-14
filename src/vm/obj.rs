@@ -11,15 +11,21 @@ pub enum ObjData {
 }
 
 impl ObjData {
-  pub fn add_right(&self, x: Num) -> Result<ObjData, RuntimeError> {
+  pub fn add_right(&self, rhs: Num) -> Result<ObjData, RuntimeError> {
     match self {
-      ObjData::String(s) => Ok(ObjData::String(format!("{s}{x}"))),
+      ObjData::String(s) => Ok(ObjData::String(format!("{s}{rhs}"))),
     }
   }
 
-  pub fn add_left(&self, x: Num) -> Result<ObjData, RuntimeError> {
+  pub fn add_left(&self, lhs: Num) -> Result<ObjData, RuntimeError> {
     match self {
-      ObjData::String(s) => Ok(ObjData::String(format!("{x}{s}"))),
+      ObjData::String(s) => Ok(ObjData::String(format!("{lhs}{s}"))),
+    }
+  }
+
+  pub fn equals(&self, rhs: &Self) -> bool {
+    match (self, rhs) {
+      (Self::String(s1), Self::String(s2)) => s1 == s2,
     }
   }
 }

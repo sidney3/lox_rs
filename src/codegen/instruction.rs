@@ -13,6 +13,11 @@ pub enum InstructionKind {
   Mult,
   Divide,
   Pop,
+  Equals,
+  Geq,
+  Leq,
+  Greater,
+  Less,
   // TODO: remove when we get functions
   // working
   Print,

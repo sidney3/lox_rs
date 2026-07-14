@@ -50,6 +50,11 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression, root: &Ast)
         BinOp::Minus => InstructionKind::Sub,
         BinOp::Divide => InstructionKind::Divide,
         BinOp::Plus => InstructionKind::Add,
+        BinOp::Geq => InstructionKind::Geq,
+        BinOp::Leq => InstructionKind::Leq,
+        BinOp::Equals => InstructionKind::Equals,
+        BinOp::Less => InstructionKind::Less,
+        BinOp::Greater => InstructionKind::Greater,
       };
 
       builder.emit(Instruction {
