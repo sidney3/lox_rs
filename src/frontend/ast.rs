@@ -308,11 +308,22 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Rule(LoxRule::Unary)
       ],
     },
-    // Unary := '-' Unary | Paren
+    // Unary :=
+    //       '-' Unary
+    //      | '!' Unary
+    //      | Paren
+    //
     P {
       rule: LoxRule::Unary,
       definition: nonempty![
         Symbol::Token(LoxTokenKind::Bang),
+        Symbol::Rule(LoxRule::Unary),
+      ],
+    },
+    P {
+      rule: LoxRule::Unary,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::Minus),
         Symbol::Rule(LoxRule::Unary),
       ],
     },
@@ -534,15 +545,11 @@ impl Expression {
           Self::from_cst(root, expr)
         }
 
-        (LoxRule::Unary, [Node::Leaf(op), operand])
-          if matches!(op.token_type, LoxTokenKind::Minus) =>
-        {
-          Expression::Unary(Unary {
-            operand: Box::new(Self::from_cst(root, operand)),
-            op: UnaryOp::from_token(op.token_type)
-              .unwrap_or_else(|| panic!("Unexpected unary op: {}", op.token_type)),
-          })
-        }
+        (LoxRule::Unary, [Node::Leaf(op), operand]) => Expression::Unary(Unary {
+          operand: Box::new(Self::from_cst(root, operand)),
+          op: UnaryOp::from_token(op.token_type)
+            .unwrap_or_else(|| panic!("Unexpected unary op: {}", op.token_type)),
+        }),
 
         (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::Number => {
           Expression::Lit(Literal::Num(

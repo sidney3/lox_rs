@@ -4,7 +4,7 @@ use crate::{
     constant::Constant,
     instruction::{Instruction, InstructionKind},
   },
-  frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement},
+  frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp},
 };
 
 pub fn compile_ast(builder: &mut ChunkBuilder, ast: &Ast) {
@@ -63,8 +63,13 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression, root: &Ast)
         operand: 0,
       })
     }
-    Expression::Unary(_u) => {
-      todo!();
+    Expression::Unary(u) => {
+      compile_expression(builder, u.operand.as_ref(), root);
+      let instruction_kind = match u.op {
+        UnaryOp::Not => InstructionKind::Not,
+        UnaryOp::Minus => InstructionKind::UnaryMinus,
+      };
+      builder.emit(Instruction::new(instruction_kind));
     }
     Expression::Lit(literal) => {
       compile_literal(builder, literal, root);
@@ -72,7 +77,7 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression, root: &Ast)
   }
 }
 
-fn compile_literal(builder: &mut ChunkBuilder, lit: &Literal, root: &Ast) {
+fn compile_literal(builder: &mut ChunkBuilder, lit: &Literal, _: &Ast) {
   let constant_idx = match lit {
     &Literal::Num(x) => builder.add_constant(Constant::Float(x)),
     Literal::String(x) => builder.add_constant(Constant::String(x.clone())),

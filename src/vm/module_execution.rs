@@ -58,6 +58,18 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
     Ok(())
   }
 
+  fn execute_unary<F: FnOnce(Value, &mut Vm) -> Result<Value, RuntimeError>>(
+    &mut self,
+    f: F,
+  ) -> Result<(), RuntimeError> {
+    let operand = self.pop_value_always();
+
+    let result = f(operand, self.vm)?;
+
+    self.push_value(result);
+    Ok(())
+  }
+
   pub fn execute(mut self) -> Result<(), RuntimeError> {
     loop {
       let next_instruction: Instruction = if let Some(inst) = self.frame_mut().pop_instruction() {
@@ -81,6 +93,8 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
         InstructionKind::Neq => self.execute_binary(Value::neq)?,
         InstructionKind::Greater => self.execute_binary(Value::greater)?,
         InstructionKind::Less => self.execute_binary(Value::less)?,
+        InstructionKind::UnaryMinus => self.execute_unary(Value::unary_minus)?,
+        InstructionKind::Not => self.execute_unary(Value::not)?,
         InstructionKind::Constant => {
           let val = self.constants[next_instruction.operand as usize];
           debug!("CONST {:?}", val);

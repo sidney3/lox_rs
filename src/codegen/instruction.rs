@@ -8,6 +8,8 @@ use strum::{Display, FromRepr};
 pub enum InstructionKind {
   Return,
   Constant,
+
+  // Binary expression
   Add,
   Sub,
   Mult,
@@ -19,6 +21,11 @@ pub enum InstructionKind {
   Neq,
   Greater,
   Less,
+
+  // Unary expressions.
+  Not,
+  UnaryMinus,
+
   // TODO: remove when we get functions
   // working
   Print,

@@ -104,6 +104,20 @@ impl Value {
     self.binary_arithmetic(rhs, |a, b| Value::Bool(a >= b), ">=")
   }
 
+  pub fn not(self, _: &mut Vm) -> Result<Value, RuntimeError> {
+    match self {
+      Value::Bool(b) => Ok(Value::Bool(!b)),
+      _ => Err(RuntimeError::new("Invalid input to not")),
+    }
+  }
+
+  pub fn unary_minus(self, _: &mut Vm) -> Result<Value, RuntimeError> {
+    match self {
+      Value::Num(x) => Ok(Value::Num(-x)),
+      _ => Err(RuntimeError::new("Invalid input to minus")),
+    }
+  }
+
   fn binary_arithmetic<F: FnOnce(Num, Num) -> Value>(
     self,
     rhs: Value,
