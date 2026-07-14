@@ -1,3 +1,5 @@
+use std::fmt;
+
 use log::debug;
 use nonempty::{NonEmpty, nonempty};
 
@@ -9,7 +11,6 @@ use super::vm::Vm;
 use super::vm::{Handle, Root};
 use crate::codegen::{Chunk, Constant, Instruction, InstructionKind};
 use crate::gc::{Ref, RefMut};
-use std::fmt;
 
 pub struct ModuleExecution<'a, 'b> {
   vm: &'a mut Vm,

@@ -7,4 +7,3 @@ mod vm;
 
 pub use runtime_error::RuntimeError;
 pub use vm::Vm;
-

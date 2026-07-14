@@ -1,9 +1,10 @@
-use log::info;
 use std::cell::Cell;
 use std::fmt;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
+
+use log::info;
 
 #[derive(Clone, Copy)]
 enum BorrowState {

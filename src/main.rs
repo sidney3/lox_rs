@@ -1,8 +1,7 @@
-use lox_rs::{Config, run};
-
 use std::path::PathBuf;
 
 use clap::Parser;
+use lox_rs::{Config, run};
 
 #[derive(Parser)]
 #[command(name = "lox", version, about = "A Lox Runtime")]
