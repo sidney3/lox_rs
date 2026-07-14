@@ -76,6 +76,12 @@ impl Value {
     };
     Ok(Value::Bool(eq))
   }
+  pub fn neq(self, rhs: Value, vm: &mut Vm) -> Result<Value, RuntimeError> {
+    match self.equals(rhs, vm)? {
+      Value::Bool(b) => Ok(Value::Bool(!b)),
+      _ => panic!("unreachable. equals() should always return Value::Bool"),
+    }
+  }
   pub fn mult(self, rhs: Value, _: &mut Vm) -> Result<Value, RuntimeError> {
     self.binary_arithmetic(rhs, |a, b| Value::Num(a * b), "*")
   }

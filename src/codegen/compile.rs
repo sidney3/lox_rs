@@ -55,6 +55,7 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression, root: &Ast)
         BinOp::Equals => InstructionKind::Equals,
         BinOp::Less => InstructionKind::Less,
         BinOp::Greater => InstructionKind::Greater,
+        BinOp::Neq => InstructionKind::Neq,
       };
 
       builder.emit(Instruction {

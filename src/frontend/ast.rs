@@ -44,6 +44,7 @@ pub enum BinOp {
   Leq,
   Greater,
   Geq,
+  Neq,
 }
 
 impl BinOp {
@@ -58,6 +59,7 @@ impl BinOp {
       LoxTokenKind::LessEqual => Some(Self::Leq),
       LoxTokenKind::Greater => Some(Self::Greater),
       LoxTokenKind::GreaterEqual => Some(Self::Geq),
+      LoxTokenKind::BangEqual => Some(Self::Neq),
       _ => None,
     }
   }
@@ -206,6 +208,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
     //       | Term '>' Compare
     //       | Term '<' Compare
     //       | Term '<=' Compare
+    //       | Term '!=' Compare
     //       | Term
     //
     P {
@@ -245,6 +248,14 @@ fn lox_grammar() -> Grammar<LoxRule> {
       definition: nonempty![
         Symbol::Rule(LoxRule::Term),
         Symbol::Token(LoxTokenKind::Greater),
+        Symbol::Rule(LoxRule::Compare)
+      ],
+    },
+    P {
+      rule: LoxRule::Compare,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::Term),
+        Symbol::Token(LoxTokenKind::BangEqual),
         Symbol::Rule(LoxRule::Compare)
       ],
     },
@@ -511,7 +522,8 @@ impl Expression {
         (LoxRule::Product | LoxRule::Term | LoxRule::Compare, [lhs, Node::Leaf(op), rhs]) => {
           Expression::Bin(Binary {
             lhs: Box::new(Self::from_cst(root, lhs)),
-            op: BinOp::from_token(op.token_type).unwrap(),
+            op: BinOp::from_token(op.token_type)
+              .unwrap_or_else(|| panic!("Unexpected binary op: {}", op.token_type)),
             rhs: Box::new(Self::from_cst(root, rhs)),
           })
         }
@@ -527,7 +539,8 @@ impl Expression {
         {
           Expression::Unary(Unary {
             operand: Box::new(Self::from_cst(root, operand)),
-            op: UnaryOp::from_token(op.token_type).unwrap(),
+            op: UnaryOp::from_token(op.token_type)
+              .unwrap_or_else(|| panic!("Unexpected unary op: {}", op.token_type)),
           })
         }
 

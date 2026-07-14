@@ -16,6 +16,7 @@ pub enum InstructionKind {
   Equals,
   Geq,
   Leq,
+  Neq,
   Greater,
   Less,
   // TODO: remove when we get functions
