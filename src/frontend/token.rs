@@ -141,10 +141,7 @@ mod test {
 
   #[test]
   fn test_program() {
-    let program = include_str!(concat!(
-      env!("CARGO_MANIFEST_DIR"),
-      "/samples/hello_world.lox"
-    ));
+    let program = "print 9 + 2;\n";
 
     let lexer = LoxLexer::new().unwrap();
 
