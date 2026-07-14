@@ -1,3 +1,3 @@
 mod heap;
 
-pub use heap::{Handle, Heap, Root};
+pub use heap::{Handle, Heap, Ref, RefMut, Root};

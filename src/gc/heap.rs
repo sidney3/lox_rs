@@ -140,6 +140,10 @@ impl<U> Handle<U> {
   fn new(value: NonNull<GcBlock<U>>) -> Self {
     Self { value }
   }
+
+  unsafe fn header(&self) -> &GcHeader {
+    unsafe { &self.value.as_ref().header }
+  }
 }
 
 impl<U> Root<U> {
@@ -195,6 +199,27 @@ impl<U> Heap<U> {
 
   pub fn root(&mut self, gc: Handle<U>) -> Root<U> {
     Root::new(gc.value)
+  }
+
+  pub fn borrow(&self, gc: Handle<U>) -> Ref<'_, U> {
+    unsafe {
+      gc.header().start_borrow();
+    }
+
+    Ref {
+      value: gc.value,
+      _life: PhantomData,
+    }
+  }
+  pub fn borrow_mut(&self, gc: Handle<U>) -> RefMut<'_, U> {
+    unsafe {
+      gc.header().start_borrow_mut();
+    }
+
+    RefMut {
+      value: gc.value,
+      _life: PhantomData,
+    }
   }
 }
 

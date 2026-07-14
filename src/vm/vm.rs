@@ -29,10 +29,11 @@ impl Vm {
   pub fn load_const(&mut self, x: &Constant) -> Value {
     match x {
       Constant::Float(f) => Value::Num(*f),
-      Constant::String(s) => {
-        let obj = ObjData::String(s.to_string());
-        Value::Obj(self.heap.alloc(obj))
-      }
+      Constant::String(s) => self.alloc(ObjData::String(s.clone())),
     }
+  }
+
+  pub fn alloc(&mut self, obj: ObjData) -> Value {
+    Value::Obj(self.heap.alloc(obj))
   }
 }
