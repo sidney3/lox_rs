@@ -5,4 +5,6 @@ mod runtime_error;
 mod value;
 mod vm;
 
+pub use runtime_error::RuntimeError;
 pub use vm::Vm;
+
