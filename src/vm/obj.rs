@@ -23,6 +23,12 @@ impl ObjData {
     }
   }
 
+  pub fn add(&self, rhs: &Self) -> Result<ObjData, RuntimeError> {
+    match (self, rhs) {
+      (ObjData::String(s1), ObjData::String(s2)) => Ok(ObjData::String(format!("{s1}{s2}"))),
+    }
+  }
+
   pub fn equals(&self, rhs: &Self) -> bool {
     match (self, rhs) {
       (Self::String(s1), Self::String(s2)) => s1 == s2,

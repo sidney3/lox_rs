@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::vm::obj::ObjData;
+
 use super::RuntimeError;
 use super::vm::{Handle, Vm};
 
@@ -23,6 +25,15 @@ impl Value {
       (Value::Num(a), Value::Obj(b)) => {
         let obj = vm.obj(b).add_left(a)?;
         Ok(vm.alloc(obj))
+      }
+      (Value::Obj(a), Value::Obj(b)) => {
+        let out = {
+          let lhs = vm.obj(a);
+          let rhs = vm.obj(b);
+          lhs.add(&rhs)
+        };
+
+        out.map(|o| vm.alloc(o))
       }
       _ => Err(RuntimeError {
         msg: format!("Bad binary expression between: {:?}, {:?}", self, rhs,),

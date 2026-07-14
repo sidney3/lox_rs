@@ -24,5 +24,5 @@ fn main() {
     disasm: cli.disasm,
   };
 
-  run(cfg)
+  run(cfg).unwrap();
 }

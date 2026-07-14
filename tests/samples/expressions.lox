@@ -1,0 +1,7 @@
+assert 5 == 5;
+assert 5 > 4;
+assert 5 >= 4;
+assert (5 + 1) >= 5;
+assert "a" == "a";
+assert "a" + "b" + "c" + 1 == "abc1";
+assert (("abc" + "def") + "hij" == "abcdefhij") == true;

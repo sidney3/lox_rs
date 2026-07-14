@@ -8,12 +8,14 @@ mod vm;
 
 use std::path::PathBuf;
 
+use crate::vm::RuntimeError;
+
 pub struct Config {
   pub script: PathBuf,
   pub disasm: bool,
 }
 
-pub fn run(config: Config) {
+pub fn run(config: Config) -> Result<(), RuntimeError> {
   let lexer = frontend::token::LoxLexer::new().unwrap();
   let parser = frontend::ast::LoxParser::new();
 
@@ -27,5 +29,5 @@ pub fn run(config: Config) {
   }
 
   let mut vm = vm::Vm::new();
-  vm.run(&chunk).unwrap();
+  vm.run(&chunk)
 }
