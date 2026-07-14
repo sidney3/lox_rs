@@ -97,6 +97,7 @@ pub struct Unary {
 pub enum Literal {
   Num(f64),
   String(String),
+  Bool(bool),
 }
 
 pub enum Expression {
@@ -321,7 +322,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Token(LoxTokenKind::RParen),
       ],
     },
-    // Literal := 'Num' | 'Str'
+    // Literal := 'Num' | 'Str' | 'True' | 'False'
     P {
       rule: LoxRule::Literal,
       definition: nonempty![Symbol::Token(LoxTokenKind::Number)],
@@ -329,6 +330,14 @@ fn lox_grammar() -> Grammar<LoxRule> {
     P {
       rule: LoxRule::Literal,
       definition: nonempty![Symbol::Token(LoxTokenKind::String)],
+    },
+    P {
+      rule: LoxRule::Literal,
+      definition: nonempty![Symbol::Token(LoxTokenKind::True)],
+    },
+    P {
+      rule: LoxRule::Literal,
+      definition: nonempty![Symbol::Token(LoxTokenKind::False)],
     },
   ])
 }
@@ -392,7 +401,7 @@ impl AssertStatement {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
       Node::Parent(Parent {
-        rule: LoxRule::Print,
+        rule: LoxRule::Assert,
         children,
       }) => match children.as_slice() {
         [Node::Leaf(print), expr, Node::Leaf(semicolon)]
@@ -405,7 +414,7 @@ impl AssertStatement {
         }
         _ => panic!("unreachable"),
       },
-      _ => panic!("unreachable"),
+      _ => panic!("unreachable: {:?}", node),
     }
   }
 }
@@ -526,6 +535,13 @@ impl Expression {
           Expression::Lit(Literal::Num(
             root.lexeme_arena.resolve(&num.lexeme).parse().unwrap(),
           ))
+        }
+        (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::True => {
+          Expression::Lit(Literal::Bool(true))
+        }
+
+        (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::False => {
+          Expression::Lit(Literal::Bool(false))
         }
 
         (LoxRule::Literal, [Node::Leaf(s)]) if s.token_type == LoxTokenKind::String => {

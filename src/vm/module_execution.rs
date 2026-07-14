@@ -103,7 +103,16 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           println!("{repr}");
           debug!("PRINT {:?}", val);
         }
-        _ => todo!("unhandled instruction: {}", next_instruction.kind),
+        InstructionKind::Assert => {
+          let operand = match self.pop_value_always() {
+            Value::Bool(b) => b,
+            _ => return Err(RuntimeError::new("Assert expects bool operand")),
+          };
+
+          if !operand {
+            return Err(RuntimeError::new("Assert failed"));
+          }
+        }
       }
     }
   }

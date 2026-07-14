@@ -73,8 +73,9 @@ fn compile_expression(builder: &mut ChunkBuilder, expr: &Expression, root: &Ast)
 
 fn compile_literal(builder: &mut ChunkBuilder, lit: &Literal, root: &Ast) {
   let constant_idx = match lit {
-    Literal::Num(x) => builder.add_constant(Constant::Float(*x)),
+    &Literal::Num(x) => builder.add_constant(Constant::Float(x)),
     Literal::String(x) => builder.add_constant(Constant::String(x.clone())),
+    &Literal::Bool(x) => builder.add_constant(Constant::Bool(x)),
   };
   match u8::try_from(constant_idx) {
     Ok(small_idx) => builder.emit(Instruction {

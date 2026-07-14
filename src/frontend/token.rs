@@ -132,7 +132,8 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
   (LoxTokenKind::True, "true"),
   (LoxTokenKind::Var, "var"),
   (LoxTokenKind::While, "while"),
-  (LoxTokenKind::Print, "print"), // TODO: remove this token
+  (LoxTokenKind::Print, "print"),   // TODO: remove this token
+  (LoxTokenKind::Assert, "assert"), // TODO: remove this token
   (LoxTokenKind::Number, "[1-9][0-9]*"),
   (LoxTokenKind::Number, "[0-9]"),
   (LoxTokenKind::String, "\"[\u{20}-\u{21}\u{23}-\u{7E}]*\""),

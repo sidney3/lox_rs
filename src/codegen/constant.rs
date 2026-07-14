@@ -1,10 +1,10 @@
 use std::fmt;
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub enum Constant {
   Float(f64),
   String(String),
+  Bool(bool),
 }
 
 impl fmt::Display for Constant {
@@ -12,6 +12,9 @@ impl fmt::Display for Constant {
     match self {
       Constant::Float(x) => write!(f, "{x}"),
       Constant::String(s) => write!(f, "{s}"),
+      &Constant::Bool(x) => {
+        write!(f, "{}", if x { "true" } else { "false" })
+      }
     }
   }
 }

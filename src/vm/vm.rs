@@ -32,8 +32,9 @@ impl Vm {
 
   pub fn load_const(&mut self, x: &Constant) -> Value {
     match x {
-      Constant::Float(f) => Value::Num(*f),
+      &Constant::Float(f) => Value::Num(f),
       Constant::String(s) => self.alloc(ObjData::String(s.clone())),
+      &Constant::Bool(b) => Value::Bool(b),
     }
   }
 
