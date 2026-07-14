@@ -26,6 +26,10 @@ impl Vm {
     ModuleExecution::new(self, module).execute()
   }
 
+  pub fn obj(&self, h: Handle) -> gc::Ref<'_, ObjData> {
+    self.heap.borrow(h)
+  }
+
   pub fn load_const(&mut self, x: &Constant) -> Value {
     match x {
       Constant::Float(f) => Value::Num(*f),
