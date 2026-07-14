@@ -48,7 +48,10 @@ pub enum LoxTokenKind {
   Var,
   While,
 
+  // TODO: get rid of these and represent
+  // them as native functions
   Print,
+  Assert,
 
   // Literals
   Number,
@@ -131,6 +134,7 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
   (LoxTokenKind::While, "while"),
   (LoxTokenKind::Print, "print"), // TODO: remove this token
   (LoxTokenKind::Number, "[1-9][0-9]*"),
+  (LoxTokenKind::Number, "[0-9]"),
   (LoxTokenKind::String, "\"[\u{20}-\u{7E}]*\""),
   (LoxTokenKind::Ident, "[a-zA-Z]([a-zA-Z0-9]|_)*"),
 ];

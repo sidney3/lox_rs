@@ -19,6 +19,7 @@ pub enum LoxRule {
   Unary,
   Program,
   Print,
+  Assert,
   Declaration,
   Statement,
   ExprStatement,
@@ -100,9 +101,14 @@ pub struct PrintStatement {
   pub operand: Expression,
 }
 
+pub struct AssertStatement {
+  pub operand: Expression,
+}
+
 pub enum Statement {
   Expr(ExprStatement),
   Print(PrintStatement),
+  Assert(AssertStatement),
 }
 
 pub enum Declaration {
@@ -134,10 +140,14 @@ fn lox_grammar() -> Grammar<LoxRule> {
       rule: LoxRule::Declaration,
       definition: nonempty![Symbol::Rule(LoxRule::Statement)],
     },
-    // Statement := PrintStatement | ExpressionStatemt;
+    // Statement := AssertStatement | PrintStatement | ExpressionStatemt;
     P {
       rule: LoxRule::Statement,
       definition: nonempty![Symbol::Rule(LoxRule::Print)],
+    },
+    P {
+      rule: LoxRule::Statement,
+      definition: nonempty![Symbol::Rule(LoxRule::Assert)],
     },
     P {
       rule: LoxRule::Statement,
@@ -148,6 +158,15 @@ fn lox_grammar() -> Grammar<LoxRule> {
       rule: LoxRule::Print,
       definition: nonempty![
         Symbol::Token(LoxTokenKind::Print),
+        Symbol::Rule(LoxRule::Expr),
+        Symbol::Token(LoxTokenKind::Semicolon)
+      ],
+    },
+    // AssertStatement := 'assert' Expr ';'
+    P {
+      rule: LoxRule::Assert,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::Assert),
         Symbol::Rule(LoxRule::Expr),
         Symbol::Token(LoxTokenKind::Semicolon)
       ],
@@ -304,6 +323,28 @@ impl PrintStatement {
   }
 }
 
+impl AssertStatement {
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::Print,
+        children,
+      }) => match children.as_slice() {
+        [Node::Leaf(print), expr, Node::Leaf(semicolon)]
+          if print.token_type == LoxTokenKind::Assert
+            && semicolon.token_type == LoxTokenKind::Semicolon =>
+        {
+          AssertStatement {
+            operand: Expression::from_cst(ast, expr),
+          }
+        }
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+}
+
 impl Statement {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
@@ -317,6 +358,12 @@ impl Statement {
             children: _,
           }),
         ] => Statement::Print(PrintStatement::from_cst(ast, &children[0])),
+        [
+          Node::Parent(Parent {
+            rule: LoxRule::Assert,
+            children: _,
+          }),
+        ] => Statement::Assert(AssertStatement::from_cst(ast, &children[0])),
         [
           Node::Parent(Parent {
             rule: LoxRule::ExprStatement,

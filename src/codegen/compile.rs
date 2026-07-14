@@ -4,9 +4,7 @@ use crate::{
     constant::Constant,
     instruction::{Instruction, InstructionKind},
   },
-  frontend::ast::{
-    Ast, BinOp, Declaration, ExprStatement, Expression, Literal, PrintStatement, Program, Statement,
-  },
+  frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement},
 };
 
 pub fn compile_ast(builder: &mut ChunkBuilder, ast: &Ast) {
@@ -34,6 +32,10 @@ fn compile_statement(builder: &mut ChunkBuilder, statement: &Statement, root: &A
         kind: InstructionKind::Print,
         operand: 0,
       });
+    }
+    Statement::Assert(a) => {
+      compile_expression(builder, &a.operand, root);
+      builder.emit(Instruction::new(InstructionKind::Assert))
     }
   }
 }

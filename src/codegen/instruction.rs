@@ -16,6 +16,7 @@ pub enum InstructionKind {
   // TODO: remove when we get functions
   // working
   Print,
+  Assert,
 }
 
 #[derive(Copy, Clone)]

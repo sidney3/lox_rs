@@ -47,6 +47,20 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
     self.vm.heap.borrow(h)
   }
 
+  fn execute_binary<F: FnOnce(&mut Self, Value, Value) -> Result<Value, RuntimeError>>(
+    &mut self,
+    f: F,
+  ) -> Result<(), RuntimeError> {
+    let rhs = self.pop_value_always();
+    let lhs = self.pop_value_always();
+
+    let result = f(self, lhs, rhs)?;
+
+    self.push_value(result);
+
+    Ok(())
+  }
+
   pub fn execute(mut self) -> Result<(), RuntimeError> {
     loop {
       let next_instruction: Instruction = if let Some(inst) = self.frame_mut().pop_instruction() {
@@ -60,29 +74,49 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           debug!("RETURN");
           return Ok(());
         }
-        InstructionKind::Add => {
-          let lhs = self.pop_value_always();
-          let rhs = self.pop_value_always();
-          let result = match (&lhs, &rhs) {
-            (Value::Num(a), Value::Num(b)) => Value::Num(a + b),
+        InstructionKind::Add => self.execute_binary(|s, lhs, rhs| {
+          debug!("ADD {:?} {:?}", lhs, rhs);
+          match (&lhs, &rhs) {
+            (Value::Num(a), Value::Num(b)) => Ok(Value::Num(a + b)),
             (&Value::Obj(a), &Value::Num(b)) => {
-              let obj = self.obj(a).add_left(b)?;
-              self.vm.alloc(obj)
+              let obj = s.obj(a).add_left(b)?;
+              Ok(s.vm.alloc(obj))
             }
             (&Value::Num(a), &Value::Obj(b)) => {
-              let obj = self.obj(b).add_right(a)?;
-              self.vm.alloc(obj)
+              let obj = s.obj(b).add_right(a)?;
+              Ok(s.vm.alloc(obj))
             }
-            _ => {
-              return Err(RuntimeError {
-                msg: format!("Bad binary expression between: {:?}, {:?}", lhs, rhs,),
-              });
+            _ => Err(RuntimeError {
+              msg: format!("Bad binary expression between: {:?}, {:?}", lhs, rhs,),
+            }),
+          }
+        })?,
+        InstructionKind::Divide => self.execute_binary(|_, lhs, rhs| match (&lhs, &rhs) {
+          (Value::Num(a), &Value::Num(b)) => {
+            if b != 0f64 {
+              Ok(Value::Num(a / b))
+            } else {
+              Err(RuntimeError {
+                msg: "Divide by zero".to_string(),
+              })
             }
-          };
-
-          debug!("ADD {:?} {:?}", lhs, rhs);
-          self.push_value(result);
-        }
+          }
+          _ => Err(RuntimeError {
+            msg: format!("Bad divide between: {:?}, {:?}", lhs, rhs),
+          }),
+        })?,
+        InstructionKind::Mult => self.execute_binary(|_, lhs, rhs| match (&lhs, &rhs) {
+          (Value::Num(a), Value::Num(b)) => Ok(Value::Num(a * b)),
+          _ => Err(RuntimeError {
+            msg: format!("Bad mult between: {:?}, {:?}", lhs, rhs),
+          }),
+        })?,
+        InstructionKind::Sub => self.execute_binary(|_, lhs, rhs| match (&lhs, &rhs) {
+          (Value::Num(a), Value::Num(b)) => Ok(Value::Num(a - b)),
+          _ => Err(RuntimeError {
+            msg: format!("Bad sub between: {:?}, {:?}", lhs, rhs),
+          }),
+        })?,
         InstructionKind::Constant => {
           let val = self.constants[next_instruction.operand as usize].clone();
           debug!("CONST {:?}", val);
@@ -105,8 +139,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           println!("{repr}");
           debug!("PRINT {:?}", val);
         }
-
-        _ => todo!("Unsupported instruction"),
+        _ => todo!("unhandled instruction: {}", next_instruction.kind),
       }
     }
   }
