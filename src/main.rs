@@ -1,14 +1,8 @@
-mod codegen;
-mod core;
-mod frontend;
-mod gc;
-mod lexer;
-mod parse;
-mod vm;
+use lox_rs::{Config, run};
 
 use std::path::PathBuf;
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 
 #[derive(Parser)]
 #[command(name = "lox", version, about = "A Lox Runtime")]
@@ -26,18 +20,10 @@ fn main() {
 
   let cli = Cli::parse();
 
-  let lexer = frontend::token::LoxLexer::new().unwrap();
-  let parser = frontend::ast::LoxParser::new();
+  let cfg = Config {
+    script: cli.script,
+    disasm: cli.disasm,
+  };
 
-  let source_code = std::fs::read_to_string(cli.script).unwrap();
-  let token_result = lexer.lex(&source_code).unwrap();
-  let ast = parser.parse(token_result).unwrap();
-  let chunk = codegen::Chunk::new(&ast);
-
-  if (cli.disasm) {
-    println!("{chunk}");
-  }
-
-  let mut vm = vm::Vm::new();
-  vm.run(&chunk).unwrap();
+  run(cfg)
 }
