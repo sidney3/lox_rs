@@ -80,7 +80,6 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
 
       match next_instruction.kind {
         InstructionKind::Return => {
-          debug!("RETURN");
           return Ok(());
         }
         InstructionKind::Add => self.execute_binary(Value::add)?,
@@ -97,26 +96,14 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
         InstructionKind::Not => self.execute_unary(Value::not)?,
         InstructionKind::Constant => {
           let val = self.constants[next_instruction.operand as usize];
-          debug!("CONST {:?}", val);
           self.push_value(val);
         }
         InstructionKind::Pop => {
-          let val = self.vm.stack.pop().unwrap();
-
-          debug!("POP {:?}", val);
+          self.pop_value_always();
         }
         InstructionKind::Print => {
-          let val = self.vm.stack.pop().unwrap();
-          let repr = match val {
-            Value::Num(x) => x.to_string(),
-            Value::Obj(handle) => {
-              let obj = self.vm.heap.root(handle);
-              format!("{}", *obj.borrow())
-            }
-            Value::Bool(b) => if b { "True" } else { "False" }.to_string(),
-          };
-          println!("{repr}");
-          debug!("PRINT {:?}", val);
+          let val = self.pop_value_always();
+          println!("{}", val.repr(self.vm));
         }
         InstructionKind::Assert => {
           let operand = match self.pop_value_always() {

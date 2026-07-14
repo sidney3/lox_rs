@@ -118,6 +118,16 @@ impl Value {
     }
   }
 
+  pub fn repr(self, vm: &mut Vm) -> String {
+    match self {
+      Value::Num(x) => x.to_string(),
+      Value::Obj(o) => {
+        format!("{}", *vm.obj(o))
+      }
+      Value::Bool(b) => if b { "True" } else { "False" }.to_string(),
+    }
+  }
+
   fn binary_arithmetic<F: FnOnce(Num, Num) -> Value>(
     self,
     rhs: Value,
