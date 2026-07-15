@@ -1,6 +1,7 @@
 use super::compilation::Compilation;
 use super::emitter::Emitter;
 use super::error::{Error, Result};
+use crate::frontend::ast::{Assign, LValue};
 use crate::{
   codegen::{
     constant::Constant,
@@ -31,7 +32,7 @@ fn compile_declaration(builder: &mut Emitter, decl: &Declaration, root: &Ast) ->
     Declaration::Statement(s) => compile_statement(builder, s, root)?,
     Declaration::Var(v) => {
       compile_expression(builder, &v.assign, root)?;
-      let name_idx = builder.add_name(root.lexeme_arena.resolve(&v.ident))?;
+      let name_idx = builder.get_or_intern_name(root.lexeme_arena.resolve(&v.ident))?;
       builder.emit(Instruction {
         kind: InstructionKind::AddGlobal,
         operand: name_idx,
@@ -96,18 +97,37 @@ fn compile_expression(builder: &mut Emitter, expr: &Expression, root: &Ast) -> R
     Expression::Lit(literal) => {
       compile_literal(builder, literal, root)?;
     }
+    // TODO: when we introduce more variable kinds (local notably),
+    // include some sort of "lookup_variable" that describes uniform
+    // interface of looking 'em up.
+    Expression::Assign(Assign { assignee, assign }) => {
+      compile_expression(builder, assign, root)?;
+
+      let lit = match assignee {
+        LValue::Var(v) => {
+          let idx = builder.get_or_intern_name(root.lexeme_arena.resolve(v))?;
+          builder.emit(Instruction {
+            kind: InstructionKind::SetGlobal,
+            operand: idx,
+          });
+          Literal::Var(*v)
+        }
+      };
+
+      compile_literal(builder, &lit, root)?;
+    }
   }
 
   Ok(())
 }
 
-fn compile_literal(builder: &mut Emitter, lit: &Literal, ast: &Ast) -> Result<()> {
+fn compile_literal(builder: &mut Emitter, lit: &Literal, root: &Ast) -> Result<()> {
   match lit {
     &Literal::Num(x) => builder.emit_constant(Constant::Float(x))?,
     Literal::String(x) => builder.emit_constant(Constant::String(x.clone()))?,
     &Literal::Bool(x) => builder.emit_constant(Constant::Bool(x))?,
     Literal::Var(v) => {
-      let idx = builder.add_name(ast.lexeme_arena.resolve(v))?;
+      let idx = builder.get_or_intern_name(root.lexeme_arena.resolve(v))?;
       builder.emit(Instruction {
         kind: InstructionKind::LoadGlobal,
         operand: idx,

@@ -12,6 +12,7 @@ pub enum InstructionKind {
   Constant,
   AddGlobal,
   LoadGlobal,
+  SetGlobal,
 
   // Binary expression
   Add,

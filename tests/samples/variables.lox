@@ -4,3 +4,6 @@ var y = 10;
 assert 2 * x == y;
 var z = y;
 assert z == y;
+z = x;
+assert z != y;
+assert 2 * z == y;

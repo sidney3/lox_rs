@@ -24,6 +24,9 @@ pub enum LoxRule {
   Declaration,
   Statement,
   ExprStatement,
+
+  LValue,
+  Assign,
 }
 
 impl Rule for LoxRule {
@@ -107,6 +110,7 @@ pub enum Expression {
   Bin(Binary),
   Unary(Unary),
   Lit(Literal),
+  Assign(Assign),
 }
 
 pub struct ExprStatement {
@@ -135,6 +139,15 @@ pub struct VarDeclaration {
 pub enum Declaration {
   Statement(Statement),
   Var(VarDeclaration),
+}
+
+pub enum LValue {
+  Var(lasso::Spur),
+}
+
+pub struct Assign {
+  pub assignee: LValue,
+  pub assign: Box<Expression>,
 }
 
 pub struct Program {
@@ -214,10 +227,30 @@ fn lox_grammar() -> Grammar<LoxRule> {
     // ------------------
     // EXPRESSION GRAMMAR
     // ------------------
-    // Expr := Compare
+    // Expr := Assign
     P {
       rule: LoxRule::Expr,
-      definition: nonempty![Symbol::Rule(LoxRule::Compare),],
+      definition: nonempty![Symbol::Rule(LoxRule::Assign),],
+    },
+    // Assign :=
+    //       | lvalue '=' Expr
+    //       | Compare
+    //
+    P {
+      rule: LoxRule::Assign,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::LValue),
+        Symbol::Token(LoxTokenKind::Equal),
+        Symbol::Rule(LoxRule::Expr)
+      ],
+    },
+    P {
+      rule: LoxRule::Assign,
+      definition: nonempty![Symbol::Rule(LoxRule::Compare)],
+    },
+    P {
+      rule: LoxRule::LValue,
+      definition: nonempty![Symbol::Token(LoxTokenKind::Ident)],
     },
     // Compare :=
     //       | Term '==' Compare
@@ -555,6 +588,22 @@ impl Program {
   }
 }
 
+impl LValue {
+  pub fn from_cst(_: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::LValue,
+        children,
+      }) => match children.as_slice() {
+        [Node::Leaf(token)] if token.token_type == LoxTokenKind::Ident => LValue::Var(token.lexeme),
+        _ => panic!("unreachable: {:?}", node),
+      },
+      Node::Leaf(token) if token.token_type == LoxTokenKind::Ident => LValue::Var(token.lexeme),
+      _ => panic!("unreachable: {:?}", node),
+    }
+  }
+}
+
 // TODO: write a better parser-generator. The one we have right now
 // loses a lot of semantic information (and just emits the raw tokens
 // at each node). This is fine for the e2e api of this file (you give me
@@ -563,6 +612,12 @@ impl Expression {
   fn from_cst(root: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     if let Node::Parent(t) = node {
       match (t.rule, t.children.as_slice()) {
+        (LoxRule::Assign, [lhs, Node::Leaf(eq), rhs]) if eq.token_type == LoxTokenKind::Equal => {
+          Expression::Assign(Assign {
+            assignee: LValue::from_cst(root, lhs),
+            assign: Box::new(Expression::from_cst(root, rhs)),
+          })
+        }
         (LoxRule::Product | LoxRule::Term | LoxRule::Compare, [lhs, Node::Leaf(op), rhs]) => {
           Expression::Bin(Binary {
             lhs: Box::new(Self::from_cst(root, lhs)),
@@ -620,7 +675,8 @@ impl Expression {
           | LoxRule::Unary
           | LoxRule::Term
           | LoxRule::Product
-          | LoxRule::Compare,
+          | LoxRule::Compare
+          | LoxRule::Assign,
           [x],
         ) => Self::from_cst(root, x),
         _ => panic!("unreachable: {:?}", node),

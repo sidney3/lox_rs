@@ -45,7 +45,7 @@ impl Emitter {
     OperandType::try_from(index).map_err(|_| Error::ConstantIndexOutOfRange(index))
   }
 
-  pub fn add_name(&mut self, name: &str) -> Result<OperandType> {
+  pub fn get_or_intern_name(&mut self, name: &str) -> Result<OperandType> {
     let index = self.names.get_or_intern(name).into_usize();
     OperandType::try_from(index).map_err(|_| Error::GlobalIndexOutOfRange(index))
   }
