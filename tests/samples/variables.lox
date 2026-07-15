@@ -1,0 +1,6 @@
+var x = 5;
+assert x == 5;
+var y = 10;
+assert 2 * x == y;
+var z = y;
+assert z == y;

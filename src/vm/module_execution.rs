@@ -1,7 +1,7 @@
 use lasso::Key;
 use std::fmt;
 
-use log::debug;
+use log::{debug, info};
 use nonempty::{NonEmpty, nonempty};
 
 use super::call_frame::CallFrame;
@@ -137,7 +137,28 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
             lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur"),
           );
 
+          info!("Add global: {}", self.vm.symbols.resolve(&global_idx));
+
           self.vm.globals.insert(global_idx, assign);
+        }
+        InstructionKind::LoadGlobal => {
+          let global_idx = self.resolve_foreign_symbol(
+            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur"),
+          );
+
+          info!("Load global: {}", self.vm.symbols.resolve(&global_idx));
+
+          let global = self.vm.globals.get(&global_idx).ok_or_else(|| {
+            RuntimeError::new(
+              format!(
+                "Unrecognized ident: {}",
+                self.vm.symbols.resolve(&global_idx)
+              )
+              .as_str(),
+            )
+          })?;
+
+          self.push_value(*global);
         }
       }
     }

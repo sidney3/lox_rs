@@ -5,7 +5,7 @@ use super::Compilation;
 use super::chunk::Chunk;
 use super::constant::Constant;
 use super::error::{Error, Result};
-use super::instruction::{Instruction, OperandType};
+use super::instruction::{Instruction, InstructionKind, OperandType};
 use lasso::Key;
 
 pub struct Emitter {
@@ -28,6 +28,15 @@ impl Emitter {
 
   pub fn emit(&mut self, instruction: Instruction) {
     self.instructions.push(instruction);
+  }
+
+  pub fn emit_constant(&mut self, constant: Constant) -> Result<()> {
+    let index = self.add_constant(constant)?;
+    self.emit(Instruction {
+      kind: InstructionKind::Constant,
+      operand: index,
+    });
+    Ok(())
   }
 
   pub fn add_constant(&mut self, constant: Constant) -> Result<OperandType> {

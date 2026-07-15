@@ -1,7 +1,7 @@
 use std::collections::{VecDeque, vec_deque};
 
 use lox_derive::Ordinal;
-use nonempty::nonempty;
+use nonempty::{NonEmpty, nonempty};
 use strum::Display;
 
 use super::error::Result;
@@ -100,6 +100,7 @@ pub enum Literal {
   Num(f64),
   String(String),
   Bool(bool),
+  Var(lasso::Spur),
 }
 
 pub enum Expression {
@@ -137,7 +138,7 @@ pub enum Declaration {
 }
 
 pub struct Program {
-  pub declarations: VecDeque<Declaration>,
+  pub declarations: NonEmpty<Declaration>,
 }
 
 type P = Production<LoxRule>;
@@ -360,7 +361,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Token(LoxTokenKind::RParen),
       ],
     },
-    // Literal := 'Num' | 'Str' | 'True' | 'False'
+    // Literal := 'Num' | 'Str' | 'True' | 'False' | 'Ident'
     P {
       rule: LoxRule::Literal,
       definition: nonempty![Symbol::Token(LoxTokenKind::Number)],
@@ -376,6 +377,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
     P {
       rule: LoxRule::Literal,
       definition: nonempty![Symbol::Token(LoxTokenKind::False)],
+    },
+    P {
+      rule: LoxRule::Literal,
+      definition: nonempty![Symbol::Token(LoxTokenKind::Ident)],
     },
   ])
 }
@@ -521,9 +526,9 @@ impl Declaration {
 }
 
 impl Program {
-  pub fn new() -> Self {
+  pub fn new(last: Declaration) -> Self {
     Self {
-      declarations: VecDeque::new(),
+      declarations: nonempty![last],
     }
   }
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
@@ -536,16 +541,12 @@ impl Program {
           let decl = Declaration::from_cst(ast, decl_node);
           let mut program = Program::from_cst(ast, program_node);
 
-          program.declarations.push_front(decl);
+          program.declarations.push(decl);
           program
         }
         [decl_node] => {
           let decl = Declaration::from_cst(ast, decl_node);
-          let mut decls = VecDeque::new();
-          decls.push_back(decl);
-          Program {
-            declarations: decls,
-          }
+          Program::new(decl)
         }
         _ => panic!("unreachable"),
       },
@@ -594,6 +595,10 @@ impl Expression {
 
         (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::False => {
           Expression::Lit(Literal::Bool(false))
+        }
+
+        (LoxRule::Literal, [Node::Leaf(ident)]) if ident.token_type == LoxTokenKind::Ident => {
+          Expression::Lit(Literal::Var(ident.lexeme))
         }
 
         (LoxRule::Literal, [Node::Leaf(s)]) if s.token_type == LoxTokenKind::String => {

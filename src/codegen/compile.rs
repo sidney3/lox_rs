@@ -101,17 +101,19 @@ fn compile_expression(builder: &mut Emitter, expr: &Expression, root: &Ast) -> R
   Ok(())
 }
 
-fn compile_literal(builder: &mut Emitter, lit: &Literal, _: &Ast) -> Result<()> {
-  let constant_idx = match lit {
-    &Literal::Num(x) => builder.add_constant(Constant::Float(x)),
-    Literal::String(x) => builder.add_constant(Constant::String(x.clone())),
-    &Literal::Bool(x) => builder.add_constant(Constant::Bool(x)),
-  }?;
-
-  builder.emit(Instruction {
-    kind: InstructionKind::Constant,
-    operand: constant_idx,
-  });
+fn compile_literal(builder: &mut Emitter, lit: &Literal, ast: &Ast) -> Result<()> {
+  match lit {
+    &Literal::Num(x) => builder.emit_constant(Constant::Float(x))?,
+    Literal::String(x) => builder.emit_constant(Constant::String(x.clone()))?,
+    &Literal::Bool(x) => builder.emit_constant(Constant::Bool(x))?,
+    Literal::Var(v) => {
+      let idx = builder.add_name(ast.lexeme_arena.resolve(v))?;
+      builder.emit(Instruction {
+        kind: InstructionKind::LoadGlobal,
+        operand: idx,
+      })
+    }
+  };
 
   Ok(())
 }
