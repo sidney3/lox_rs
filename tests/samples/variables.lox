@@ -7,3 +7,8 @@ assert z == y;
 z = x;
 assert z != y;
 assert 2 * z == y;
+
+{
+	var x = 9;
+	assert x == 9;
+}

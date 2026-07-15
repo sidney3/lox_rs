@@ -24,6 +24,7 @@ pub enum LoxRule {
   Declaration,
   Statement,
   ExprStatement,
+  BlockStatement,
 
   LValue,
   Assign,
@@ -125,10 +126,16 @@ pub struct AssertStatement {
   pub operand: Expression,
 }
 
+pub struct Block {
+  // TODO: support empty blocks
+  pub declarations: Vec<Declaration>,
+}
+
 pub enum Statement {
   Expr(ExprStatement),
   Print(PrintStatement),
   Assert(AssertStatement),
+  Block(Block),
 }
 
 pub struct VarDeclaration {
@@ -185,7 +192,11 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Token(LoxTokenKind::Semicolon),
       ],
     },
-    // Statement := AssertStatement | PrintStatement | ExpressionStatemt;
+    // Statement :=
+    // AssertStatement
+    // | PrintStatement
+    // | ExpressionStatemt
+    // | '{' BlockStatement '}';
     P {
       rule: LoxRule::Statement,
       definition: nonempty![Symbol::Rule(LoxRule::Print)],
@@ -197,6 +208,26 @@ fn lox_grammar() -> Grammar<LoxRule> {
     P {
       rule: LoxRule::Statement,
       definition: nonempty![Symbol::Rule(LoxRule::ExprStatement)],
+    },
+    P {
+      rule: LoxRule::Statement,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::LBracket),
+        Symbol::Rule(LoxRule::BlockStatement),
+        Symbol::Token(LoxTokenKind::RBracket)
+      ],
+    },
+    // BlockStatement := Declaration | BlockStatement Declaration
+    P {
+      rule: LoxRule::BlockStatement,
+      definition: nonempty![Symbol::Rule(LoxRule::Declaration)],
+    },
+    P {
+      rule: LoxRule::BlockStatement,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::BlockStatement),
+        Symbol::Rule(LoxRule::Declaration)
+      ],
     },
     // PrintStatement := 'print' Expr ';'
     P {
@@ -520,7 +551,12 @@ impl Statement {
             children: _,
           }),
         ] => Statement::Expr(ExprStatement::from_cst(ast, &children[0])),
-        _ => panic!(),
+        [Node::Leaf(l), block, Node::Leaf(r)]
+          if l.token_type == LoxTokenKind::LBracket && r.token_type == LoxTokenKind::RBracket =>
+        {
+          Statement::Block(Block::from_cst(ast, block))
+        }
+        _ => panic!("unreachable: {:?}", node),
       },
       _ => panic!("unreachable: {:?}", node),
     }
@@ -564,6 +600,11 @@ impl Program {
       declarations: nonempty![last],
     }
   }
+
+  pub fn push(mut self, next: Declaration) -> Self {
+    self.declarations.push(next);
+    self
+  }
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
       Node::Parent(Parent {
@@ -571,16 +612,9 @@ impl Program {
         children,
       }) => match children.as_slice() {
         [program_node, decl_node] => {
-          let decl = Declaration::from_cst(ast, decl_node);
-          let mut program = Program::from_cst(ast, program_node);
-
-          program.declarations.push(decl);
-          program
+          Program::from_cst(ast, program_node).push(Declaration::from_cst(ast, decl_node))
         }
-        [decl_node] => {
-          let decl = Declaration::from_cst(ast, decl_node);
-          Program::new(decl)
-        }
+        [decl_node] => Program::new(Declaration::from_cst(ast, decl_node)),
         _ => panic!("unreachable"),
       },
       _ => panic!("unreachable"),
@@ -600,6 +634,34 @@ impl LValue {
       },
       Node::Leaf(token) if token.token_type == LoxTokenKind::Ident => LValue::Var(token.lexeme),
       _ => panic!("unreachable: {:?}", node),
+    }
+  }
+}
+
+impl Block {
+  pub fn new(first: Declaration) -> Self {
+    Self {
+      declarations: vec![first],
+    }
+  }
+
+  pub fn push(mut self, next: Declaration) -> Self {
+    self.declarations.push(next);
+    self
+  }
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::BlockStatement,
+        children,
+      }) => match children.as_slice() {
+        [statement] => Block::new(Declaration::from_cst(ast, statement)),
+        [block, statement] => {
+          Block::from_cst(ast, block).push(Declaration::from_cst(ast, statement))
+        }
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
     }
   }
 }

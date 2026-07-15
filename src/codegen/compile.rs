@@ -59,6 +59,16 @@ fn compile_statement(builder: &mut Emitter, statement: &Statement, root: &Ast) -
       compile_expression(builder, &a.operand, root)?;
       builder.emit(Instruction::new(InstructionKind::Assert));
     }
+
+    Statement::Block(block) => {
+      builder.begin_scope();
+
+      for decl in &block.declarations {
+        compile_declaration(builder, decl, root);
+      }
+
+      builder.end_scope();
+    }
   };
   Ok(())
 }

@@ -8,9 +8,17 @@ use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use lasso::Key;
 
+#[derive(Clone, Copy)]
+pub struct Local {
+  pub depth: usize,
+  pub ident: lasso::Spur,
+}
+
 pub struct Emitter {
   constants: Vec<Constant>,
   instructions: Vec<Instruction>,
+  locals: Vec<Local>,
+  depth: usize,
 
   // names that survive to runtime, as strings.
   // NB: the runtime will peer into this arena!
@@ -23,6 +31,8 @@ impl Emitter {
       constants: Vec::new(),
       instructions: Vec::new(),
       names: lasso::Rodeo::new(),
+      locals: Vec::new(),
+      depth: 0,
     }
   }
 
@@ -58,5 +68,29 @@ impl Emitter {
       symbols: self.names,
       constants: self.constants,
     }
+  }
+
+  pub fn depth(&self) -> usize {
+    self.depth
+  }
+
+  pub fn at_global_depth(&self) -> bool {
+    self.depth() == 0
+  }
+
+  pub fn begin_scope(&mut self) {
+    self.depth += 1;
+  }
+
+  pub fn end_scope(&mut self) {
+    assert!(!self.at_global_depth());
+
+    while let Some(local) = self.locals.last() {
+      if local.depth == self.depth {
+        self.emit(Instruction::new(InstructionKind::Pop));
+        self.locals.pop();
+      }
+    }
+    self.depth -= 1;
   }
 }
