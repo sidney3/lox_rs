@@ -2,12 +2,15 @@ use std::fmt;
 
 use strum::{Display, FromRepr};
 
+pub type OperandType = u8;
+
 #[derive(FromRepr)]
 #[repr(u8)]
 #[derive(Copy, Clone, Display)]
 pub enum InstructionKind {
   Return,
   Constant,
+  AddGlobal,
 
   // Binary expression
   Add,
@@ -35,7 +38,7 @@ pub enum InstructionKind {
 #[derive(Copy, Clone)]
 pub struct Instruction {
   pub kind: InstructionKind,
-  pub operand: u8,
+  pub operand: OperandType,
 }
 
 impl Instruction {

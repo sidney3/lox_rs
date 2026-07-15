@@ -1,8 +1,11 @@
+use lasso::Spur;
+use std::collections::HashMap;
+
 use super::module_execution::ModuleExecution;
 use super::obj::ObjData;
 use super::runtime_error::RuntimeError;
 use super::value::Value;
-use crate::codegen::{Chunk, Constant};
+use crate::codegen::{Chunk, Compilation, Constant};
 use crate::gc;
 
 pub type Heap = gc::Heap<ObjData>;
@@ -12,6 +15,8 @@ pub type Root = gc::Root<ObjData>;
 pub struct Vm {
   pub stack: Vec<Value>,
   pub heap: Heap,
+  pub symbols: lasso::Rodeo,
+  pub globals: HashMap<Spur, Value>,
 }
 
 impl Vm {
@@ -19,11 +24,13 @@ impl Vm {
     Self {
       stack: Vec::new(),
       heap: Heap::new(),
+      symbols: lasso::Rodeo::new(),
+      globals: HashMap::new(),
     }
   }
 
-  pub fn run(&mut self, module: &Chunk) -> Result<(), RuntimeError> {
-    ModuleExecution::new(self, module).execute()
+  pub fn run(&mut self, compilation: &Compilation) -> Result<(), RuntimeError> {
+    ModuleExecution::new(self, compilation).execute()
   }
 
   pub fn obj(&self, h: Handle) -> gc::Ref<'_, ObjData> {

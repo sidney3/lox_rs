@@ -126,8 +126,14 @@ pub enum Statement {
   Assert(AssertStatement),
 }
 
+pub struct VarDeclaration {
+  pub ident: lasso::Spur,
+  pub assign: Expression,
+}
+
 pub enum Declaration {
   Statement(Statement),
+  Var(VarDeclaration),
 }
 
 pub struct Program {
@@ -150,10 +156,20 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Rule(LoxRule::Declaration),
       ],
     },
-    // Declaration := Statement;
+    // Declaration := Statement | VarDeclaration;
     P {
       rule: LoxRule::Declaration,
       definition: nonempty![Symbol::Rule(LoxRule::Statement)],
+    },
+    P {
+      rule: LoxRule::Declaration,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::Var),
+        Symbol::Token(LoxTokenKind::Ident),
+        Symbol::Token(LoxTokenKind::Equal),
+        Symbol::Rule(LoxRule::Expr),
+        Symbol::Token(LoxTokenKind::Semicolon),
+      ],
     },
     // Statement := AssertStatement | PrintStatement | ExpressionStatemt;
     P {
@@ -480,6 +496,22 @@ impl Declaration {
         rule: LoxRule::Declaration,
         children: children,
       }) => match children.as_slice() {
+        [
+          Node::Leaf(var),
+          Node::Leaf(ident),
+          Node::Leaf(eq),
+          assign,
+          Node::Leaf(semicolon),
+        ] if var.token_type == LoxTokenKind::Var
+          && ident.token_type == LoxTokenKind::Ident
+          && eq.token_type == LoxTokenKind::Equal
+          && semicolon.token_type == LoxTokenKind::Semicolon =>
+        {
+          Declaration::Var(VarDeclaration {
+            ident: ident.lexeme,
+            assign: Expression::from_cst(ast, assign),
+          })
+        }
         [statement] => Declaration::Statement(Statement::from_cst(ast, statement)),
         _ => panic!("unreachable"),
       },

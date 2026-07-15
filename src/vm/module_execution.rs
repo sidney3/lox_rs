@@ -1,3 +1,4 @@
+use lasso::Key;
 use std::fmt;
 
 use log::debug;
@@ -9,25 +10,31 @@ use super::runtime_error::RuntimeError;
 use super::value::Value;
 use super::vm::Vm;
 use super::vm::{Handle, Root};
-use crate::codegen::{Chunk, Constant, Instruction, InstructionKind};
+use crate::codegen::{Chunk, Compilation, Constant, Instruction, InstructionKind};
 use crate::gc::{Ref, RefMut};
 
 pub struct ModuleExecution<'a, 'b> {
   vm: &'a mut Vm,
   call_stack: NonEmpty<CallFrame<'b>>,
+  compilation: &'b Compilation,
   constants: Vec<Value>,
 }
 
 impl<'a, 'b> ModuleExecution<'a, 'b> {
-  pub fn new(vm: &'a mut Vm, module: &'b Chunk) -> Self {
-    let constants: Vec<_> = module.constants.iter().map(|c| vm.load_const(c)).collect();
+  pub fn new(vm: &'a mut Vm, compilation: &'b Compilation) -> Self {
+    let constants: Vec<_> = compilation
+      .constants
+      .iter()
+      .map(|c| vm.load_const(c))
+      .collect();
     Self {
       vm,
       call_stack: nonempty![CallFrame {
-        chunk: module,
+        chunk: &compilation.chunk,
         ip: 0,
         base: 0,
       }],
+      compilation,
       constants,
     }
   }
@@ -37,7 +44,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
   }
 
   fn pop_value_always(&mut self) -> Value {
-    self.vm.stack.pop().unwrap()
+    self.vm.stack.pop().expect("empty stack. Programming error")
   }
 
   fn push_value(&mut self, val: Value) {
@@ -68,6 +75,15 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
 
     self.push_value(result);
     Ok(())
+  }
+
+  fn resolve_foreign_symbol(&mut self, foreign_symbol: lasso::Spur) -> lasso::Spur {
+    let sym = self
+      .compilation
+      .symbols
+      .try_resolve(&foreign_symbol)
+      .expect("Garbage symbol");
+    self.vm.symbols.get_or_intern(sym)
   }
 
   pub fn execute(mut self) -> Result<(), RuntimeError> {
@@ -114,6 +130,14 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           if !operand {
             return Err(RuntimeError::new("Assert failed"));
           }
+        }
+        InstructionKind::AddGlobal => {
+          let assign = self.pop_value_always();
+          let global_idx = self.resolve_foreign_symbol(
+            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur"),
+          );
+
+          self.vm.globals.insert(global_idx, assign);
         }
       }
     }

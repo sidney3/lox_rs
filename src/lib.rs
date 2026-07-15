@@ -22,12 +22,12 @@ pub fn run(config: Config) -> Result<(), RuntimeError> {
   let source_code = std::fs::read_to_string(config.script).unwrap();
   let token_result = lexer.lex(&source_code).unwrap();
   let ast = parser.parse(token_result).unwrap();
-  let chunk = codegen::Chunk::new(&ast);
+  let compiled = codegen::compile(&ast).unwrap();
 
   if config.disasm {
-    println!("{chunk}");
+    println!("{}", compiled.chunk);
   }
 
   let mut vm = vm::Vm::new();
-  vm.run(&chunk)
+  vm.run(&compiled)
 }

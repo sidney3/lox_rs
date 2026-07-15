@@ -1,9 +1,13 @@
 mod chunk;
-mod chunk_builder;
+mod compilation;
 mod compile;
 mod constant;
+mod emitter;
+mod error;
 mod instruction;
 
 pub use chunk::Chunk;
+pub use compilation::Compilation;
+pub use compile::compile;
 pub use constant::Constant;
 pub use instruction::{Instruction, InstructionKind};
