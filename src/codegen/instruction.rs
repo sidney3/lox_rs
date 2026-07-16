@@ -16,6 +16,7 @@ pub enum InstructionKind {
   LoadGlobal,
   SetGlobal,
   LoadLocal,
+  SetLocal,
 
   // Binary expression
   Add,

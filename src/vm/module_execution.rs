@@ -160,6 +160,11 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           let stack_offset = next_instruction.operand as usize;
           self.push_value(self.vm.stack[stack_offset]);
         }
+        InstructionKind::SetLocal => {
+          let assign: Value = self.pop_value_always();
+          let stack_offset = next_instruction.operand as usize;
+          self.vm.stack[stack_offset] = assign;
+        }
         InstructionKind::SetGlobal => {
           let assign: Value = self.pop_value_always();
           let global_idx = self.resolve_foreign_symbol(

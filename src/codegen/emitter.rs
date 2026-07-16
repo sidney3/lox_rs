@@ -22,6 +22,13 @@ pub struct Local {
   pub symbol: Symbol,
 }
 
+type LValue<'a> = &'a str;
+
+enum VariableLocation {
+  Global(Symbol),
+  Local(usize),
+}
+
 pub struct Emitter {
   constants: Vec<Constant>,
   instructions: Vec<Instruction>,
@@ -117,7 +124,9 @@ impl Emitter {
     Ok(())
   }
 
-  pub fn emit_load_var(&mut self, var_name: &str) -> Result<()> {
+  // mut as we late bind globals, so if this is a global this might be the first
+  // time we see `var_name`
+  fn find_var(&mut self, var_name: LValue) -> VariableLocation {
     let sym = self.names.get_or_intern(var_name);
     let maybe_local_index = self
       .locals
@@ -127,17 +136,59 @@ impl Emitter {
       .map(|(i, _)| i);
 
     if let Some(local_index) = maybe_local_index {
-      self.emit(Instruction {
-        kind: InstructionKind::LoadLocal,
-        operand: index_to_op(local_index)?,
-      })
+      VariableLocation::Local(local_index)
     } else {
-      self.emit(Instruction {
+      VariableLocation::Global(sym)
+    }
+  }
+
+  pub fn emit_load_var(&mut self, var_name: LValue) -> Result<()> {
+    match self.find_var(var_name) {
+      VariableLocation::Local(idx) => self.emit(Instruction {
+        kind: InstructionKind::LoadLocal,
+        operand: index_to_op(idx)?,
+      }),
+      VariableLocation::Global(sym) => self.emit(Instruction {
         kind: InstructionKind::LoadGlobal,
         operand: index_to_op(sym.into_usize())?,
-      })
+      }),
     }
+    Ok(())
+  }
 
+  // NB: as this is an expression, this emits
+  // an additional instruction to push
+  // the new value onto the stack
+  pub fn emit_set_variable<F>(&mut self, lhs: LValue, emit_rhs: F) -> Result<()>
+  where
+    F: FnOnce(&mut Self) -> Result<()>,
+  {
+    emit_rhs(self);
+
+    match self.find_var(lhs) {
+      VariableLocation::Global(g) => {
+        let global_index_op = index_to_op(g.into_usize())?;
+        self.emit(Instruction {
+          kind: InstructionKind::SetGlobal,
+          operand: global_index_op,
+        });
+        self.emit(Instruction {
+          kind: InstructionKind::LoadGlobal,
+          operand: global_index_op,
+        });
+      }
+      VariableLocation::Local(l) => {
+        let local_index_op = index_to_op(l)?;
+        self.emit(Instruction {
+          kind: InstructionKind::SetLocal,
+          operand: local_index_op,
+        });
+        self.emit(Instruction {
+          kind: InstructionKind::LoadLocal,
+          operand: local_index_op,
+        });
+      }
+    };
     Ok(())
   }
 }

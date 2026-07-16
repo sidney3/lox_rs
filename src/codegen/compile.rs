@@ -104,24 +104,12 @@ fn compile_expression(builder: &mut Emitter, expr: &Expression, root: &Ast) -> R
     Expression::Lit(literal) => {
       compile_literal(builder, literal, root)?;
     }
-    // TODO: when we introduce more variable kinds (local notably),
-    // include some sort of "lookup_variable" that describes uniform
-    // interface of looking 'em up.
     Expression::Assign(Assign { assignee, assign }) => {
-      compile_expression(builder, assign, root)?;
-
-      let lit = match assignee {
-        LValue::Var(v) => {
-          let idx = builder.get_or_intern_name(root.lexeme_arena.resolve(v))?;
-          builder.emit(Instruction {
-            kind: InstructionKind::SetGlobal,
-            operand: idx,
-          });
-          Literal::Var(*v)
-        }
+      match assignee {
+        LValue::Var(v) => builder.emit_set_variable(root.lexeme_arena.resolve(v), |builder| {
+          compile_expression(builder, assign, root)
+        })?,
       };
-
-      compile_literal(builder, &lit, root)?;
     }
   }
 
