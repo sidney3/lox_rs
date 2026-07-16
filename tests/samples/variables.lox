@@ -56,3 +56,13 @@ var x = 10;
 	x = 9;
 }
 assert x == 9;
+
+{
+	var a = "outer";
+	{
+		var a = a;
+
+		assert a == "outer";
+	}
+	assert a == "outer";
+}

@@ -112,8 +112,9 @@ struct GcBlock<U> {
 }
 
 #[derive(Debug)]
-pub struct Root<U> {
+pub struct Root<'a, U> {
   value: NonNull<GcBlock<U>>,
+  _life: PhantomData<&'a Heap<U>>,
 }
 
 #[derive(Debug)]
@@ -147,9 +148,12 @@ impl<U> Handle<U> {
   }
 }
 
-impl<U> Root<U> {
+impl<'a, U> Root<'a, U> {
   fn new(value: NonNull<GcBlock<U>>) -> Self {
-    Self { value }
+    Self {
+      value,
+      _life: PhantomData,
+    }
   }
 
   unsafe fn header(&self) -> &GcHeader {
@@ -198,7 +202,7 @@ impl<U> Heap<U> {
     obj
   }
 
-  pub fn root(&mut self, gc: Handle<U>) -> Root<U> {
+  pub fn root(&mut self, gc: Handle<U>) -> Root<'_, U> {
     Root::new(gc.value)
   }
 
@@ -224,7 +228,7 @@ impl<U> Heap<U> {
   }
 }
 
-impl<U: fmt::Display> fmt::Display for Root<U> {
+impl<'a, U: fmt::Display> fmt::Display for Root<'a, U> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "{}", *self.borrow())
   }

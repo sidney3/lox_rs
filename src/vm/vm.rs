@@ -10,7 +10,7 @@ use crate::gc;
 
 pub type Heap = gc::Heap<ObjData>;
 pub type Handle = gc::Handle<ObjData>;
-pub type Root = gc::Root<ObjData>;
+pub type Root<'a> = gc::Root<'a, ObjData>;
 
 pub struct Vm {
   pub stack: Vec<Value>,
