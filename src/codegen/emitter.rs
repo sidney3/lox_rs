@@ -119,24 +119,22 @@ impl Emitter {
 
   pub fn emit_load_var(&mut self, var_name: &str) -> Result<()> {
     let sym = self.names.get_or_intern(var_name);
+    let maybe_local_index = self
+      .locals
+      .iter()
+      .enumerate()
+      .rfind(|(_, l)| l.symbol == sym)
+      .map(|(i, _)| i);
 
-    if self.at_global_depth() {
-      self.emit(Instruction {
-        kind: InstructionKind::LoadGlobal,
-        operand: index_to_op(sym.into_usize())?,
-      })
-    } else {
-      let local_index = self
-        .locals
-        .iter()
-        .enumerate()
-        .rfind(|(_, l)| l.symbol == sym)
-        .ok_or(Error::UndefinedLocal(sym))?
-        .0;
-
+    if let Some(local_index) = maybe_local_index {
       self.emit(Instruction {
         kind: InstructionKind::LoadLocal,
         operand: index_to_op(local_index)?,
+      })
+    } else {
+      self.emit(Instruction {
+        kind: InstructionKind::LoadGlobal,
+        operand: index_to_op(sym.into_usize())?,
       })
     }
 
