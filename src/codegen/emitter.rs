@@ -1,12 +1,10 @@
-use crate::codegen::compile::compile_ast;
-use crate::frontend::ast::Ast;
+use lasso::Key;
 
 use super::Compilation;
 use super::chunk::Chunk;
 use super::constant::Constant;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
-use lasso::Key;
 
 pub type Symbol = lasso::Spur;
 
@@ -68,9 +66,6 @@ impl Emitter {
     let index = self.constants.len();
     self.constants.push(constant);
     OperandType::try_from(index).map_err(|_| Error::IndexOutOfRange(index))
-  }
-  pub fn get_or_intern_name(&mut self, name: &str) -> Result<OperandType> {
-    index_to_op(self.names.get_or_intern(name).into_usize())
   }
 
   pub fn finalize(self) -> Compilation {
@@ -165,7 +160,7 @@ impl Emitter {
   where
     F: FnOnce(&mut Self) -> Result<()>,
   {
-    emit_rhs(self);
+    emit_rhs(self)?;
 
     match self.find_var(lhs) {
       VariableLocation::Global(g) => {

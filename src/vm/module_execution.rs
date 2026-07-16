@@ -1,6 +1,6 @@
-use lasso::Key;
 use std::fmt;
 
+use lasso::Key;
 use log::{debug, info};
 use nonempty::{NonEmpty, nonempty};
 

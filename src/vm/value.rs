@@ -1,9 +1,8 @@
 use std::fmt;
 
-use crate::vm::obj::ObjData;
-
 use super::RuntimeError;
 use super::vm::{Handle, Vm};
+use crate::vm::obj::ObjData;
 
 pub type Num = f64;
 

@@ -1,6 +1,6 @@
 use super::compilation::Compilation;
 use super::emitter::Emitter;
-use super::error::{Error, Result};
+use super::error::Result;
 use crate::frontend::ast::{Assign, LValue};
 use crate::{
   codegen::{
@@ -20,7 +20,7 @@ pub fn compile(ast: &Ast) -> Result<Compilation> {
 
 pub fn compile_ast(builder: &mut Emitter, ast: &Ast) -> Result<()> {
   for decl in &ast.root.declarations {
-    compile_declaration(builder, decl, ast);
+    compile_declaration(builder, decl, ast)?;
   }
   builder.emit(Instruction::new(InstructionKind::Return));
 
@@ -61,7 +61,7 @@ fn compile_statement(builder: &mut Emitter, statement: &Statement, root: &Ast) -
       builder.begin_scope();
 
       for decl in &block.declarations {
-        compile_declaration(builder, decl, root);
+        compile_declaration(builder, decl, root)?;
       }
 
       builder.end_scope();

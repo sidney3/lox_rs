@@ -1,5 +1,6 @@
-use lasso::Spur;
 use std::collections::HashMap;
+
+use lasso::Spur;
 
 use super::module_execution::ModuleExecution;
 use super::obj::ObjData;

@@ -1,4 +1,5 @@
 use lasso::Rodeo;
+use log::{debug, error};
 use ndarray::Array2;
 
 use super::action::{Action, make_action};
@@ -11,7 +12,6 @@ use super::state::{State, StateId};
 use crate::core::Ordinal;
 use crate::core::interner::Interner;
 use crate::lexer::{Token, Tokens};
-use log::{debug, error};
 
 #[derive(Debug)]
 pub struct Tree<R: Rule> {

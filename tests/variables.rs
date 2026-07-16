@@ -1,5 +1,6 @@
-use lox_rs::{Config, run};
 use std::path::Path;
+
+use lox_rs::{Config, run};
 
 #[test]
 fn test_expression() {
