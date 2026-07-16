@@ -98,6 +98,8 @@ impl Emitter {
       if local.scope_depth == self.scope_depth {
         self.emit(Instruction::new(InstructionKind::Pop));
         self.locals.pop();
+      } else {
+        break;
       }
     }
     self.scope_depth -= 1;

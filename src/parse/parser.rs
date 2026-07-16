@@ -11,7 +11,7 @@ use super::state::{State, StateId};
 use crate::core::Ordinal;
 use crate::core::interner::Interner;
 use crate::lexer::{Token, Tokens};
-use log::error;
+use log::{debug, error};
 
 #[derive(Debug)]
 pub struct Tree<R: Rule> {
@@ -69,6 +69,7 @@ impl<R: Rule> Parser<R> {
   }
 
   pub fn parse(&self, tokens: Tokens<R::TokenType>) -> Result<Tree<R>> {
+    debug!("start parse");
     let mut curr_state_id = self.initial_state_id;
     let mut stack = Stack::<R>::new();
 

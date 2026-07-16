@@ -23,6 +23,34 @@ var y = "abc";
 
 assert x == 10;
 
+{
+	var x = 10;
+	{
+		x = 9;
+	}
+	assert x == 9;
+}
+
+var z = "a";
+{
+	{
+		{
+			{
+				{
+					{
+						{
+							z = "b";
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+assert z == "b";
+
+
 var x = 10;
 {
 	x = 9;
