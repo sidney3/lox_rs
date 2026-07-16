@@ -31,12 +31,9 @@ fn compile_declaration(builder: &mut Emitter, decl: &Declaration, root: &Ast) ->
   match decl {
     Declaration::Statement(s) => compile_statement(builder, s, root)?,
     Declaration::Var(v) => {
-      compile_expression(builder, &v.assign, root)?;
-      let name_idx = builder.get_or_intern_name(root.lexeme_arena.resolve(&v.ident))?;
-      builder.emit(Instruction {
-        kind: InstructionKind::AddGlobal,
-        operand: name_idx,
-      })
+      builder.emit_create_var(root.lexeme_arena.resolve(&v.ident), |builder| {
+        compile_expression(builder, &v.assign, root)
+      })?;
     }
   };
   Ok(())
@@ -136,13 +133,7 @@ fn compile_literal(builder: &mut Emitter, lit: &Literal, root: &Ast) -> Result<(
     &Literal::Num(x) => builder.emit_constant(Constant::Float(x))?,
     Literal::String(x) => builder.emit_constant(Constant::String(x.clone()))?,
     &Literal::Bool(x) => builder.emit_constant(Constant::Bool(x))?,
-    Literal::Var(v) => {
-      let idx = builder.get_or_intern_name(root.lexeme_arena.resolve(v))?;
-      builder.emit(Instruction {
-        kind: InstructionKind::LoadGlobal,
-        operand: idx,
-      })
-    }
+    Literal::Var(v) => builder.emit_load_var(root.lexeme_arena.resolve(v))?,
   };
 
   Ok(())

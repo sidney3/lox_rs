@@ -1,3 +1,4 @@
+// Globals
 var x = 5;
 assert x == 5;
 var y = 10;
@@ -8,7 +9,13 @@ z = x;
 assert z != y;
 assert 2 * z == y;
 
+
+// Locals
+var x = 10;
+
 {
 	var x = 9;
 	assert x == 9;
 }
+
+assert x == 10;

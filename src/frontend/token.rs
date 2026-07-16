@@ -7,6 +7,8 @@ use super::error::Result;
 use crate::lexer;
 use crate::lexer::{TokenType, Tokens};
 
+pub type Ident = lasso::Spur;
+
 #[derive(Ordinal, Eq, PartialEq, Debug, Display, Hash)]
 pub enum LoxTokenKind {
   WhiteSpace,

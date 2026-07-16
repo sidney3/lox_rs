@@ -1,7 +1,9 @@
+use super::emitter::Symbol;
+
 #[derive(Debug)]
 pub enum Error {
-  ConstantIndexOutOfRange(usize),
-  GlobalIndexOutOfRange(usize),
+  IndexOutOfRange(usize),
+  UndefinedLocal(Symbol),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

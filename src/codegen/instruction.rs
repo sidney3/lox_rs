@@ -10,9 +10,12 @@ pub type OperandType = u8;
 pub enum InstructionKind {
   Return,
   Constant,
+
+  // Variables
   AddGlobal,
   LoadGlobal,
   SetGlobal,
+  LoadLocal,
 
   // Binary expression
   Add,
