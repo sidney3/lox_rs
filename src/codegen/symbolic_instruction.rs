@@ -12,7 +12,6 @@ pub struct Label {
 
 #[derive(Clone, Copy)]
 pub enum SymbolicOp {
-  None,
   Imm(OperandType),
   Label(Label),
 }
@@ -61,7 +60,6 @@ impl SymbolicProgram {
     for symbolic_inst in &self.instructions {
       if let &SymbolicInstruction::Instruction(kind, symbolic_op) = symbolic_inst {
         let operand = match symbolic_op {
-          SymbolicOp::None => OperandType::try_from(0).expect("0 fits within u32"),
           SymbolicOp::Imm(op) => op,
           SymbolicOp::Label(label) => {
             if let Some(bound_to) = bindings.get(&label) {

@@ -130,12 +130,8 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           println!("{}", val.repr(self.vm));
         }
         InstructionKind::JumpIfFalse => {
-          if let Value::Bool(cond) = self.peek() {
-            if !cond {
-              self.frame_mut().jmp(next_instruction.operand as usize)
-            }
-          } else {
-            return Err(RuntimeError::new("If takes boolean statements"));
+          if !bool::try_from(self.peek())? {
+            self.frame_mut().jmp(next_instruction.operand as usize)
           }
         }
         InstructionKind::Assert => {

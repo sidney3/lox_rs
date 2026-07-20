@@ -6,3 +6,15 @@ if true {
 }
 
 assert x == 10;
+
+if 2 {
+	x = 9;
+}
+
+assert x == 9;
+
+if 0 {
+	x = 2;
+}
+
+assert x == 9;

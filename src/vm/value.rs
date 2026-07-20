@@ -5,12 +5,25 @@ use super::vm::{Handle, Vm};
 use crate::vm::obj::ObjData;
 
 pub type Num = f64;
+pub type Bool = bool;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Value {
   Num(Num),
   Obj(Handle),
-  Bool(bool),
+  Bool(Bool),
+}
+
+impl TryFrom<&Value> for Bool {
+  type Error = RuntimeError;
+
+  fn try_from(value: &Value) -> Result<Self, Self::Error> {
+    match value {
+      &Value::Bool(b) => Ok(b),
+      &Value::Num(x) => Ok(x != 0f64),
+      Value::Obj(_) => Err(RuntimeError::new("Obj cannot be converted to bool")),
+    }
+  }
 }
 
 impl Value {
