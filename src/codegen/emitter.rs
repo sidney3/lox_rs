@@ -5,6 +5,7 @@ use super::chunk::Chunk;
 use super::constant::Constant;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
+use super::symbolic_instruction::{SymbolicInstruction, SymbolicProgram};
 
 pub type Symbol = lasso::Spur;
 
@@ -29,7 +30,7 @@ enum VariableLocation {
 
 pub struct Emitter {
   constants: Vec<Constant>,
-  instructions: Vec<Instruction>,
+  instructions: SymbolicProgram,
   locals: Vec<Local>,
   scope_depth: usize,
 
@@ -42,15 +43,21 @@ impl Emitter {
   pub fn new() -> Self {
     Self {
       constants: Vec::new(),
-      instructions: Vec::new(),
+      instructions: SymbolicProgram::new(),
       names: lasso::Rodeo::new(),
       locals: Vec::new(),
       scope_depth: 0,
     }
   }
 
+  pub fn emit_symbolic(&mut self, instruction: SymbolicInstruction) {
+    self.instructions.add_instruction(instruction);
+  }
+
   pub fn emit(&mut self, instruction: Instruction) {
-    self.instructions.push(instruction);
+    self
+      .instructions
+      .add_instruction(SymbolicInstruction::from_instruction(instruction));
   }
 
   pub fn emit_constant(&mut self, constant: Constant) -> Result<()> {
@@ -71,7 +78,10 @@ impl Emitter {
   pub fn finalize(self) -> Compilation {
     Compilation {
       chunk: Chunk {
-        instructions: self.instructions,
+        instructions: self
+          .instructions
+          .parse()
+          .expect("Symbolic resolution failure."),
       },
       symbols: self.names,
       constants: self.constants,

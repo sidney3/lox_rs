@@ -23,12 +23,25 @@ pub enum SymbolicInstruction {
   Instruction(InstructionKind, SymbolicOp),
 }
 
+impl SymbolicInstruction {
+  pub fn from_instruction(inst: Instruction) -> Self {
+    SymbolicInstruction::Instruction(inst.kind, SymbolicOp::Imm(inst.operand))
+  }
+}
+
 pub struct SymbolicProgram {
   instructions: Vec<SymbolicInstruction>,
   next_label: usize,
 }
 
 impl SymbolicProgram {
+  pub fn new() -> Self {
+    Self {
+      instructions: Vec::new(),
+      next_label: 0,
+    }
+  }
+
   // NB: you still need to add the label to the program
   pub fn create_label(&mut self, name: &'static str) -> Label {
     let id = self.next_label;
