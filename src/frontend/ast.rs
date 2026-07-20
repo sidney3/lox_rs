@@ -25,6 +25,7 @@ pub enum LoxRule {
   Statement,
   ExprStatement,
   BlockStatement,
+  IfStatement,
 
   LValue,
   Assign,
@@ -126,6 +127,11 @@ pub struct AssertStatement {
   pub operand: Expression,
 }
 
+pub struct IfStatement {
+  pub cond: Expression,
+  pub body: Box<Block>,
+}
+
 pub struct Block {
   // TODO: support empty blocks
   pub declarations: Vec<Declaration>,
@@ -136,6 +142,7 @@ pub enum Statement {
   Print(PrintStatement),
   Assert(AssertStatement),
   Block(Block),
+  If(IfStatement),
 }
 
 pub struct VarDeclaration {
@@ -197,6 +204,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
     // | PrintStatement
     // | ExpressionStatemt
     // | '{' BlockStatement '}';
+    // | IfStatement
     P {
       rule: LoxRule::Statement,
       definition: nonempty![Symbol::Rule(LoxRule::Print)],
@@ -216,6 +224,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Rule(LoxRule::BlockStatement),
         Symbol::Token(LoxTokenKind::RBracket)
       ],
+    },
+    P {
+      rule: LoxRule::Statement,
+      definition: nonempty![Symbol::Rule(LoxRule::IfStatement)],
     },
     // BlockStatement := Declaration | BlockStatement Declaration
     P {
@@ -253,6 +265,17 @@ fn lox_grammar() -> Grammar<LoxRule> {
       definition: nonempty![
         Symbol::Rule(LoxRule::Expr),
         Symbol::Token(LoxTokenKind::Semicolon)
+      ],
+    },
+    // IfStatement := 'if' expr '{' body '}'
+    P {
+      rule: LoxRule::IfStatement,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::If),
+        Symbol::Rule(LoxRule::Expr),
+        Symbol::Token(LoxTokenKind::LBracket),
+        Symbol::Rule(LoxRule::BlockStatement),
+        Symbol::Token(LoxTokenKind::RBracket),
       ],
     },
     // ------------------
@@ -526,6 +549,24 @@ impl AssertStatement {
   }
 }
 
+impl IfStatement {
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::IfStatement,
+        children,
+      }) => match children.as_slice() {
+        [_, cond, _, body, _] => IfStatement {
+          cond: Expression::from_cst(ast, cond),
+          body: Box::new(Block::from_cst(ast, body)),
+        },
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+}
+
 impl Statement {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
@@ -545,6 +586,12 @@ impl Statement {
             children: _,
           }),
         ] => Statement::Assert(AssertStatement::from_cst(ast, &children[0])),
+        [
+          Node::Parent(Parent {
+            rule: LoxRule::IfStatement,
+            children: _,
+          }),
+        ] => Statement::If(IfStatement::from_cst(ast, &children[0])),
         [
           Node::Parent(Parent {
             rule: LoxRule::ExprStatement,

@@ -11,6 +11,10 @@ pub enum InstructionKind {
   Return,
   Constant,
 
+  // NB: peeks at top of stack, rather
+  // than popping
+  JumpIfFalse,
+
   // Variables
   AddGlobal,
   LoadGlobal,

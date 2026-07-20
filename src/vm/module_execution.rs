@@ -43,8 +43,16 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
     self.call_stack.last_mut()
   }
 
-  fn pop_value_always(&mut self) -> Value {
+  fn pop(&mut self) -> Value {
     self.vm.stack.pop().expect("empty stack. Programming error")
+  }
+
+  fn peek(&mut self) -> &Value {
+    self
+      .vm
+      .stack
+      .first()
+      .expect("empty stack. Programming error")
   }
 
   fn push_value(&mut self, val: Value) {
@@ -55,8 +63,8 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
     &mut self,
     f: F,
   ) -> Result<(), RuntimeError> {
-    let rhs = self.pop_value_always();
-    let lhs = self.pop_value_always();
+    let rhs = self.pop();
+    let lhs = self.pop();
 
     let result = f(lhs, rhs, self.vm)?;
 
@@ -69,7 +77,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
     &mut self,
     f: F,
   ) -> Result<(), RuntimeError> {
-    let operand = self.pop_value_always();
+    let operand = self.pop();
 
     let result = f(operand, self.vm)?;
 
@@ -115,14 +123,23 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           self.push_value(val);
         }
         InstructionKind::Pop => {
-          self.pop_value_always();
+          self.pop();
         }
         InstructionKind::Print => {
-          let val = self.pop_value_always();
+          let val = self.pop();
           println!("{}", val.repr(self.vm));
         }
+        InstructionKind::JumpIfFalse => {
+          if let Value::Bool(cond) = self.peek() {
+            if !cond {
+              self.frame_mut().jmp(next_instruction.operand as usize)
+            }
+          } else {
+            return Err(RuntimeError::new("If takes boolean statements"));
+          }
+        }
         InstructionKind::Assert => {
-          let operand = match self.pop_value_always() {
+          let operand = match self.pop() {
             Value::Bool(b) => b,
             _ => return Err(RuntimeError::new("Assert expects bool operand")),
           };
@@ -132,7 +149,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           }
         }
         InstructionKind::AddGlobal => {
-          let assign = self.pop_value_always();
+          let assign = self.pop();
           let global_idx = self.resolve_foreign_symbol(
             lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur"),
           );
@@ -161,12 +178,12 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           self.push_value(self.vm.stack[stack_offset]);
         }
         InstructionKind::SetLocal => {
-          let assign: Value = self.pop_value_always();
+          let assign: Value = self.pop();
           let stack_offset = next_instruction.operand as usize;
           self.vm.stack[stack_offset] = assign;
         }
         InstructionKind::SetGlobal => {
-          let assign: Value = self.pop_value_always();
+          let assign: Value = self.pop();
           let global_idx = self.resolve_foreign_symbol(
             lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur"),
           );

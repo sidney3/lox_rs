@@ -1,7 +1,7 @@
 use super::compilation::Compilation;
 use super::emitter::Emitter;
 use super::error::Result;
-use crate::frontend::ast::{Assign, LValue};
+use crate::frontend::ast::{Assign, Block, LValue};
 use crate::{
   codegen::{
     constant::Constant,
@@ -9,6 +9,8 @@ use crate::{
   },
   frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp},
 };
+
+use super::symbolic_instruction::{SymbolicInstruction, SymbolicOp};
 
 pub fn compile(ast: &Ast) -> Result<Compilation> {
   let mut builder = Emitter::new();
@@ -58,15 +60,38 @@ fn compile_statement(builder: &mut Emitter, statement: &Statement, root: &Ast) -
     }
 
     Statement::Block(block) => {
-      builder.begin_scope();
+      compile_block(builder, block, root)?;
+    }
+    Statement::If(if_statement) => {
+      compile_expression(builder, &if_statement.cond, root)?;
 
-      for decl in &block.declarations {
-        compile_declaration(builder, decl, root)?;
-      }
+      let after_if = builder.create_label("after if");
 
-      builder.end_scope();
+      builder.emit_symbolic(SymbolicInstruction::Instruction(
+        InstructionKind::JumpIfFalse,
+        SymbolicOp::Label(after_if),
+      ));
+
+      // JumpIfFalse doesn't consume the top of the stack
+      builder.emit(Instruction::new(InstructionKind::Pop));
+
+      compile_block(builder, if_statement.body.as_ref(), root)?;
+
+      builder.emit_symbolic(SymbolicInstruction::Label(after_if));
     }
   };
+  Ok(())
+}
+
+fn compile_block(builder: &mut Emitter, block: &Block, root: &Ast) -> Result<()> {
+  builder.begin_scope();
+
+  for decl in &block.declarations {
+    compile_declaration(builder, decl, root)?;
+  }
+
+  builder.end_scope();
+
   Ok(())
 }
 

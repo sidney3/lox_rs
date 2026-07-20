@@ -17,4 +17,10 @@ impl<'c> CallFrame<'c> {
       None => None,
     }
   }
+
+  pub fn jmp(&mut self, to: usize) {
+    assert!(to < self.chunk.instructions.len());
+
+    self.ip = to;
+  }
 }

@@ -5,7 +5,7 @@ use super::chunk::Chunk;
 use super::constant::Constant;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
-use super::symbolic_instruction::{SymbolicInstruction, SymbolicProgram};
+use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicProgram};
 
 pub type Symbol = lasso::Spur;
 
@@ -58,6 +58,11 @@ impl Emitter {
     self
       .instructions
       .add_instruction(SymbolicInstruction::from_instruction(instruction));
+  }
+
+  // label_name is just for debugging, they don't have to be unique
+  pub fn create_label(&mut self, label_name: &'static str) -> Label {
+    self.instructions.create_label(label_name)
   }
 
   pub fn emit_constant(&mut self, constant: Constant) -> Result<()> {
