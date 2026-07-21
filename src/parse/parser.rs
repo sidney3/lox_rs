@@ -78,16 +78,28 @@ impl<R: Rule> Parser<R> {
     loop {
       let next_token = iter.peek().ok_or(Error::IncompleteProgram)?;
 
+      debug!(
+        "Current state: {}",
+        self.state_table.get_left(curr_state_id).with(&self.grammar)
+      );
+
       // We want to support rules that return nodes that are _not_ of the type of that rule.
       let action = &self.action_table[[curr_state_id.0, next_token.token_type.ord()]];
 
       let next_node: Node<R> = match action {
         Action::Shift => match iter.next() {
-          Some(token) => Node::Leaf(*token),
+          Some(token) => {
+            debug!("shift {:?}", token);
+            Node::Leaf(*token)
+          }
           None => return Err(Error::ExpectedToken),
         },
         Action::Reduce(production_id) | Action::Accept(production_id) => {
           let production = self.grammar.production(*production_id);
+
+          if let Action::Reduce(_) = action {
+            debug!("Reduce to {}", production.rule);
+          }
 
           match stack.len().checked_sub(production.len()) {
             Some(drain_from) => {
@@ -122,7 +134,6 @@ impl<R: Rule> Parser<R> {
       }
 
       let prev_state = curr_state_id;
-
       match self.goto_table[[curr_state_id.0, next_node.symbol().ord()]] {
         Some(next_state_id) => {
           curr_state_id = next_state_id;

@@ -13,3 +13,5 @@ assert !!!!!!!!true
 	== !!true 
 	== true 
 	== !false;
+
+assert 5 - 3 == 2;

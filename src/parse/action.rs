@@ -4,7 +4,7 @@ use itertools::Itertools;
 use itertools::iproduct;
 use log::debug;
 use ndarray::Array2;
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 
 use super::grammar::{Grammar, ProductionId, Symbol};
 use super::rule::Rule;
@@ -55,10 +55,8 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
     })
     .collect();
 
-  for r in grammar.rules() {
-    follow_table[r.ord()].insert(R::TokenType::eof());
-    follow_table[r.ord()].extend(initial_symbols.iter());
-  }
+  follow_table[grammar.target_rule().ord()].insert(R::TokenType::eof());
+  let first_table = first(grammar);
 
   // classic fixed point calculation
   while changed {
@@ -72,12 +70,20 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
       let mut add_follow = |rule: &R, token: R::TokenType| {
         if !follow_table[rule.ord()].contains(&token) {
           changed = true;
+          debug!("{:?} follows: {:?}", token, rule);
           follow_table[rule.ord()].insert(token);
         }
       };
       for (s1, s2) in production.definition.iter().tuple_windows() {
-        if let (Symbol::Rule(r), &Symbol::Token(t)) = (s1, s2) {
-          add_follow(r, t);
+        if let Symbol::Rule(r) = s1 {
+          match s2 {
+            &Symbol::Token(t) => add_follow(&r, t),
+            Symbol::Rule(r2) => {
+              for f in &first_table[r2.ord()] {
+                add_follow(&r, *f);
+              }
+            }
+          }
         }
       }
 
@@ -110,4 +116,32 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
   }
 
   follow_table
+}
+
+fn first<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
+  let mut changed = true;
+  let mut first_table: Vec<HashSet<R::TokenType>> = (0..R::COUNT).map(|_| HashSet::new()).collect();
+
+  while changed {
+    changed = false;
+
+    for production in grammar.productions() {
+      let fst_set: SmallVec<[R::TokenType; 8]> = match production.definition.first() {
+        &Symbol::Token(t) => smallvec![t],
+        &Symbol::Rule(r) => first_table[r.ord()].iter().cloned().collect(),
+      };
+      let mut add_first = |rule: &R, token: R::TokenType| {
+        if !first_table[rule.ord()].contains(&token) {
+          changed = true;
+          first_table[rule.ord()].insert(token);
+        }
+      };
+
+      for t in fst_set {
+        add_first(&production.rule, t);
+      }
+    }
+  }
+
+  first_table
 }

@@ -1,10 +1,11 @@
+use log::debug;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
 
 use either::Either;
 use nonempty::NonEmpty;
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 
 use super::debug::DisplayWithGrammar;
 use super::rule::Rule;
