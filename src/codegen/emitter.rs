@@ -33,6 +33,8 @@ pub struct Emitter {
   instructions: SymbolicProgram,
   locals: Vec<Local>,
   scope_depth: usize,
+  // active_loops.back() is the current loop
+  active_loops: Vec<Label>,
 
   // names that survive to runtime, as strings.
   // NB: the runtime will peer into this arena!
@@ -46,6 +48,7 @@ impl Emitter {
       instructions: SymbolicProgram::new(),
       names: lasso::Rodeo::new(),
       locals: Vec::new(),
+      active_loops: Vec::new(),
       scope_depth: 0,
     }
   }
@@ -95,6 +98,17 @@ impl Emitter {
 
   pub fn at_global_depth(&self) -> bool {
     self.scope_depth == 0
+  }
+
+  pub fn begin_loop(&mut self, end_label: Label) {
+    self.active_loops.push(end_label);
+  }
+
+  pub fn end_loop(&mut self) {
+    self
+      .active_loops
+      .pop()
+      .expect("End loop called with no active loop");
   }
 
   pub fn begin_scope(&mut self) {

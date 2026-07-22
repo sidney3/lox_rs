@@ -68,6 +68,25 @@ fn compile_statement(builder: &mut Emitter, statement: &Statement, root: &Ast) -
       compile_if(builder, if_statement, after_if, root)?;
       builder.emit_symbolic(SymbolicInstruction::Label(after_if));
     }
+
+    Statement::While(while_statement) => {
+      let while_start = builder.create_label("while start");
+      let after_while = builder.create_label("after while");
+      builder.begin_loop(after_while);
+      builder.emit_symbolic(SymbolicInstruction::Label(while_start));
+      compile_expression(builder, &while_statement.cond, root)?;
+      builder.emit_symbolic(SymbolicInstruction::Instruction(
+        InstructionKind::JumpIfFalse,
+        SymbolicOp::Label(after_while),
+      ));
+      compile_block(builder, &while_statement.body, root)?;
+      builder.emit_symbolic(SymbolicInstruction::Instruction(
+        InstructionKind::Jmp,
+        SymbolicOp::Label(while_start),
+      ));
+      builder.emit_symbolic(SymbolicInstruction::Label(after_while));
+      builder.end_loop();
+    }
   };
   Ok(())
 }

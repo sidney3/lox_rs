@@ -55,3 +55,12 @@ if z == 1 {
 }
 
 assert m == "3";
+
+var x = 0;
+var i = 0;
+while i < 5 {
+	i = i + 1;
+	x = x + 1;
+}
+
+assert x == 5;

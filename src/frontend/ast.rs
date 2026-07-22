@@ -27,6 +27,7 @@ pub enum LoxRule {
   BlockStatement,
   IfStatement,
   ElseTail,
+  WhileStatement,
 
   LValue,
   Assign,
@@ -128,6 +129,11 @@ pub struct AssertStatement {
   pub operand: Expression,
 }
 
+pub struct WhileStatement {
+  pub cond: Expression,
+  pub body: Box<Block>,
+}
+
 pub enum IfStatement {
   Trivial {
     cond: Expression,
@@ -156,6 +162,7 @@ pub enum Statement {
   Assert(AssertStatement),
   Block(Block),
   If(IfStatement),
+  While(WhileStatement),
 }
 
 pub struct VarDeclaration {
@@ -218,6 +225,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
     // | ExpressionStatemt
     // | '{' BlockStatement '}';
     // | IfStatement
+    // | WhileStatement
     P {
       rule: LoxRule::Statement,
       definition: nonempty![Symbol::Rule(LoxRule::Print)],
@@ -241,6 +249,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
     P {
       rule: LoxRule::Statement,
       definition: nonempty![Symbol::Rule(LoxRule::IfStatement)],
+    },
+    P {
+      rule: LoxRule::Statement,
+      definition: nonempty![Symbol::Rule(LoxRule::WhileStatement)],
     },
     // BlockStatement := Declaration | BlockStatement Declaration
     P {
@@ -315,6 +327,17 @@ fn lox_grammar() -> Grammar<LoxRule> {
     P {
       rule: LoxRule::ElseTail,
       definition: nonempty![Symbol::Rule(LoxRule::IfStatement)],
+    },
+    // WhileStatement := 'while' cond '{' body '}'
+    P {
+      rule: LoxRule::WhileStatement,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::While),
+        Symbol::Rule(LoxRule::Expr),
+        Symbol::Token(LoxTokenKind::LBracket),
+        Symbol::Rule(LoxRule::BlockStatement),
+        Symbol::Token(LoxTokenKind::RBracket),
+      ],
     },
     // ------------------
     // EXPRESSION GRAMMAR
@@ -587,6 +610,24 @@ impl AssertStatement {
   }
 }
 
+impl WhileStatement {
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::WhileStatement,
+        children,
+      }) => match children.as_slice() {
+        [_, cond, _, body, _] => WhileStatement {
+          cond: Expression::from_cst(ast, cond),
+          body: Box::new(Block::from_cst(ast, body)),
+        },
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable: {:?}", node),
+    }
+  }
+}
+
 impl IfStatement {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
@@ -651,6 +692,12 @@ impl Statement {
             children: _,
           }),
         ] => Statement::If(IfStatement::from_cst(ast, &children[0])),
+        [
+          Node::Parent(Parent {
+            rule: LoxRule::WhileStatement,
+            children: _,
+          }),
+        ] => Statement::While(WhileStatement::from_cst(ast, &children[0])),
         [
           Node::Parent(Parent {
             rule: LoxRule::ExprStatement,
