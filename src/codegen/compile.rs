@@ -1,5 +1,5 @@
+use super::assembler::Assembler;
 use super::compilation::Compilation;
-use super::emitter::Emitter;
 use super::error::Result;
 use crate::codegen::symbolic_instruction::Label;
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
@@ -14,121 +14,121 @@ use crate::{
 use super::symbolic_instruction::{SymbolicInstruction, SymbolicOp};
 
 pub fn compile(ast: &Ast) -> Result<Compilation> {
-  let mut builder = Emitter::new();
+  let mut assembler = Assembler::new();
 
-  compile_ast(&mut builder, ast)?;
+  compile_ast(&mut assembler, ast)?;
 
-  Ok(builder.finalize())
+  Ok(assembler.finalize())
 }
 
-pub fn compile_ast(builder: &mut Emitter, ast: &Ast) -> Result<()> {
+pub fn compile_ast(assembler: &mut Assembler, ast: &Ast) -> Result<()> {
   for decl in &ast.root.declarations {
-    compile_declaration(builder, decl, ast)?;
+    compile_declaration(assembler, decl, ast)?;
   }
-  builder.emit(Instruction::new(InstructionKind::Return));
+  assembler.emit(Instruction::new(InstructionKind::Return));
 
   Ok(())
 }
 
-fn compile_declaration(builder: &mut Emitter, decl: &Declaration, root: &Ast) -> Result<()> {
+fn compile_declaration(assembler: &mut Assembler, decl: &Declaration, root: &Ast) -> Result<()> {
   match decl {
-    Declaration::Statement(s) => compile_statement(builder, s, root)?,
+    Declaration::Statement(s) => compile_statement(assembler, s, root)?,
     Declaration::Var(v) => {
-      builder.emit_create_var(root.lexeme_arena.resolve(&v.ident), |builder| {
-        compile_expression(builder, &v.assign, root)
+      assembler.emit_create_var(root.lexeme_arena.resolve(&v.ident), |assembler| {
+        compile_expression(assembler, &v.assign, root)
       })?;
     }
   };
   Ok(())
 }
 
-fn compile_statement(builder: &mut Emitter, statement: &Statement, root: &Ast) -> Result<()> {
+fn compile_statement(assembler: &mut Assembler, statement: &Statement, root: &Ast) -> Result<()> {
   match statement {
     Statement::Expr(e) => {
-      compile_expression(builder, &e.expr, root)?;
-      builder.emit(Instruction::new(InstructionKind::Pop));
+      compile_expression(assembler, &e.expr, root)?;
+      assembler.emit(Instruction::new(InstructionKind::Pop));
     }
     Statement::Print(p) => {
-      compile_expression(builder, &p.operand, root)?;
-      builder.emit(Instruction {
+      compile_expression(assembler, &p.operand, root)?;
+      assembler.emit(Instruction {
         kind: InstructionKind::Print,
         operand: 0,
       });
     }
     Statement::Assert(a) => {
-      compile_expression(builder, &a.operand, root)?;
-      builder.emit(Instruction::new(InstructionKind::Assert));
+      compile_expression(assembler, &a.operand, root)?;
+      assembler.emit(Instruction::new(InstructionKind::Assert));
     }
 
     Statement::Block(block) => {
-      compile_block(builder, block, root)?;
+      compile_block(assembler, block, root)?;
     }
     Statement::If(if_statement) => {
-      let after_if = builder.create_label("after if");
-      compile_if(builder, if_statement, after_if, root)?;
-      builder.emit_symbolic(SymbolicInstruction::Label(after_if));
+      let after_if = assembler.create_label("after if");
+      compile_if(assembler, if_statement, after_if, root)?;
+      assembler.emit_symbolic(SymbolicInstruction::Label(after_if));
     }
 
     Statement::While(while_statement) => {
-      let while_start = builder.create_label("while start");
-      let after_while = builder.create_label("after while");
-      builder.begin_loop(after_while);
-      builder.emit_symbolic(SymbolicInstruction::Label(while_start));
-      compile_expression(builder, &while_statement.cond, root)?;
-      builder.emit_symbolic(SymbolicInstruction::Instruction(
+      let while_start = assembler.create_label("while start");
+      let after_while = assembler.create_label("after while");
+      assembler.begin_loop(after_while);
+      assembler.emit_symbolic(SymbolicInstruction::Label(while_start));
+      compile_expression(assembler, &while_statement.cond, root)?;
+      assembler.emit_symbolic(SymbolicInstruction::Instruction(
         InstructionKind::JumpIfFalse,
         SymbolicOp::Label(after_while),
       ));
-      compile_block(builder, &while_statement.body, root)?;
-      builder.emit_symbolic(SymbolicInstruction::Instruction(
+      compile_block(assembler, &while_statement.body, root)?;
+      assembler.emit_symbolic(SymbolicInstruction::Instruction(
         InstructionKind::Jmp,
         SymbolicOp::Label(while_start),
       ));
-      builder.emit_symbolic(SymbolicInstruction::Label(after_while));
-      builder.end_loop();
+      assembler.emit_symbolic(SymbolicInstruction::Label(after_while));
+      assembler.end_loop();
     }
-    Statement::Break => builder.emit_break()?,
+    Statement::Break => assembler.emit_break()?,
   };
   Ok(())
 }
 
 fn compile_if(
-  builder: &mut Emitter,
+  assembler: &mut Assembler,
   if_stmnt: &IfStatement,
   end_label: Label,
   root: &Ast,
 ) -> Result<()> {
   match if_stmnt {
     IfStatement::Trivial { cond, body } => {
-      compile_expression(builder, cond, root)?;
-      builder.emit_symbolic(SymbolicInstruction::Instruction(
+      compile_expression(assembler, cond, root)?;
+      assembler.emit_symbolic(SymbolicInstruction::Instruction(
         InstructionKind::JumpIfFalse,
         SymbolicOp::Label(end_label),
       ));
-      compile_block(builder, body, root)?;
+      compile_block(assembler, body, root)?;
     }
     IfStatement::Fork {
       cond,
       true_case,
       false_case,
     } => {
-      let after_fst_branch = builder.create_label("after first branch");
-      compile_expression(builder, cond, root)?;
-      builder.emit_symbolic(SymbolicInstruction::Instruction(
+      let after_fst_branch = assembler.create_label("after first branch");
+      compile_expression(assembler, cond, root)?;
+      assembler.emit_symbolic(SymbolicInstruction::Instruction(
         InstructionKind::JumpIfFalse,
         SymbolicOp::Label(after_fst_branch),
       ));
 
-      compile_block(builder, true_case, root)?;
-      builder.emit_symbolic(SymbolicInstruction::Instruction(
+      compile_block(assembler, true_case, root)?;
+      assembler.emit_symbolic(SymbolicInstruction::Instruction(
         InstructionKind::Jmp,
         SymbolicOp::Label(end_label),
       ));
-      builder.emit_symbolic(SymbolicInstruction::Label(after_fst_branch));
+      assembler.emit_symbolic(SymbolicInstruction::Label(after_fst_branch));
 
       match false_case {
-        ElseTail::Trivial(tail) => compile_block(builder, tail, root)?,
-        ElseTail::If(recurse) => compile_if(builder, recurse, end_label, root)?,
+        ElseTail::Trivial(tail) => compile_block(assembler, tail, root)?,
+        ElseTail::If(recurse) => compile_if(assembler, recurse, end_label, root)?,
       }
     }
   }
@@ -136,61 +136,66 @@ fn compile_if(
   Ok(())
 }
 
-fn compile_block(builder: &mut Emitter, block: &Block, root: &Ast) -> Result<()> {
-  builder.begin_scope();
+fn compile_block(assembler: &mut Assembler, block: &Block, root: &Ast) -> Result<()> {
+  assembler.begin_scope();
 
   for decl in &block.declarations {
-    compile_declaration(builder, decl, root)?;
+    compile_declaration(assembler, decl, root)?;
   }
 
-  builder.end_scope();
+  assembler.end_scope();
 
   Ok(())
 }
 
 fn compile_and(
-  builder: &mut Emitter,
+  assembler: &mut Assembler,
   lhs: &Expression,
   rhs: &Expression,
   root: &Ast,
 ) -> Result<()> {
   // short circuit: if we are false, return immediately. Otherwise, execute and return rhs
-  let after_and = builder.create_label("after and");
-  compile_expression(builder, lhs, root)?;
+  let after_and = assembler.create_label("after and");
+  compile_expression(assembler, lhs, root)?;
 
-  builder.emit_symbolic(SymbolicInstruction::Instruction(
+  assembler.emit_symbolic(SymbolicInstruction::Instruction(
     InstructionKind::JumpIfFalsePreserving,
     SymbolicOp::Label(after_and),
   ));
 
-  compile_expression(builder, rhs, root)?;
-  builder.emit_symbolic(SymbolicInstruction::Label(after_and));
+  compile_expression(assembler, rhs, root)?;
+  assembler.emit_symbolic(SymbolicInstruction::Label(after_and));
 
   Ok(())
 }
 
-fn compile_or(builder: &mut Emitter, lhs: &Expression, rhs: &Expression, root: &Ast) -> Result<()> {
+fn compile_or(
+  assembler: &mut Assembler,
+  lhs: &Expression,
+  rhs: &Expression,
+  root: &Ast,
+) -> Result<()> {
   // short circuit: if we are true, return immediately. Otherwise, execute and return rhs
-  let after_or = builder.create_label("after or");
-  compile_expression(builder, lhs, root)?;
+  let after_or = assembler.create_label("after or");
+  compile_expression(assembler, lhs, root)?;
 
-  builder.emit_symbolic(SymbolicInstruction::Instruction(
+  assembler.emit_symbolic(SymbolicInstruction::Instruction(
     InstructionKind::JumpIfTruePreserving,
     SymbolicOp::Label(after_or),
   ));
 
-  compile_expression(builder, rhs, root)?;
-  builder.emit_symbolic(SymbolicInstruction::Label(after_or));
+  compile_expression(assembler, rhs, root)?;
+  assembler.emit_symbolic(SymbolicInstruction::Label(after_or));
 
   Ok(())
 }
 
-fn compile_expression(builder: &mut Emitter, expr: &Expression, root: &Ast) -> Result<()> {
+fn compile_expression(assembler: &mut Assembler, expr: &Expression, root: &Ast) -> Result<()> {
   match expr {
     Expression::Bin(b) => {
       let instruction_kind = match b.op {
-        BinOp::And => return compile_and(builder, b.lhs.as_ref(), b.rhs.as_ref(), root),
-        BinOp::Or => return compile_or(builder, b.lhs.as_ref(), b.rhs.as_ref(), root),
+        BinOp::And => return compile_and(assembler, b.lhs.as_ref(), b.rhs.as_ref(), root),
+        BinOp::Or => return compile_or(assembler, b.lhs.as_ref(), b.rhs.as_ref(), root),
 
         BinOp::Times => InstructionKind::Mult,
         BinOp::Minus => InstructionKind::Sub,
@@ -203,30 +208,31 @@ fn compile_expression(builder: &mut Emitter, expr: &Expression, root: &Ast) -> R
         BinOp::Greater => InstructionKind::Greater,
         BinOp::Neq => InstructionKind::Neq,
       };
-      compile_expression(builder, b.lhs.as_ref(), root)?;
-      compile_expression(builder, b.rhs.as_ref(), root)?;
+      compile_expression(assembler, b.lhs.as_ref(), root)?;
+      compile_expression(assembler, b.rhs.as_ref(), root)?;
 
-      builder.emit(Instruction {
+      assembler.emit(Instruction {
         kind: instruction_kind,
         operand: 0,
       });
     }
     Expression::Unary(u) => {
-      compile_expression(builder, u.operand.as_ref(), root)?;
+      compile_expression(assembler, u.operand.as_ref(), root)?;
       let instruction_kind = match u.op {
         UnaryOp::Not => InstructionKind::Not,
         UnaryOp::Minus => InstructionKind::UnaryMinus,
       };
-      builder.emit(Instruction::new(instruction_kind));
+      assembler.emit(Instruction::new(instruction_kind));
     }
     Expression::Lit(literal) => {
-      compile_literal(builder, literal, root)?;
+      compile_literal(assembler, literal, root)?;
     }
     Expression::Assign(Assign { assignee, assign }) => {
       match assignee {
-        LValue::Var(v) => builder.emit_set_variable(root.lexeme_arena.resolve(v), |builder| {
-          compile_expression(builder, assign, root)
-        })?,
+        LValue::Var(v) => assembler
+          .emit_set_variable(root.lexeme_arena.resolve(v), |assembler| {
+            compile_expression(assembler, assign, root)
+          })?,
       };
     }
   }
@@ -234,12 +240,12 @@ fn compile_expression(builder: &mut Emitter, expr: &Expression, root: &Ast) -> R
   Ok(())
 }
 
-fn compile_literal(builder: &mut Emitter, lit: &Literal, root: &Ast) -> Result<()> {
+fn compile_literal(assembler: &mut Assembler, lit: &Literal, root: &Ast) -> Result<()> {
   match lit {
-    &Literal::Num(x) => builder.emit_constant(Constant::Float(x))?,
-    Literal::String(x) => builder.emit_constant(Constant::String(x.clone()))?,
-    &Literal::Bool(x) => builder.emit_constant(Constant::Bool(x))?,
-    Literal::Var(v) => builder.emit_load_var(root.lexeme_arena.resolve(v))?,
+    &Literal::Num(x) => assembler.emit_constant(Constant::Float(x))?,
+    Literal::String(x) => assembler.emit_constant(Constant::String(x.clone()))?,
+    &Literal::Bool(x) => assembler.emit_constant(Constant::Bool(x))?,
+    Literal::Var(v) => assembler.emit_load_var(root.lexeme_arena.resolve(v))?,
   };
 
   Ok(())

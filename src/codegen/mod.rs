@@ -1,8 +1,8 @@
+mod assembler;
 mod chunk;
 mod compilation;
 mod compile;
 mod constant;
-mod emitter;
 mod error;
 mod instruction;
 mod symbolic_instruction;

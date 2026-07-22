@@ -1,4 +1,4 @@
-use super::emitter::Symbol;
+use super::assembler::Assembler;
 
 #[derive(Debug)]
 pub enum Error {

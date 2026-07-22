@@ -30,7 +30,7 @@ enum VariableLocation {
   Local(usize),
 }
 
-pub struct Emitter {
+pub struct Assembler {
   constants: Vec<Constant>,
   instructions: SymbolicProgram,
   locals: Vec<Local>,
@@ -43,7 +43,7 @@ pub struct Emitter {
   names: lasso::Rodeo,
 }
 
-impl Emitter {
+impl Assembler {
   pub fn new() -> Self {
     Self {
       constants: Vec::new(),
