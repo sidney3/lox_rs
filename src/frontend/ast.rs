@@ -26,6 +26,7 @@ pub enum LoxRule {
   ExprStatement,
   BlockStatement,
   IfStatement,
+  ElseTail,
 
   LValue,
   Assign,
@@ -127,9 +128,21 @@ pub struct AssertStatement {
   pub operand: Expression,
 }
 
-pub struct IfStatement {
-  pub cond: Expression,
-  pub body: Box<Block>,
+pub enum IfStatement {
+  Trivial {
+    cond: Expression,
+    body: Box<Block>,
+  },
+  Fork {
+    cond: Expression,
+    true_case: Box<Block>,
+    false_case: ElseTail,
+  },
+}
+
+pub enum ElseTail {
+  Trivial(Box<Block>),
+  If(Box<IfStatement>),
 }
 
 pub struct Block {
@@ -267,7 +280,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Token(LoxTokenKind::Semicolon)
       ],
     },
-    // IfStatement := 'if' expr '{' body '}'
+    // IfStatement := 'if' expr '{' body '}' | 'if' expr '{' body '}' 'else' else_tail
     P {
       rule: LoxRule::IfStatement,
       definition: nonempty![
@@ -277,6 +290,31 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Rule(LoxRule::BlockStatement),
         Symbol::Token(LoxTokenKind::RBracket),
       ],
+    },
+    P {
+      rule: LoxRule::IfStatement,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::If),
+        Symbol::Rule(LoxRule::Expr),
+        Symbol::Token(LoxTokenKind::LBracket),
+        Symbol::Rule(LoxRule::BlockStatement),
+        Symbol::Token(LoxTokenKind::RBracket),
+        Symbol::Token(LoxTokenKind::Else),
+        Symbol::Rule(LoxRule::ElseTail),
+      ],
+    },
+    // ElseTail := '{' body '}' | IfStatement
+    P {
+      rule: LoxRule::ElseTail,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::LBracket),
+        Symbol::Rule(LoxRule::BlockStatement),
+        Symbol::Token(LoxTokenKind::RBracket),
+      ],
+    },
+    P {
+      rule: LoxRule::ElseTail,
+      definition: nonempty![Symbol::Rule(LoxRule::IfStatement)],
     },
     // ------------------
     // EXPRESSION GRAMMAR
@@ -556,10 +594,31 @@ impl IfStatement {
         rule: LoxRule::IfStatement,
         children,
       }) => match children.as_slice() {
-        [_, cond, _, body, _] => IfStatement {
+        [_, cond, _, body, _] => IfStatement::Trivial {
           cond: Expression::from_cst(ast, cond),
           body: Box::new(Block::from_cst(ast, body)),
         },
+        [_, cond, _, true_case, _, _, else_tail] => IfStatement::Fork {
+          cond: Expression::from_cst(ast, cond),
+          true_case: Box::new(Block::from_cst(ast, true_case)),
+          false_case: ElseTail::from_cst(ast, else_tail),
+        },
+        _ => panic!("unreachable: {:?}", node),
+      },
+      _ => panic!("unreachable: {:?}", node),
+    }
+  }
+}
+
+impl ElseTail {
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::ElseTail,
+        children,
+      }) => match children.as_slice() {
+        [if_stmnt] => ElseTail::If(Box::new(IfStatement::from_cst(ast, if_stmnt))),
+        [_, block, _] => ElseTail::Trivial(Box::new(Block::from_cst(ast, block))),
         _ => panic!("unreachable"),
       },
       _ => panic!("unreachable"),

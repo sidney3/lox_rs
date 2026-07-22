@@ -1,7 +1,8 @@
 use super::compilation::Compilation;
 use super::emitter::Emitter;
 use super::error::Result;
-use crate::frontend::ast::{Assign, Block, LValue};
+use crate::codegen::symbolic_instruction::Label;
+use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::{
   codegen::{
     constant::Constant,
@@ -63,23 +64,55 @@ fn compile_statement(builder: &mut Emitter, statement: &Statement, root: &Ast) -
       compile_block(builder, block, root)?;
     }
     Statement::If(if_statement) => {
-      compile_expression(builder, &if_statement.cond, root)?;
-
       let after_if = builder.create_label("after if");
-
-      builder.emit_symbolic(SymbolicInstruction::Instruction(
-        InstructionKind::JumpIfFalse,
-        SymbolicOp::Label(after_if),
-      ));
-
-      // JumpIfFalse doesn't consume the top of the stack
-      builder.emit(Instruction::new(InstructionKind::Pop));
-
-      compile_block(builder, if_statement.body.as_ref(), root)?;
-
+      compile_if(builder, if_statement, after_if, root)?;
       builder.emit_symbolic(SymbolicInstruction::Label(after_if));
     }
   };
+  Ok(())
+}
+
+fn compile_if(
+  builder: &mut Emitter,
+  if_stmnt: &IfStatement,
+  end_label: Label,
+  root: &Ast,
+) -> Result<()> {
+  match if_stmnt {
+    IfStatement::Trivial { cond, body } => {
+      compile_expression(builder, cond, root)?;
+      builder.emit_symbolic(SymbolicInstruction::Instruction(
+        InstructionKind::JumpIfFalse,
+        SymbolicOp::Label(end_label),
+      ));
+      compile_block(builder, body, root)?;
+    }
+    IfStatement::Fork {
+      cond,
+      true_case,
+      false_case,
+    } => {
+      let after_fst_branch = builder.create_label("after first branch");
+      compile_expression(builder, cond, root)?;
+      builder.emit_symbolic(SymbolicInstruction::Instruction(
+        InstructionKind::JumpIfFalse,
+        SymbolicOp::Label(after_fst_branch),
+      ));
+
+      compile_block(builder, true_case, root)?;
+      builder.emit_symbolic(SymbolicInstruction::Instruction(
+        InstructionKind::Jmp,
+        SymbolicOp::Label(end_label),
+      ));
+      builder.emit_symbolic(SymbolicInstruction::Label(after_fst_branch));
+
+      match false_case {
+        ElseTail::Trivial(tail) => compile_block(builder, tail, root)?,
+        ElseTail::If(recurse) => compile_if(builder, recurse, end_label, root)?,
+      }
+    }
+  }
+
   Ok(())
 }
 

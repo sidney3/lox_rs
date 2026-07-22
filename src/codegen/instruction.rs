@@ -6,14 +6,13 @@ pub type OperandType = u8;
 
 #[derive(FromRepr)]
 #[repr(u8)]
-#[derive(Copy, Clone, Display)]
+#[derive(Copy, Clone, Display, Debug)]
 pub enum InstructionKind {
   Return,
   Constant,
 
-  // NB: peeks at top of stack, rather
-  // than popping
   JumpIfFalse,
+  Jmp,
 
   // Variables
   AddGlobal,
@@ -45,7 +44,7 @@ pub enum InstructionKind {
   Assert,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Instruction {
   pub kind: InstructionKind,
   pub operand: OperandType,

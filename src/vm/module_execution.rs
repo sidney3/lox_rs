@@ -101,6 +101,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
       } else {
         panic!("Walked off the end of frame!")
       };
+      debug!("{:?}", next_instruction);
 
       match next_instruction.kind {
         InstructionKind::Return => {
@@ -130,9 +131,12 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
           println!("{}", val.repr(self.vm));
         }
         InstructionKind::JumpIfFalse => {
-          if !bool::try_from(self.peek())? {
+          if !bool::try_from(&self.pop())? {
             self.frame_mut().jmp(next_instruction.operand as usize)
           }
+        }
+        InstructionKind::Jmp => {
+          self.frame_mut().jmp(next_instruction.operand as usize);
         }
         InstructionKind::Assert => {
           let operand = match self.pop() {
