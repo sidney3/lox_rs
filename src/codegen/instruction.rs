@@ -11,6 +11,9 @@ pub enum InstructionKind {
   Return,
   Constant,
 
+  // peeks, doesn't pop
+  JumpIfFalsePreserving,
+  JumpIfTruePreserving,
   JumpIfFalse,
   Jmp,
 

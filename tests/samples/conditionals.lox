@@ -77,3 +77,10 @@ while true {
 }
 
 assert x == 3;
+
+var x = 1;
+false && (x = 2);
+assert x == 1;
+
+true || (x = 2);
+assert x == 1;

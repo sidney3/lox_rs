@@ -135,6 +135,16 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
             self.frame_mut().jmp(next_instruction.operand as usize)
           }
         }
+        InstructionKind::JumpIfFalsePreserving => {
+          if !bool::try_from(self.peek())? {
+            self.frame_mut().jmp(next_instruction.operand as usize)
+          }
+        }
+        InstructionKind::JumpIfTruePreserving => {
+          if bool::try_from(self.peek())? {
+            self.frame_mut().jmp(next_instruction.operand as usize)
+          }
+        }
         InstructionKind::Jmp => {
           self.frame_mut().jmp(next_instruction.operand as usize);
         }

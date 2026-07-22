@@ -148,12 +148,50 @@ fn compile_block(builder: &mut Emitter, block: &Block, root: &Ast) -> Result<()>
   Ok(())
 }
 
+fn compile_and(
+  builder: &mut Emitter,
+  lhs: &Expression,
+  rhs: &Expression,
+  root: &Ast,
+) -> Result<()> {
+  // short circuit: if we are false, return immediately. Otherwise, execute and return rhs
+  let after_and = builder.create_label("after and");
+  compile_expression(builder, lhs, root)?;
+
+  builder.emit_symbolic(SymbolicInstruction::Instruction(
+    InstructionKind::JumpIfFalsePreserving,
+    SymbolicOp::Label(after_and),
+  ));
+
+  compile_expression(builder, rhs, root)?;
+  builder.emit_symbolic(SymbolicInstruction::Label(after_and));
+
+  Ok(())
+}
+
+fn compile_or(builder: &mut Emitter, lhs: &Expression, rhs: &Expression, root: &Ast) -> Result<()> {
+  // short circuit: if we are true, return immediately. Otherwise, execute and return rhs
+  let after_or = builder.create_label("after or");
+  compile_expression(builder, lhs, root)?;
+
+  builder.emit_symbolic(SymbolicInstruction::Instruction(
+    InstructionKind::JumpIfTruePreserving,
+    SymbolicOp::Label(after_or),
+  ));
+
+  compile_expression(builder, rhs, root)?;
+  builder.emit_symbolic(SymbolicInstruction::Label(after_or));
+
+  Ok(())
+}
+
 fn compile_expression(builder: &mut Emitter, expr: &Expression, root: &Ast) -> Result<()> {
   match expr {
     Expression::Bin(b) => {
-      compile_expression(builder, b.lhs.as_ref(), root)?;
-      compile_expression(builder, b.rhs.as_ref(), root)?;
       let instruction_kind = match b.op {
+        BinOp::And => return compile_and(builder, b.lhs.as_ref(), b.rhs.as_ref(), root),
+        BinOp::Or => return compile_or(builder, b.lhs.as_ref(), b.rhs.as_ref(), root),
+
         BinOp::Times => InstructionKind::Mult,
         BinOp::Minus => InstructionKind::Sub,
         BinOp::Divide => InstructionKind::Divide,
@@ -165,6 +203,8 @@ fn compile_expression(builder: &mut Emitter, expr: &Expression, root: &Ast) -> R
         BinOp::Greater => InstructionKind::Greater,
         BinOp::Neq => InstructionKind::Neq,
       };
+      compile_expression(builder, b.lhs.as_ref(), root)?;
+      compile_expression(builder, b.rhs.as_ref(), root)?;
 
       builder.emit(Instruction {
         kind: instruction_kind,

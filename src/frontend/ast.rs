@@ -52,6 +52,9 @@ pub enum BinOp {
   Greater,
   Geq,
   Neq,
+
+  And,
+  Or,
 }
 
 impl BinOp {
@@ -67,6 +70,8 @@ impl BinOp {
       LoxTokenKind::Greater => Some(Self::Greater),
       LoxTokenKind::GreaterEqual => Some(Self::Geq),
       LoxTokenKind::BangEqual => Some(Self::Neq),
+      LoxTokenKind::And => Some(Self::And),
+      LoxTokenKind::Or => Some(Self::Or),
       _ => None,
     }
   }
@@ -383,6 +388,8 @@ fn lox_grammar() -> Grammar<LoxRule> {
     //       | Term '<' Compare
     //       | Term '<=' Compare
     //       | Term '!=' Compare
+    //       | Term '&&' Compare
+    //       | Term '||' Compare
     //       | Term
     //
     P {
@@ -430,6 +437,22 @@ fn lox_grammar() -> Grammar<LoxRule> {
       definition: nonempty![
         Symbol::Rule(LoxRule::Term),
         Symbol::Token(LoxTokenKind::BangEqual),
+        Symbol::Rule(LoxRule::Compare)
+      ],
+    },
+    P {
+      rule: LoxRule::Compare,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::Term),
+        Symbol::Token(LoxTokenKind::And),
+        Symbol::Rule(LoxRule::Compare)
+      ],
+    },
+    P {
+      rule: LoxRule::Compare,
+      definition: nonempty![
+        Symbol::Rule(LoxRule::Term),
+        Symbol::Token(LoxTokenKind::Or),
         Symbol::Rule(LoxRule::Compare)
       ],
     },
