@@ -70,15 +70,6 @@ impl Assembler {
     self.instructions.create_label(label_name)
   }
 
-  pub fn emit_constant(&mut self, constant: Constant) -> Result<()> {
-    let index = self.add_constant(constant)?;
-    self.emit(Instruction {
-      kind: InstructionKind::Constant,
-      operand: index,
-    });
-    Ok(())
-  }
-
   pub fn add_constant(&mut self, constant: Constant) -> Result<OperandType> {
     let index = self.constants.len();
     self.constants.push(constant);
@@ -98,7 +89,7 @@ impl Assembler {
     }
   }
 
-  pub fn at_global_depth(&self) -> bool {
+  fn at_global_depth(&self) -> bool {
     self.scope_depth == 0
   }
 
@@ -131,7 +122,31 @@ impl Assembler {
     self.scope_depth -= 1;
   }
 
-  pub fn emit_break(&mut self) -> Result<()> {
+  //////////////////////////
+  /// Instructions
+  //////////////////////////
+  pub fn jmp(&mut self, to: Label) {
+    self.emit_symbolic(SymbolicInstruction::Instruction(
+      InstructionKind::Jmp,
+      SymbolicOp::Label(to),
+    ));
+  }
+  pub fn jmp_if_false(&mut self, to: Label) {
+    self.emit_symbolic(SymbolicInstruction::Instruction(
+      InstructionKind::JumpIfFalse,
+      SymbolicOp::Label(to),
+    ));
+  }
+  pub fn constant(&mut self, constant: Constant) -> Result<()> {
+    let index = self.add_constant(constant)?;
+    self.emit(Instruction {
+      kind: InstructionKind::Constant,
+      operand: index,
+    });
+    Ok(())
+  }
+
+  pub fn loop_break(&mut self) -> Result<()> {
     if let Some(loop_end) = self.active_loops.last() {
       self.emit_symbolic(SymbolicInstruction::Instruction(
         InstructionKind::Jmp,
@@ -143,7 +158,7 @@ impl Assembler {
     }
   }
 
-  pub fn emit_create_var<F>(&mut self, var_name: &str, create_with: F) -> Result<()>
+  pub fn define_var<F>(&mut self, var_name: &str, create_with: F) -> Result<()>
   where
     F: FnOnce(&mut Self) -> Result<()>,
   {
@@ -182,7 +197,7 @@ impl Assembler {
     }
   }
 
-  pub fn emit_load_var(&mut self, var_name: LValue) -> Result<()> {
+  pub fn load_var(&mut self, var_name: LValue) -> Result<()> {
     match self.find_var(var_name) {
       VariableLocation::Local(idx) => self.emit(Instruction {
         kind: InstructionKind::LoadLocal,
@@ -199,11 +214,11 @@ impl Assembler {
   // NB: as this is an expression, this emits
   // an additional instruction to push
   // the new value onto the stack
-  pub fn emit_set_variable<F>(&mut self, lhs: LValue, emit_rhs: F) -> Result<()>
+  pub fn set_variable<F>(&mut self, lhs: LValue, rhs: F) -> Result<()>
   where
     F: FnOnce(&mut Self) -> Result<()>,
   {
-    emit_rhs(self)?;
+    rhs(self)?;
 
     match self.find_var(lhs) {
       VariableLocation::Global(g) => {

@@ -34,11 +34,23 @@ fn compile_declaration(assembler: &mut Assembler, decl: &Declaration, root: &Ast
   match decl {
     Declaration::Statement(s) => compile_statement(assembler, s, root)?,
     Declaration::Var(v) => {
-      assembler.emit_create_var(root.lexeme_arena.resolve(&v.ident), |assembler| {
+      assembler.define_var(root.lexeme_arena.resolve(&v.ident), |assembler| {
         compile_expression(assembler, &v.assign, root)
       })?;
     }
   };
+  Ok(())
+}
+
+fn jmp_if_not_expr(
+  assembler: &mut Assembler,
+  expr: &Expression,
+  jump_to: Label,
+  root: &Ast,
+) -> Result<()> {
+  compile_expression(assembler, expr, root)?;
+  assembler.jmp_if_false(jump_to);
+
   Ok(())
 }
 
@@ -74,20 +86,13 @@ fn compile_statement(assembler: &mut Assembler, statement: &Statement, root: &As
       let after_while = assembler.create_label("after while");
       assembler.begin_loop(after_while);
       assembler.emit_symbolic(SymbolicInstruction::Label(while_start));
-      compile_expression(assembler, &while_statement.cond, root)?;
-      assembler.emit_symbolic(SymbolicInstruction::Instruction(
-        InstructionKind::JumpIfFalse,
-        SymbolicOp::Label(after_while),
-      ));
+      jmp_if_not_expr(assembler, &while_statement.cond, after_while, root)?;
       compile_block(assembler, &while_statement.body, root)?;
-      assembler.emit_symbolic(SymbolicInstruction::Instruction(
-        InstructionKind::Jmp,
-        SymbolicOp::Label(while_start),
-      ));
+      assembler.jmp(while_start);
       assembler.emit_symbolic(SymbolicInstruction::Label(after_while));
       assembler.end_loop();
     }
-    Statement::Break => assembler.emit_break()?,
+    Statement::Break => assembler.loop_break()?,
   };
   Ok(())
 }
@@ -100,11 +105,7 @@ fn compile_if(
 ) -> Result<()> {
   match if_stmnt {
     IfStatement::Trivial { cond, body } => {
-      compile_expression(assembler, cond, root)?;
-      assembler.emit_symbolic(SymbolicInstruction::Instruction(
-        InstructionKind::JumpIfFalse,
-        SymbolicOp::Label(end_label),
-      ));
+      jmp_if_not_expr(assembler, cond, end_label, root)?;
       compile_block(assembler, body, root)?;
     }
     IfStatement::Fork {
@@ -113,17 +114,10 @@ fn compile_if(
       false_case,
     } => {
       let after_fst_branch = assembler.create_label("after first branch");
-      compile_expression(assembler, cond, root)?;
-      assembler.emit_symbolic(SymbolicInstruction::Instruction(
-        InstructionKind::JumpIfFalse,
-        SymbolicOp::Label(after_fst_branch),
-      ));
+      jmp_if_not_expr(assembler, cond, after_fst_branch, root)?;
 
       compile_block(assembler, true_case, root)?;
-      assembler.emit_symbolic(SymbolicInstruction::Instruction(
-        InstructionKind::Jmp,
-        SymbolicOp::Label(end_label),
-      ));
+      assembler.jmp(end_label);
       assembler.emit_symbolic(SymbolicInstruction::Label(after_fst_branch));
 
       match false_case {
@@ -229,10 +223,9 @@ fn compile_expression(assembler: &mut Assembler, expr: &Expression, root: &Ast) 
     }
     Expression::Assign(Assign { assignee, assign }) => {
       match assignee {
-        LValue::Var(v) => assembler
-          .emit_set_variable(root.lexeme_arena.resolve(v), |assembler| {
-            compile_expression(assembler, assign, root)
-          })?,
+        LValue::Var(v) => assembler.set_variable(root.lexeme_arena.resolve(v), |assembler| {
+          compile_expression(assembler, assign, root)
+        })?,
       };
     }
   }
@@ -242,10 +235,10 @@ fn compile_expression(assembler: &mut Assembler, expr: &Expression, root: &Ast) 
 
 fn compile_literal(assembler: &mut Assembler, lit: &Literal, root: &Ast) -> Result<()> {
   match lit {
-    &Literal::Num(x) => assembler.emit_constant(Constant::Float(x))?,
-    Literal::String(x) => assembler.emit_constant(Constant::String(x.clone()))?,
-    &Literal::Bool(x) => assembler.emit_constant(Constant::Bool(x))?,
-    Literal::Var(v) => assembler.emit_load_var(root.lexeme_arena.resolve(v))?,
+    &Literal::Num(x) => assembler.constant(Constant::Float(x))?,
+    Literal::String(x) => assembler.constant(Constant::String(x.clone()))?,
+    &Literal::Bool(x) => assembler.constant(Constant::Bool(x))?,
+    Literal::Var(v) => assembler.load_var(root.lexeme_arena.resolve(v))?,
   };
 
   Ok(())
