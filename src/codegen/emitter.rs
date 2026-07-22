@@ -1,5 +1,7 @@
 use lasso::Key;
 
+use crate::codegen::symbolic_instruction::SymbolicOp;
+
 use super::Compilation;
 use super::chunk::Chunk;
 use super::constant::Constant;
@@ -127,6 +129,18 @@ impl Emitter {
       }
     }
     self.scope_depth -= 1;
+  }
+
+  pub fn emit_break(&mut self) -> Result<()> {
+    if let Some(loop_end) = self.active_loops.last() {
+      self.emit_symbolic(SymbolicInstruction::Instruction(
+        InstructionKind::Jmp,
+        SymbolicOp::Label(*loop_end),
+      ));
+      Ok(())
+    } else {
+      Err(Error::NakedBreak)
+    }
   }
 
   pub fn emit_create_var<F>(&mut self, var_name: &str, create_with: F) -> Result<()>

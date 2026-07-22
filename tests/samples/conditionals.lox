@@ -64,3 +64,16 @@ while i < 5 {
 }
 
 assert x == 5;
+
+var x = 1;
+while true {
+	x = x + 1;
+
+	while true {
+		x = x + 1;
+		break;
+	}
+	break;
+}
+
+assert x == 3;

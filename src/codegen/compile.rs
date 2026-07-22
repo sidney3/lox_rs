@@ -87,6 +87,7 @@ fn compile_statement(builder: &mut Emitter, statement: &Statement, root: &Ast) -
       builder.emit_symbolic(SymbolicInstruction::Label(after_while));
       builder.end_loop();
     }
+    Statement::Break => builder.emit_break()?,
   };
   Ok(())
 }

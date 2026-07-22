@@ -163,6 +163,7 @@ pub enum Statement {
   Block(Block),
   If(IfStatement),
   While(WhileStatement),
+  Break,
 }
 
 pub struct VarDeclaration {
@@ -226,6 +227,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
     // | '{' BlockStatement '}';
     // | IfStatement
     // | WhileStatement
+    // | Break
     P {
       rule: LoxRule::Statement,
       definition: nonempty![Symbol::Rule(LoxRule::Print)],
@@ -253,6 +255,13 @@ fn lox_grammar() -> Grammar<LoxRule> {
     P {
       rule: LoxRule::Statement,
       definition: nonempty![Symbol::Rule(LoxRule::WhileStatement)],
+    },
+    P {
+      rule: LoxRule::Statement,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::Break),
+        Symbol::Token(LoxTokenKind::Semicolon)
+      ],
     },
     // BlockStatement := Declaration | BlockStatement Declaration
     P {
@@ -709,6 +718,7 @@ impl Statement {
         {
           Statement::Block(Block::from_cst(ast, block))
         }
+        [Node::Leaf(l), Node::Leaf(_)] if l.token_type == LoxTokenKind::Break => Statement::Break,
         _ => panic!("unreachable: {:?}", node),
       },
       _ => panic!("unreachable: {:?}", node),
