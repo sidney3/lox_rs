@@ -1,4 +1,5 @@
 use lasso::Rodeo;
+use nonempty::{NonEmpty, nonempty};
 
 use super::error::{Error, Result};
 use crate::asm::{
@@ -15,145 +16,156 @@ pub struct Compilation {
 
 pub struct Compiler<'a> {
   symbols: lasso::Rodeo,
+  compile_stack: NonEmpty<FuncState>,
   ast: &'a Ast,
+}
+
+trait NonEmptyExt<T> {
+  fn into_last(self) -> T;
+}
+
+impl<T> NonEmptyExt<T> for NonEmpty<T> {
+  fn into_last(mut self) -> T {
+    self.tail.pop().unwrap_or(self.head)
+  }
 }
 
 impl<'a> Compiler<'a> {
   pub fn new(ast: &'a Ast) -> Self {
     Self {
       symbols: Rodeo::new(),
+      compile_stack: nonempty![FuncState::new()],
       ast,
     }
   }
 
   pub fn compile(mut self) -> Result<Compilation> {
-    let mut assembler = FuncState::new();
+    self.compile_ast(self.ast)?;
 
-    self.compile_ast(&mut assembler, self.ast)?;
+    assert!(self.compile_stack.len() == 1);
+
+    let asm = self.compile_stack.into_last().assemble();
 
     Ok(Compilation {
-      main: assembler.assemble(),
+      main: asm,
       symbols: self.symbols,
     })
   }
 
-  fn compile_ast(&mut self, assembler: &mut FuncState, ast: &Ast) -> Result<()> {
+  // Accessors to the current compiling func
+  fn func(&self) -> &FuncState {
+    self.compile_stack.last()
+  }
+  fn func_mut(&mut self) -> &mut FuncState {
+    self.compile_stack.last_mut()
+  }
+
+  fn compile_ast(&mut self, ast: &Ast) -> Result<()> {
     for decl in &ast.root.declarations {
-      self.compile_declaration(assembler, decl, ast)?;
+      self.compile_declaration(decl, ast)?;
     }
-    assembler.emit(Instruction::new(InstructionKind::Return));
+    self
+      .func_mut()
+      .emit(Instruction::new(InstructionKind::Return));
 
     Ok(())
   }
 
-  fn compile_declaration(
-    &mut self,
-    assembler: &mut FuncState,
-    decl: &Declaration,
-    root: &Ast,
-  ) -> Result<()> {
+  fn compile_declaration(&mut self, decl: &Declaration, root: &Ast) -> Result<()> {
     match decl {
-      Declaration::Statement(s) => self.compile_statement(assembler, s, root)?,
+      Declaration::Statement(s) => self.compile_statement(s, root)?,
       Declaration::Var(v) => {
-        self.compile_expression(assembler, &v.assign, root);
-        assembler.define_var(
-          self
-            .symbols
-            .get_or_intern(root.lexeme_arena.resolve(&v.ident)),
-        )?;
+        self.compile_expression(&v.assign, root);
+        let sym = self
+          .symbols
+          .get_or_intern(root.lexeme_arena.resolve(&v.ident));
+        self.func_mut().define_var(sym)?;
       }
     };
     Ok(())
   }
 
-  fn jmp_if_not_expr(
-    &mut self,
-    assembler: &mut FuncState,
-    expr: &Expression,
-    jump_to: Label,
-    root: &Ast,
-  ) -> Result<()> {
-    self.compile_expression(assembler, expr, root)?;
-    assembler.jmp_if_false(jump_to);
+  fn jmp_if_not_expr(&mut self, expr: &Expression, jump_to: Label, root: &Ast) -> Result<()> {
+    self.compile_expression(expr, root)?;
+    self.func_mut().jmp_if_false(jump_to);
 
     Ok(())
   }
 
-  fn compile_statement(
-    &mut self,
-    assembler: &mut FuncState,
-    statement: &Statement,
-    root: &Ast,
-  ) -> Result<()> {
+  fn compile_statement(&mut self, statement: &Statement, root: &Ast) -> Result<()> {
     match statement {
       Statement::Expr(e) => {
-        self.compile_expression(assembler, &e.expr, root)?;
-        assembler.emit(Instruction::new(InstructionKind::Pop));
+        self.compile_expression(&e.expr, root)?;
+        self.func_mut().emit(Instruction::new(InstructionKind::Pop));
       }
       Statement::Print(p) => {
-        self.compile_expression(assembler, &p.operand, root)?;
-        assembler.emit(Instruction {
+        self.compile_expression(&p.operand, root)?;
+        self.func_mut().emit(Instruction {
           kind: InstructionKind::Print,
           operand: 0,
         });
       }
       Statement::Assert(a) => {
-        self.compile_expression(assembler, &a.operand, root)?;
-        assembler.emit(Instruction::new(InstructionKind::Assert));
+        self.compile_expression(&a.operand, root)?;
+        self
+          .func_mut()
+          .emit(Instruction::new(InstructionKind::Assert));
       }
 
       Statement::Block(block) => {
-        self.compile_block(assembler, block, root)?;
+        self.compile_block(block, root)?;
       }
       Statement::If(if_statement) => {
-        let after_if = assembler.create_label("after if");
-        self.compile_if(assembler, if_statement, after_if, root)?;
-        assembler.emit_symbolic(SymbolicInstruction::Label(after_if));
+        let after_if = self.func_mut().create_label("after if");
+        self.compile_if(if_statement, after_if, root)?;
+        self
+          .func_mut()
+          .emit_symbolic(SymbolicInstruction::Label(after_if));
       }
 
       Statement::While(while_statement) => {
-        let while_start = assembler.create_label("while start");
-        let after_while = assembler.create_label("after while");
-        assembler.begin_loop(after_while);
-        assembler.emit_symbolic(SymbolicInstruction::Label(while_start));
-        self.jmp_if_not_expr(assembler, &while_statement.cond, after_while, root)?;
-        self.compile_block(assembler, &while_statement.body, root)?;
-        assembler.jmp(while_start);
-        assembler.emit_symbolic(SymbolicInstruction::Label(after_while));
-        assembler.end_loop();
+        let while_start = self.func_mut().create_label("while start");
+        let after_while = self.func_mut().create_label("after while");
+        self.func_mut().begin_loop(after_while);
+        self
+          .func_mut()
+          .emit_symbolic(SymbolicInstruction::Label(while_start));
+        self.jmp_if_not_expr(&while_statement.cond, after_while, root)?;
+        self.compile_block(&while_statement.body, root)?;
+        self.func_mut().jmp(while_start);
+        self
+          .func_mut()
+          .emit_symbolic(SymbolicInstruction::Label(after_while));
+        self.func_mut().end_loop();
       }
-      Statement::Break => assembler.loop_break()?,
+      Statement::Break => self.func_mut().loop_break()?,
     };
     Ok(())
   }
 
-  fn compile_if(
-    &mut self,
-    assembler: &mut FuncState,
-    if_stmnt: &IfStatement,
-    end_label: Label,
-    root: &Ast,
-  ) -> Result<()> {
+  fn compile_if(&mut self, if_stmnt: &IfStatement, end_label: Label, root: &Ast) -> Result<()> {
     match if_stmnt {
       IfStatement::Trivial { cond, body } => {
-        self.jmp_if_not_expr(assembler, cond, end_label, root)?;
-        self.compile_block(assembler, body, root)?;
+        self.jmp_if_not_expr(cond, end_label, root)?;
+        self.compile_block(body, root)?;
       }
       IfStatement::Fork {
         cond,
         true_case,
         false_case,
       } => {
-        let after_fst_branch = assembler.create_label("after first branch");
-        self.jmp_if_not_expr(assembler, cond, after_fst_branch, root)?;
+        let after_fst_branch = self.func_mut().create_label("after first branch");
+        self.jmp_if_not_expr(cond, after_fst_branch, root)?;
 
-        self.compile_block(assembler, true_case, root)?;
-        assembler.jmp(end_label);
-        assembler.emit_symbolic(SymbolicInstruction::Label(after_fst_branch));
+        self.compile_block(true_case, root)?;
+        self.func_mut().jmp(end_label);
+        self
+          .func_mut()
+          .emit_symbolic(SymbolicInstruction::Label(after_fst_branch));
 
         match false_case {
-          ElseTail::Trivial(tail) => self.compile_block(assembler, tail, root)?,
-          ElseTail::If(recurse) => self.compile_if(assembler, recurse, end_label, root)?,
+          ElseTail::Trivial(tail) => self.compile_block(tail, root)?,
+          ElseTail::If(recurse) => self.compile_if(recurse, end_label, root)?,
         }
       }
     }
@@ -161,73 +173,64 @@ impl<'a> Compiler<'a> {
     Ok(())
   }
 
-  fn compile_block(&mut self, assembler: &mut FuncState, block: &Block, root: &Ast) -> Result<()> {
-    assembler.begin_scope();
+  fn compile_block(&mut self, block: &Block, root: &Ast) -> Result<()> {
+    self.func_mut().begin_scope();
 
     for decl in &block.declarations {
-      self.compile_declaration(assembler, decl, root)?;
+      self.compile_declaration(decl, root)?;
     }
 
-    assembler.end_scope();
+    self.func_mut().end_scope();
 
     Ok(())
   }
 
-  fn compile_and(
-    &mut self,
-    assembler: &mut FuncState,
-    lhs: &Expression,
-    rhs: &Expression,
-    root: &Ast,
-  ) -> Result<()> {
+  fn compile_and(&mut self, lhs: &Expression, rhs: &Expression, root: &Ast) -> Result<()> {
     // short circuit: if we are false, return immediately. Otherwise, execute and return rhs
-    let after_and = assembler.create_label("after and");
-    self.compile_expression(assembler, lhs, root)?;
+    let after_and = self.func_mut().create_label("after and");
+    self.compile_expression(lhs, root)?;
 
-    assembler.emit_symbolic(SymbolicInstruction::Instruction(
-      InstructionKind::JumpIfFalsePreserving,
-      SymbolicOp::Label(after_and),
-    ));
+    self
+      .func_mut()
+      .emit_symbolic(SymbolicInstruction::Instruction(
+        InstructionKind::JumpIfFalsePreserving,
+        SymbolicOp::Label(after_and),
+      ));
 
-    self.compile_expression(assembler, rhs, root)?;
-    assembler.emit_symbolic(SymbolicInstruction::Label(after_and));
+    self.compile_expression(rhs, root)?;
+    self
+      .func_mut()
+      .emit_symbolic(SymbolicInstruction::Label(after_and));
 
     Ok(())
   }
 
-  fn compile_or(
-    &mut self,
-    assembler: &mut FuncState,
-    lhs: &Expression,
-    rhs: &Expression,
-    root: &Ast,
-  ) -> Result<()> {
+  fn compile_or(&mut self, lhs: &Expression, rhs: &Expression, root: &Ast) -> Result<()> {
     // short circuit: if we are true, return immediately. Otherwise, execute and return rhs
-    let after_or = assembler.create_label("after or");
-    self.compile_expression(assembler, lhs, root)?;
+    let after_or = self.func_mut().create_label("after or");
+    self.compile_expression(lhs, root)?;
 
-    assembler.emit_symbolic(SymbolicInstruction::Instruction(
-      InstructionKind::JumpIfTruePreserving,
-      SymbolicOp::Label(after_or),
-    ));
+    self
+      .func_mut()
+      .emit_symbolic(SymbolicInstruction::Instruction(
+        InstructionKind::JumpIfTruePreserving,
+        SymbolicOp::Label(after_or),
+      ));
 
-    self.compile_expression(assembler, rhs, root)?;
-    assembler.emit_symbolic(SymbolicInstruction::Label(after_or));
+    self.compile_expression(rhs, root)?;
+    self
+      .func_mut()
+      .emit_symbolic(SymbolicInstruction::Label(after_or));
 
     Ok(())
   }
 
-  fn compile_expression(
-    &mut self,
-    assembler: &mut FuncState,
-    expr: &Expression,
-    root: &Ast,
-  ) -> Result<()> {
+  fn compile_expression(&mut self, expr: &Expression, root: &Ast) -> Result<()> {
     match expr {
       Expression::Bin(b) => {
         let instruction_kind = match b.op {
-          BinOp::And => return self.compile_and(assembler, b.lhs.as_ref(), b.rhs.as_ref(), root),
-          BinOp::Or => return self.compile_or(assembler, b.lhs.as_ref(), b.rhs.as_ref(), root),
+          BinOp::And => return self.compile_and(b.lhs.as_ref(), b.rhs.as_ref(), root),
+          BinOp::Or => return self.compile_or(b.lhs.as_ref(), b.rhs.as_ref(), root),
 
           BinOp::Times => InstructionKind::Mult,
           BinOp::Minus => InstructionKind::Sub,
@@ -240,50 +243,45 @@ impl<'a> Compiler<'a> {
           BinOp::Greater => InstructionKind::Greater,
           BinOp::Neq => InstructionKind::Neq,
         };
-        self.compile_expression(assembler, b.lhs.as_ref(), root)?;
-        self.compile_expression(assembler, b.rhs.as_ref(), root)?;
+        self.compile_expression(b.lhs.as_ref(), root)?;
+        self.compile_expression(b.rhs.as_ref(), root)?;
 
-        assembler.emit(Instruction {
+        self.func_mut().emit(Instruction {
           kind: instruction_kind,
           operand: 0,
         });
       }
       Expression::Unary(u) => {
-        self.compile_expression(assembler, u.operand.as_ref(), root)?;
+        self.compile_expression(u.operand.as_ref(), root)?;
         let instruction_kind = match u.op {
           UnaryOp::Not => InstructionKind::Not,
           UnaryOp::Minus => InstructionKind::UnaryMinus,
         };
-        assembler.emit(Instruction::new(instruction_kind));
+        self.func_mut().emit(Instruction::new(instruction_kind));
       }
       Expression::Lit(literal) => {
-        self.compile_literal(assembler, literal, root)?;
+        self.compile_literal(literal, root)?;
       }
       Expression::Assign(Assign { assignee, assign }) => {
-        self.compile_expression(assembler, assign, root);
-        match assignee {
-          LValue::Var(v) => {
-            assembler.set_variable(self.symbols.get_or_intern(root.lexeme_arena.resolve(v)))?
-          }
+        self.compile_expression(assign, root);
+        let assignee_sym = match assignee {
+          LValue::Var(v) => self.symbols.get_or_intern(root.lexeme_arena.resolve(v)),
         };
+        self.func_mut().set_variable(assignee_sym);
       }
     }
 
     Ok(())
   }
 
-  fn compile_literal(
-    &mut self,
-    assembler: &mut FuncState,
-    lit: &Literal,
-    root: &Ast,
-  ) -> Result<()> {
+  fn compile_literal(&mut self, lit: &Literal, root: &Ast) -> Result<()> {
     match lit {
-      &Literal::Num(x) => assembler.constant(Constant::Float(x))?,
-      Literal::String(x) => assembler.constant(Constant::String(x.clone()))?,
-      &Literal::Bool(x) => assembler.constant(Constant::Bool(x))?,
+      &Literal::Num(x) => self.func_mut().constant(Constant::Float(x))?,
+      Literal::String(x) => self.func_mut().constant(Constant::String(x.clone()))?,
+      &Literal::Bool(x) => self.func_mut().constant(Constant::Bool(x))?,
       Literal::Var(v) => {
-        assembler.load_var(self.symbols.get_or_intern(root.lexeme_arena.resolve(v)))?
+        let sym = self.symbols.get_or_intern(root.lexeme_arena.resolve(v));
+        self.func_mut().load_var(sym)?;
       }
     };
 
