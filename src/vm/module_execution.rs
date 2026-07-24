@@ -33,7 +33,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
     Self {
       vm,
       call_stack: nonempty![CallFrame {
-        chunk: &compilation.main.chunk,
+        func: &compilation.main,
         ip: 0,
         base: 0,
       }],
