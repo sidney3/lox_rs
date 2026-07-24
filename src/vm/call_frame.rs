@@ -1,5 +1,4 @@
-use crate::codegen::Chunk;
-use crate::codegen::Instruction;
+use crate::asm::{Chunk, Instruction};
 
 pub struct CallFrame<'c> {
   pub chunk: &'c Chunk,

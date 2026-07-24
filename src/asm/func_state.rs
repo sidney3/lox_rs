@@ -1,13 +1,10 @@
 use lasso::Key;
 
-use crate::codegen::symbolic_instruction::SymbolicOp;
-
-use super::Compilation;
 use super::chunk::Chunk;
 use super::constant::Constant;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
-use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicProgram};
+use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
 
 pub type Symbol = lasso::Spur;
 
@@ -30,25 +27,20 @@ enum VariableLocation {
   Local(usize),
 }
 
-pub struct Assembler {
+pub struct FuncState {
   constants: Vec<Constant>,
   instructions: SymbolicProgram,
   locals: Vec<Local>,
   scope_depth: usize,
   // active_loops.back() is the current loop
   active_loops: Vec<Label>,
-
-  // names that survive to runtime, as strings.
-  // NB: the runtime will peer into this arena!
-  names: lasso::Rodeo,
 }
 
-impl Assembler {
+impl FuncState {
   pub fn new() -> Self {
     Self {
       constants: Vec::new(),
       instructions: SymbolicProgram::new(),
-      names: lasso::Rodeo::new(),
       locals: Vec::new(),
       active_loops: Vec::new(),
       scope_depth: 0,
@@ -76,15 +68,12 @@ impl Assembler {
     OperandType::try_from(index).map_err(|_| Error::IndexOutOfRange(index))
   }
 
-  pub fn finalize(self) -> Compilation {
-    Compilation {
-      chunk: Chunk {
-        instructions: self
-          .instructions
-          .parse()
-          .expect("Symbolic resolution failure."),
-      },
-      symbols: self.names,
+  pub fn assemble(self) -> Chunk {
+    Chunk {
+      instructions: self
+        .instructions
+        .parse()
+        .expect("Symbolic resolution failure."),
       constants: self.constants,
     }
   }
@@ -158,12 +147,7 @@ impl Assembler {
     }
   }
 
-  pub fn define_var<F>(&mut self, var_name: &str, create_with: F) -> Result<()>
-  where
-    F: FnOnce(&mut Self) -> Result<()>,
-  {
-    let sym = self.names.get_or_intern(var_name);
-    create_with(self)?;
+  pub fn define_var(&mut self, sym: Symbol) -> Result<()> {
     if self.at_global_depth() {
       self.emit(Instruction {
         kind: InstructionKind::AddGlobal,
@@ -181,8 +165,7 @@ impl Assembler {
 
   // mut as we late bind globals, so if this is a global this might be the first
   // time we see `var_name`
-  fn find_var(&mut self, var_name: LValue) -> VariableLocation {
-    let sym = self.names.get_or_intern(var_name);
+  fn find_var(&mut self, sym: Symbol) -> VariableLocation {
     let maybe_local_index = self
       .locals
       .iter()
@@ -197,8 +180,8 @@ impl Assembler {
     }
   }
 
-  pub fn load_var(&mut self, var_name: LValue) -> Result<()> {
-    match self.find_var(var_name) {
+  pub fn load_var(&mut self, sym: Symbol) -> Result<()> {
+    match self.find_var(sym) {
       VariableLocation::Local(idx) => self.emit(Instruction {
         kind: InstructionKind::LoadLocal,
         operand: index_to_op(idx)?,
@@ -214,12 +197,7 @@ impl Assembler {
   // NB: as this is an expression, this emits
   // an additional instruction to push
   // the new value onto the stack
-  pub fn set_variable<F>(&mut self, lhs: LValue, rhs: F) -> Result<()>
-  where
-    F: FnOnce(&mut Self) -> Result<()>,
-  {
-    rhs(self)?;
-
+  pub fn set_variable(&mut self, lhs: Symbol) -> Result<()> {
     match self.find_var(lhs) {
       VariableLocation::Global(g) => {
         let global_index_op = index_to_op(g.into_usize())?;

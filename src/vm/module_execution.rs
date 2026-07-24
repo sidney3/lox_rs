@@ -10,7 +10,8 @@ use super::runtime_error::RuntimeError;
 use super::value::Value;
 use super::vm::Vm;
 use super::vm::{Handle, Root};
-use crate::codegen::{Chunk, Compilation, Constant, Instruction, InstructionKind};
+use crate::asm::{Chunk, Constant, Instruction, InstructionKind};
+use crate::codegen::Compilation;
 use crate::gc::{Ref, RefMut};
 
 pub struct ModuleExecution<'a, 'b> {
@@ -23,6 +24,7 @@ pub struct ModuleExecution<'a, 'b> {
 impl<'a, 'b> ModuleExecution<'a, 'b> {
   pub fn new(vm: &'a mut Vm, compilation: &'b Compilation) -> Self {
     let constants: Vec<_> = compilation
+      .chunk
       .constants
       .iter()
       .map(|c| vm.load_const(c))

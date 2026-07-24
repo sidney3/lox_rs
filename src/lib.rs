@@ -1,3 +1,4 @@
+mod asm;
 mod codegen;
 mod core;
 mod frontend;
@@ -22,7 +23,9 @@ pub fn run(config: Config) -> Result<(), RuntimeError> {
   let source_code = std::fs::read_to_string(config.script).unwrap();
   let token_result = lexer.lex(&source_code).unwrap();
   let ast = parser.parse(token_result).unwrap();
-  let compiled = codegen::compile(&ast).unwrap();
+  let compiled = codegen::Compiler::new(&ast)
+    .compile()
+    .expect("Compilation failed");
 
   if config.disasm {
     println!("{}", compiled.chunk);
