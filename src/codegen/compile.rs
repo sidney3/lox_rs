@@ -81,6 +81,7 @@ impl<'a> Compiler<'a> {
         let sym = self.symbols.get_or_intern(self.ident_sym(v.ident));
         self.func_mut().define_var(sym)?;
       }
+      Declaration::Fun(_) => todo!(),
     };
     Ok(())
   }

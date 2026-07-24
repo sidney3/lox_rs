@@ -6,6 +6,7 @@ use strum::Display;
 
 use super::error::Result;
 use super::token::LoxTokenKind;
+use crate::frontend::token::Ident;
 use crate::lexer::Tokens;
 use crate::parse::{Grammar, Node, Parent, Parser, Production, Rule, Symbol, Tree};
 
@@ -22,6 +23,9 @@ pub enum LoxRule {
   Print,
   Assert,
   Declaration,
+  FuncDecl,
+  FuncArgs,
+  VarDecl,
   Statement,
   ExprStatement,
   BlockStatement,
@@ -171,6 +175,16 @@ pub enum Statement {
   Break,
 }
 
+pub struct FuncArgs {
+  vals: Vec<Ident>,
+}
+
+pub struct FuncDecl {
+  name: Ident,
+  body: Block,
+  args: FuncArgs,
+}
+
 pub struct VarDeclaration {
   pub ident: lasso::Spur,
   pub assign: Expression,
@@ -179,6 +193,7 @@ pub struct VarDeclaration {
 pub enum Declaration {
   Statement(Statement),
   Var(VarDeclaration),
+  Fun(FuncDecl),
 }
 
 pub enum LValue {
@@ -210,19 +225,42 @@ fn lox_grammar() -> Grammar<LoxRule> {
         Symbol::Rule(LoxRule::Declaration),
       ],
     },
-    // Declaration := Statement | VarDeclaration;
+    // Declaration := Statement | VarDeclaration | FuncDec;
     P {
       rule: LoxRule::Declaration,
       definition: nonempty![Symbol::Rule(LoxRule::Statement)],
     },
     P {
       rule: LoxRule::Declaration,
+      definition: nonempty![Symbol::Rule(LoxRule::FuncDecl)],
+    },
+    P {
+      rule: LoxRule::Declaration,
+      definition: nonempty![Symbol::Rule(LoxRule::VarDecl)],
+    },
+    // VarDecl := 'var' 'ident' '=' 'expr' ;
+    P {
+      rule: LoxRule::VarDecl,
       definition: nonempty![
         Symbol::Token(LoxTokenKind::Var),
         Symbol::Token(LoxTokenKind::Ident),
         Symbol::Token(LoxTokenKind::Equal),
         Symbol::Rule(LoxRule::Expr),
         Symbol::Token(LoxTokenKind::Semicolon),
+      ],
+    },
+    // FuncDecl := 'fun' 'Ident' '(' func_args ')' '{' block '}'
+    P {
+      rule: LoxRule::FuncDecl,
+      definition: nonempty![
+        Symbol::Token(LoxTokenKind::Fun),
+        Symbol::Token(LoxTokenKind::Ident),
+        Symbol::Token(LoxTokenKind::LParen),
+        Symbol::Rule(LoxRule::FuncArgs),
+        Symbol::Token(LoxTokenKind::RParen),
+        Symbol::Token(LoxTokenKind::LBrace),
+        Symbol::Rule(LoxRule::BlockStatement),
+        Symbol::Token(LoxTokenKind::RBrace),
       ],
     },
     // Statement :=
@@ -749,11 +787,11 @@ impl Statement {
   }
 }
 
-impl Declaration {
+impl VarDeclaration {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
       Node::Parent(Parent {
-        rule: LoxRule::Declaration,
+        rule: LoxRule::VarDecl,
         children: children,
       }) => match children.as_slice() {
         [
@@ -767,12 +805,49 @@ impl Declaration {
           && eq.token_type == LoxTokenKind::Equal
           && semicolon.token_type == LoxTokenKind::Semicolon =>
         {
-          Declaration::Var(VarDeclaration {
+          VarDeclaration {
             ident: ident.lexeme,
             assign: Expression::from_cst(ast, assign),
-          })
+          }
         }
-        [statement] => Declaration::Statement(Statement::from_cst(ast, statement)),
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+}
+
+impl FuncDecl {
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    todo!();
+  }
+}
+
+impl Declaration {
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::Declaration,
+        children: children,
+      }) => match children.as_slice() {
+        [
+          Node::Parent(Parent {
+            rule: LoxRule::VarDecl,
+            children: _,
+          }),
+        ] => Declaration::Var(VarDeclaration::from_cst(ast, &children[0])),
+        [
+          Node::Parent(Parent {
+            rule: LoxRule::FuncDecl,
+            children: _,
+          }),
+        ] => Declaration::Fun(FuncDecl::from_cst(ast, &children[0])),
+        [
+          Node::Parent(Parent {
+            rule: LoxRule::Statement,
+            children: _,
+          }),
+        ] => Declaration::Statement(Statement::from_cst(ast, &children[0])),
         _ => panic!("unreachable"),
       },
       _ => panic!("unreachable: {:?}", node),
