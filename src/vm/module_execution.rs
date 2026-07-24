@@ -24,6 +24,7 @@ pub struct ModuleExecution<'a, 'b> {
 impl<'a, 'b> ModuleExecution<'a, 'b> {
   pub fn new(vm: &'a mut Vm, compilation: &'b Compilation) -> Self {
     let constants: Vec<_> = compilation
+      .main
       .chunk
       .constants
       .iter()
@@ -32,7 +33,7 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
     Self {
       vm,
       call_stack: nonempty![CallFrame {
-        chunk: &compilation.chunk,
+        chunk: &compilation.main.chunk,
         ip: 0,
         base: 0,
       }],

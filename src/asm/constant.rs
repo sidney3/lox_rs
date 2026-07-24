@@ -1,9 +1,11 @@
 use std::fmt;
 
+pub type LoxString = String;
+
 #[derive(Clone)]
 pub enum Constant {
   Float(f64),
-  String(String),
+  String(LoxString),
   Bool(bool),
 }
 

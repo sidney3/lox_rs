@@ -1,5 +1,6 @@
 use lasso::Key;
 
+use super::Function;
 use super::chunk::Chunk;
 use super::constant::Constant;
 use super::error::{Error, Result};
@@ -68,13 +69,19 @@ impl FuncState {
     OperandType::try_from(index).map_err(|_| Error::IndexOutOfRange(index))
   }
 
-  pub fn assemble(self) -> Chunk {
-    Chunk {
+  pub fn assemble(self) -> Function {
+    let chunk = Chunk {
       instructions: self
         .instructions
         .parse()
         .expect("Symbolic resolution failure."),
       constants: self.constants,
+    };
+
+    Function {
+      chunk,
+      arity: 0,
+      name: "main".to_string(),
     }
   }
 

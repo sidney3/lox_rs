@@ -2,13 +2,14 @@ use lasso::Rodeo;
 
 use super::error::{Error, Result};
 use crate::asm::{
-  Chunk, Constant, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
+  Chunk, Constant, FuncState, Function, Instruction, InstructionKind, Label, SymbolicInstruction,
+  SymbolicOp,
 };
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 
 pub struct Compilation {
-  pub chunk: Chunk,
+  pub main: Function,
   pub symbols: lasso::Rodeo,
 }
 
@@ -31,7 +32,7 @@ impl<'a> Compiler<'a> {
     self.compile_ast(&mut assembler, self.ast)?;
 
     Ok(Compilation {
-      chunk: assembler.assemble(),
+      main: assembler.assemble(),
       symbols: self.symbols,
     })
   }
