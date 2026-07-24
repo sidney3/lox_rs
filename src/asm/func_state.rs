@@ -62,6 +62,9 @@ impl FuncState {
   pub fn create_label(&mut self, label_name: &'static str) -> Label {
     self.instructions.create_label(label_name)
   }
+  pub fn bind_label(&mut self, label: Label) {
+    self.emit_symbolic(SymbolicInstruction::Label(label));
+  }
 
   pub fn add_constant(&mut self, constant: Constant) -> Result<OperandType> {
     let index = self.constants.len();
