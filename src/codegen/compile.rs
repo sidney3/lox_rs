@@ -1,9 +1,9 @@
 use lasso::Rodeo;
 use nonempty::{NonEmpty, nonempty};
 
-use super::error::{Error, Result};
+use super::error::Result;
 use crate::asm::{
-  Chunk, Constant, FuncState, Function, Instruction, InstructionKind, Label, SymbolicInstruction,
+  Constant, FuncState, Function, Instruction, InstructionKind, Label, SymbolicInstruction,
   SymbolicOp,
 };
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
@@ -53,9 +53,6 @@ impl<'a> Compiler<'a> {
   }
 
   // Accessors to the current compiling func
-  fn func(&self) -> &FuncState {
-    self.compile_stack.last()
-  }
   fn func_mut(&mut self) -> &mut FuncState {
     self.compile_stack.last_mut()
   }
@@ -75,7 +72,7 @@ impl<'a> Compiler<'a> {
     match decl {
       Declaration::Statement(s) => self.compile_statement(s, root)?,
       Declaration::Var(v) => {
-        self.compile_expression(&v.assign, root);
+        self.compile_expression(&v.assign, root)?;
         let sym = self
           .symbols
           .get_or_intern(root.lexeme_arena.resolve(&v.ident));
@@ -263,11 +260,11 @@ impl<'a> Compiler<'a> {
         self.compile_literal(literal, root)?;
       }
       Expression::Assign(Assign { assignee, assign }) => {
-        self.compile_expression(assign, root);
+        self.compile_expression(assign, root)?;
         let assignee_sym = match assignee {
           LValue::Var(v) => self.symbols.get_or_intern(root.lexeme_arena.resolve(v)),
         };
-        self.func_mut().set_variable(assignee_sym);
+        self.func_mut().set_variable(assignee_sym)?;
       }
     }
 
