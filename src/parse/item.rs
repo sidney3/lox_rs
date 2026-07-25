@@ -17,10 +17,17 @@ pub struct Item {
 pub type AdvanceResult = Option<Either<Item, ProductionId>>;
 
 impl Item {
-  pub fn new(production_id: ProductionId) -> Self {
-    Self {
-      pos: 0,
-      production_id,
+  pub fn new<R: Rule>(
+    grammar: &Grammar<R>,
+    production_id: ProductionId,
+  ) -> Either<Item, ProductionId> {
+    if grammar.production(production_id).definition.len() == 0 {
+      Either::Right(production_id)
+    } else {
+      Either::Left(Self {
+        pos: 0,
+        production_id,
+      })
     }
   }
   pub fn current_symbol<R: Rule>(&self, grammar: &Grammar<R>) -> Symbol<R> {

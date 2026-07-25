@@ -50,8 +50,9 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
   let initial_symbols: Vec<_> = grammar
     .productions()
     .filter_map(|production| match production.definition.first() {
-      &Symbol::Token(t) => Some(t),
-      Symbol::Rule(_) => None,
+      Some(&Symbol::Token(t)) => Some(t),
+      Some(Symbol::Rule(_)) => None,
+      _ => None,
     })
     .collect();
 
@@ -100,7 +101,7 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
       // A = ....B;
       //
       // Then B should contain FOLLOW(A)
-      if let Symbol::Rule(r) = production.definition.last() {
+      if let Some(Symbol::Rule(r)) = production.definition.last() {
         let _base = production.rule;
         for t in follows {
           add_follow(r, t);
@@ -127,8 +128,9 @@ fn first<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
 
     for production in grammar.productions() {
       let fst_set: SmallVec<[R::TokenType; 8]> = match production.definition.first() {
-        &Symbol::Token(t) => smallvec![t],
-        &Symbol::Rule(r) => first_table[r.ord()].iter().cloned().collect(),
+        None => smallvec![],
+        Some(&Symbol::Token(t)) => smallvec![t],
+        Some(&Symbol::Rule(r)) => first_table[r.ord()].iter().cloned().collect(),
       };
       let mut add_first = |rule: &R, token: R::TokenType| {
         if !first_table[rule.ord()].contains(&token) {

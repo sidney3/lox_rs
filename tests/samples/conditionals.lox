@@ -84,3 +84,11 @@ assert x == 1;
 
 true || (x = 2);
 assert x == 1;
+
+{
+	var q = 10;
+	if false {} else {
+		q = 9;
+	}
+	assert q == 9;
+}

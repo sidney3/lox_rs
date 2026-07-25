@@ -2,6 +2,7 @@ use std::collections::{VecDeque, vec_deque};
 
 use lox_derive::Ordinal;
 use nonempty::{NonEmpty, nonempty};
+use std::vec;
 use strum::Display;
 
 use super::error::Result;
@@ -39,9 +40,6 @@ pub enum LoxRule {
 
 impl Rule for LoxRule {
   type TokenType = LoxTokenKind;
-  fn goal() -> Self {
-    LoxRule::Program
-  }
 }
 
 pub enum BinOp {
@@ -161,7 +159,6 @@ pub enum ElseTail {
 }
 
 pub struct Block {
-  // TODO: support empty blocks
   pub declarations: Vec<Declaration>,
 }
 
@@ -212,395 +209,398 @@ pub struct Program {
 type P = Production<LoxRule>;
 
 fn lox_grammar() -> Grammar<LoxRule> {
-  Grammar::new(vec![
-    // Program := Declaration | Program Declaration;
-    P {
-      rule: LoxRule::Program,
-      definition: nonempty![Symbol::Rule(LoxRule::Declaration)],
-    },
-    P {
-      rule: LoxRule::Program,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Program),
-        Symbol::Rule(LoxRule::Declaration),
-      ],
-    },
-    // Declaration := Statement | VarDeclaration | FuncDec;
-    P {
-      rule: LoxRule::Declaration,
-      definition: nonempty![Symbol::Rule(LoxRule::Statement)],
-    },
-    P {
-      rule: LoxRule::Declaration,
-      definition: nonempty![Symbol::Rule(LoxRule::FuncDecl)],
-    },
-    P {
-      rule: LoxRule::Declaration,
-      definition: nonempty![Symbol::Rule(LoxRule::VarDecl)],
-    },
-    // VarDecl := 'var' 'ident' '=' 'expr' ;
-    P {
-      rule: LoxRule::VarDecl,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::Var),
-        Symbol::Token(LoxTokenKind::Ident),
-        Symbol::Token(LoxTokenKind::Equal),
-        Symbol::Rule(LoxRule::Expr),
-        Symbol::Token(LoxTokenKind::Semicolon),
-      ],
-    },
-    // FuncDecl := 'fun' 'Ident' '(' func_args ')' '{' block '}'
-    P {
-      rule: LoxRule::FuncDecl,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::Fun),
-        Symbol::Token(LoxTokenKind::Ident),
-        Symbol::Token(LoxTokenKind::LParen),
-        Symbol::Rule(LoxRule::FuncArgs),
-        Symbol::Token(LoxTokenKind::RParen),
-        Symbol::Token(LoxTokenKind::LBrace),
-        Symbol::Rule(LoxRule::BlockStatement),
-        Symbol::Token(LoxTokenKind::RBrace),
-      ],
-    },
-    // Statement :=
-    // AssertStatement
-    // | PrintStatement
-    // | ExpressionStatemt
-    // | '{' BlockStatement '}';
-    // | IfStatement
-    // | WhileStatement
-    // | Break
-    P {
-      rule: LoxRule::Statement,
-      definition: nonempty![Symbol::Rule(LoxRule::Print)],
-    },
-    P {
-      rule: LoxRule::Statement,
-      definition: nonempty![Symbol::Rule(LoxRule::Assert)],
-    },
-    P {
-      rule: LoxRule::Statement,
-      definition: nonempty![Symbol::Rule(LoxRule::ExprStatement)],
-    },
-    P {
-      rule: LoxRule::Statement,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::LBracket),
-        Symbol::Rule(LoxRule::BlockStatement),
-        Symbol::Token(LoxTokenKind::RBracket)
-      ],
-    },
-    P {
-      rule: LoxRule::Statement,
-      definition: nonempty![Symbol::Rule(LoxRule::IfStatement)],
-    },
-    P {
-      rule: LoxRule::Statement,
-      definition: nonempty![Symbol::Rule(LoxRule::WhileStatement)],
-    },
-    P {
-      rule: LoxRule::Statement,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::Break),
-        Symbol::Token(LoxTokenKind::Semicolon)
-      ],
-    },
-    // BlockStatement := Declaration | BlockStatement Declaration
-    P {
-      rule: LoxRule::BlockStatement,
-      definition: nonempty![Symbol::Rule(LoxRule::Declaration)],
-    },
-    P {
-      rule: LoxRule::BlockStatement,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::BlockStatement),
-        Symbol::Rule(LoxRule::Declaration)
-      ],
-    },
-    // PrintStatement := 'print' Expr ';'
-    P {
-      rule: LoxRule::Print,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::Print),
-        Symbol::Rule(LoxRule::Expr),
-        Symbol::Token(LoxTokenKind::Semicolon)
-      ],
-    },
-    // AssertStatement := 'assert' Expr ';'
-    P {
-      rule: LoxRule::Assert,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::Assert),
-        Symbol::Rule(LoxRule::Expr),
-        Symbol::Token(LoxTokenKind::Semicolon)
-      ],
-    },
-    // ExprStatement := Expr ';'
-    P {
-      rule: LoxRule::ExprStatement,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Expr),
-        Symbol::Token(LoxTokenKind::Semicolon)
-      ],
-    },
-    // IfStatement := 'if' expr '{' body '}' | 'if' expr '{' body '}' 'else' else_tail
-    P {
-      rule: LoxRule::IfStatement,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::If),
-        Symbol::Rule(LoxRule::Expr),
-        Symbol::Token(LoxTokenKind::LBracket),
-        Symbol::Rule(LoxRule::BlockStatement),
-        Symbol::Token(LoxTokenKind::RBracket),
-      ],
-    },
-    P {
-      rule: LoxRule::IfStatement,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::If),
-        Symbol::Rule(LoxRule::Expr),
-        Symbol::Token(LoxTokenKind::LBracket),
-        Symbol::Rule(LoxRule::BlockStatement),
-        Symbol::Token(LoxTokenKind::RBracket),
-        Symbol::Token(LoxTokenKind::Else),
-        Symbol::Rule(LoxRule::ElseTail),
-      ],
-    },
-    // ElseTail := '{' body '}' | IfStatement
-    P {
-      rule: LoxRule::ElseTail,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::LBracket),
-        Symbol::Rule(LoxRule::BlockStatement),
-        Symbol::Token(LoxTokenKind::RBracket),
-      ],
-    },
-    P {
-      rule: LoxRule::ElseTail,
-      definition: nonempty![Symbol::Rule(LoxRule::IfStatement)],
-    },
-    // WhileStatement := 'while' cond '{' body '}'
-    P {
-      rule: LoxRule::WhileStatement,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::While),
-        Symbol::Rule(LoxRule::Expr),
-        Symbol::Token(LoxTokenKind::LBracket),
-        Symbol::Rule(LoxRule::BlockStatement),
-        Symbol::Token(LoxTokenKind::RBracket),
-      ],
-    },
-    // ------------------
-    // EXPRESSION GRAMMAR
-    // ------------------
-    // Expr := Assign
-    P {
-      rule: LoxRule::Expr,
-      definition: nonempty![Symbol::Rule(LoxRule::Assign),],
-    },
-    // Assign :=
-    //       | lvalue '=' Expr
-    //       | Compare
-    //
-    P {
-      rule: LoxRule::Assign,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::LValue),
-        Symbol::Token(LoxTokenKind::Equal),
-        Symbol::Rule(LoxRule::Expr)
-      ],
-    },
-    P {
-      rule: LoxRule::Assign,
-      definition: nonempty![Symbol::Rule(LoxRule::Compare)],
-    },
-    P {
-      rule: LoxRule::LValue,
-      definition: nonempty![Symbol::Token(LoxTokenKind::Ident)],
-    },
-    // Compare :=
-    //       | Term '==' Compare
-    //       | Term '>=' Compare
-    //       | Term '>' Compare
-    //       | Term '<' Compare
-    //       | Term '<=' Compare
-    //       | Term '!=' Compare
-    //       | Term '&&' Compare
-    //       | Term '||' Compare
-    //       | Term
-    //
-    P {
-      rule: LoxRule::Compare,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::EqualEqual),
-        Symbol::Rule(LoxRule::Compare)
-      ],
-    },
-    P {
-      rule: LoxRule::Compare,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::LessEqual),
-        Symbol::Rule(LoxRule::Compare)
-      ],
-    },
-    P {
-      rule: LoxRule::Compare,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::Less),
-        Symbol::Rule(LoxRule::Compare)
-      ],
-    },
-    P {
-      rule: LoxRule::Compare,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::GreaterEqual),
-        Symbol::Rule(LoxRule::Compare)
-      ],
-    },
-    P {
-      rule: LoxRule::Compare,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::Greater),
-        Symbol::Rule(LoxRule::Compare)
-      ],
-    },
-    P {
-      rule: LoxRule::Compare,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::BangEqual),
-        Symbol::Rule(LoxRule::Compare)
-      ],
-    },
-    P {
-      rule: LoxRule::Compare,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::And),
-        Symbol::Rule(LoxRule::Compare)
-      ],
-    },
-    P {
-      rule: LoxRule::Compare,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::Or),
-        Symbol::Rule(LoxRule::Compare)
-      ],
-    },
-    P {
-      rule: LoxRule::Compare,
-      definition: nonempty![Symbol::Rule(LoxRule::Term),],
-    },
-    //
-    // Term := Product '+' Term
-    //       | Product '-' Term
-    //       | Product
-    P {
-      rule: LoxRule::Term,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::Plus),
-        Symbol::Rule(LoxRule::Product)
-      ],
-    },
-    P {
-      rule: LoxRule::Term,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Term),
-        Symbol::Token(LoxTokenKind::Minus),
-        Symbol::Rule(LoxRule::Product)
-      ],
-    },
-    P {
-      rule: LoxRule::Term,
-      definition: nonempty![Symbol::Rule(LoxRule::Product)],
-    },
-    // Product := Unary | Product '*' Unary | Product '/' Unary
-    P {
-      rule: LoxRule::Product,
-      definition: nonempty![Symbol::Rule(LoxRule::Unary)],
-    },
-    P {
-      rule: LoxRule::Product,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Product),
-        Symbol::Token(LoxTokenKind::Star),
-        Symbol::Rule(LoxRule::Unary)
-      ],
-    },
-    P {
-      rule: LoxRule::Product,
-      definition: nonempty![
-        Symbol::Rule(LoxRule::Product),
-        Symbol::Token(LoxTokenKind::Slash),
-        Symbol::Rule(LoxRule::Unary)
-      ],
-    },
-    // Unary :=
-    //       '-' Unary
-    //      | '!' Unary
-    //      | Paren
-    //
-    P {
-      rule: LoxRule::Unary,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::Bang),
-        Symbol::Rule(LoxRule::Unary),
-      ],
-    },
-    P {
-      rule: LoxRule::Unary,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::Minus),
-        Symbol::Rule(LoxRule::Unary),
-      ],
-    },
-    P {
-      rule: LoxRule::Unary,
-      definition: nonempty![Symbol::Rule(LoxRule::Paren),],
-    },
-    // Paren := Literal | '(' Expr ')'
-    P {
-      rule: LoxRule::Paren,
-      definition: nonempty![Symbol::Rule(LoxRule::Literal),],
-    },
-    P {
-      rule: LoxRule::Paren,
-      definition: nonempty![
-        Symbol::Token(LoxTokenKind::LParen),
-        Symbol::Rule(LoxRule::Expr),
-        Symbol::Token(LoxTokenKind::RParen),
-      ],
-    },
-    // Literal := 'Num' | 'Str' | 'True' | 'False' | 'Ident'
-    P {
-      rule: LoxRule::Literal,
-      definition: nonempty![Symbol::Token(LoxTokenKind::Number)],
-    },
-    P {
-      rule: LoxRule::Literal,
-      definition: nonempty![Symbol::Token(LoxTokenKind::String)],
-    },
-    P {
-      rule: LoxRule::Literal,
-      definition: nonempty![Symbol::Token(LoxTokenKind::True)],
-    },
-    P {
-      rule: LoxRule::Literal,
-      definition: nonempty![Symbol::Token(LoxTokenKind::False)],
-    },
-    P {
-      rule: LoxRule::Literal,
-      definition: nonempty![Symbol::Token(LoxTokenKind::Ident)],
-    },
-  ])
+  Grammar::new(
+    LoxRule::Program, // goal rule
+    vec![
+      // Program := Declaration | Program Declaration;
+      P {
+        rule: LoxRule::Program,
+        definition: vec![Symbol::Rule(LoxRule::Declaration)],
+      },
+      P {
+        rule: LoxRule::Program,
+        definition: vec![
+          Symbol::Rule(LoxRule::Program),
+          Symbol::Rule(LoxRule::Declaration),
+        ],
+      },
+      // Declaration := Statement | VarDeclaration | FuncDec;
+      P {
+        rule: LoxRule::Declaration,
+        definition: vec![Symbol::Rule(LoxRule::Statement)],
+      },
+      P {
+        rule: LoxRule::Declaration,
+        definition: vec![Symbol::Rule(LoxRule::FuncDecl)],
+      },
+      P {
+        rule: LoxRule::Declaration,
+        definition: vec![Symbol::Rule(LoxRule::VarDecl)],
+      },
+      // VarDecl := 'var' 'ident' '=' 'expr' ;
+      P {
+        rule: LoxRule::VarDecl,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Var),
+          Symbol::Token(LoxTokenKind::Ident),
+          Symbol::Token(LoxTokenKind::Equal),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::Semicolon),
+        ],
+      },
+      // FuncDecl := 'fun' 'Ident' '(' func_args ')' '{' block '}'
+      P {
+        rule: LoxRule::FuncDecl,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Fun),
+          Symbol::Token(LoxTokenKind::Ident),
+          Symbol::Token(LoxTokenKind::LParen),
+          Symbol::Rule(LoxRule::FuncArgs),
+          Symbol::Token(LoxTokenKind::RParen),
+          Symbol::Token(LoxTokenKind::LBrace),
+          Symbol::Rule(LoxRule::BlockStatement),
+          Symbol::Token(LoxTokenKind::RBrace),
+        ],
+      },
+      // Statement :=
+      // AssertStatement
+      // | PrintStatement
+      // | ExpressionStatemt
+      // | '{' BlockStatement '}';
+      // | IfStatement
+      // | WhileStatement
+      // | Break
+      P {
+        rule: LoxRule::Statement,
+        definition: vec![Symbol::Rule(LoxRule::Print)],
+      },
+      P {
+        rule: LoxRule::Statement,
+        definition: vec![Symbol::Rule(LoxRule::Assert)],
+      },
+      P {
+        rule: LoxRule::Statement,
+        definition: vec![Symbol::Rule(LoxRule::ExprStatement)],
+      },
+      P {
+        rule: LoxRule::Statement,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::LBracket),
+          Symbol::Rule(LoxRule::BlockStatement),
+          Symbol::Token(LoxTokenKind::RBracket),
+        ],
+      },
+      P {
+        rule: LoxRule::Statement,
+        definition: vec![Symbol::Rule(LoxRule::IfStatement)],
+      },
+      P {
+        rule: LoxRule::Statement,
+        definition: vec![Symbol::Rule(LoxRule::WhileStatement)],
+      },
+      P {
+        rule: LoxRule::Statement,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Break),
+          Symbol::Token(LoxTokenKind::Semicolon),
+        ],
+      },
+      // BlockStatement := ε | BlockStatement Declaration
+      P {
+        rule: LoxRule::BlockStatement,
+        definition: vec![],
+      },
+      P {
+        rule: LoxRule::BlockStatement,
+        definition: vec![
+          Symbol::Rule(LoxRule::BlockStatement),
+          Symbol::Rule(LoxRule::Declaration),
+        ],
+      },
+      // PrintStatement := 'print' Expr ';'
+      P {
+        rule: LoxRule::Print,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Print),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::Semicolon),
+        ],
+      },
+      // AssertStatement := 'assert' Expr ';'
+      P {
+        rule: LoxRule::Assert,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Assert),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::Semicolon),
+        ],
+      },
+      // ExprStatement := Expr ';'
+      P {
+        rule: LoxRule::ExprStatement,
+        definition: vec![
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::Semicolon),
+        ],
+      },
+      // IfStatement := 'if' expr '{' body '}' | 'if' expr '{' body '}' 'else' else_tail
+      P {
+        rule: LoxRule::IfStatement,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::If),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::LBracket),
+          Symbol::Rule(LoxRule::BlockStatement),
+          Symbol::Token(LoxTokenKind::RBracket),
+        ],
+      },
+      P {
+        rule: LoxRule::IfStatement,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::If),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::LBracket),
+          Symbol::Rule(LoxRule::BlockStatement),
+          Symbol::Token(LoxTokenKind::RBracket),
+          Symbol::Token(LoxTokenKind::Else),
+          Symbol::Rule(LoxRule::ElseTail),
+        ],
+      },
+      // ElseTail := '{' body '}' | IfStatement
+      P {
+        rule: LoxRule::ElseTail,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::LBracket),
+          Symbol::Rule(LoxRule::BlockStatement),
+          Symbol::Token(LoxTokenKind::RBracket),
+        ],
+      },
+      P {
+        rule: LoxRule::ElseTail,
+        definition: vec![Symbol::Rule(LoxRule::IfStatement)],
+      },
+      // WhileStatement := 'while' cond '{' body '}'
+      P {
+        rule: LoxRule::WhileStatement,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::While),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::LBracket),
+          Symbol::Rule(LoxRule::BlockStatement),
+          Symbol::Token(LoxTokenKind::RBracket),
+        ],
+      },
+      // ------------------
+      // EXPRESSION GRAMMAR
+      // ------------------
+      // Expr := Assign
+      P {
+        rule: LoxRule::Expr,
+        definition: vec![Symbol::Rule(LoxRule::Assign)],
+      },
+      // Assign :=
+      //       | lvalue '=' Expr
+      //       | Compare
+      //
+      P {
+        rule: LoxRule::Assign,
+        definition: vec![
+          Symbol::Rule(LoxRule::LValue),
+          Symbol::Token(LoxTokenKind::Equal),
+          Symbol::Rule(LoxRule::Expr),
+        ],
+      },
+      P {
+        rule: LoxRule::Assign,
+        definition: vec![Symbol::Rule(LoxRule::Compare)],
+      },
+      P {
+        rule: LoxRule::LValue,
+        definition: vec![Symbol::Token(LoxTokenKind::Ident)],
+      },
+      // Compare :=
+      //       | Term '==' Compare
+      //       | Term '>=' Compare
+      //       | Term '>' Compare
+      //       | Term '<' Compare
+      //       | Term '<=' Compare
+      //       | Term '!=' Compare
+      //       | Term '&&' Compare
+      //       | Term '||' Compare
+      //       | Term
+      //
+      P {
+        rule: LoxRule::Compare,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::EqualEqual),
+          Symbol::Rule(LoxRule::Compare),
+        ],
+      },
+      P {
+        rule: LoxRule::Compare,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::LessEqual),
+          Symbol::Rule(LoxRule::Compare),
+        ],
+      },
+      P {
+        rule: LoxRule::Compare,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::Less),
+          Symbol::Rule(LoxRule::Compare),
+        ],
+      },
+      P {
+        rule: LoxRule::Compare,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::GreaterEqual),
+          Symbol::Rule(LoxRule::Compare),
+        ],
+      },
+      P {
+        rule: LoxRule::Compare,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::Greater),
+          Symbol::Rule(LoxRule::Compare),
+        ],
+      },
+      P {
+        rule: LoxRule::Compare,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::BangEqual),
+          Symbol::Rule(LoxRule::Compare),
+        ],
+      },
+      P {
+        rule: LoxRule::Compare,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::And),
+          Symbol::Rule(LoxRule::Compare),
+        ],
+      },
+      P {
+        rule: LoxRule::Compare,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::Or),
+          Symbol::Rule(LoxRule::Compare),
+        ],
+      },
+      P {
+        rule: LoxRule::Compare,
+        definition: vec![Symbol::Rule(LoxRule::Term)],
+      },
+      //
+      // Term := Product '+' Term
+      //       | Product '-' Term
+      //       | Product
+      P {
+        rule: LoxRule::Term,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::Plus),
+          Symbol::Rule(LoxRule::Product),
+        ],
+      },
+      P {
+        rule: LoxRule::Term,
+        definition: vec![
+          Symbol::Rule(LoxRule::Term),
+          Symbol::Token(LoxTokenKind::Minus),
+          Symbol::Rule(LoxRule::Product),
+        ],
+      },
+      P {
+        rule: LoxRule::Term,
+        definition: vec![Symbol::Rule(LoxRule::Product)],
+      },
+      // Product := Unary | Product '*' Unary | Product '/' Unary
+      P {
+        rule: LoxRule::Product,
+        definition: vec![Symbol::Rule(LoxRule::Unary)],
+      },
+      P {
+        rule: LoxRule::Product,
+        definition: vec![
+          Symbol::Rule(LoxRule::Product),
+          Symbol::Token(LoxTokenKind::Star),
+          Symbol::Rule(LoxRule::Unary),
+        ],
+      },
+      P {
+        rule: LoxRule::Product,
+        definition: vec![
+          Symbol::Rule(LoxRule::Product),
+          Symbol::Token(LoxTokenKind::Slash),
+          Symbol::Rule(LoxRule::Unary),
+        ],
+      },
+      // Unary :=
+      //       '-' Unary
+      //      | '!' Unary
+      //      | Paren
+      //
+      P {
+        rule: LoxRule::Unary,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Bang),
+          Symbol::Rule(LoxRule::Unary),
+        ],
+      },
+      P {
+        rule: LoxRule::Unary,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Minus),
+          Symbol::Rule(LoxRule::Unary),
+        ],
+      },
+      P {
+        rule: LoxRule::Unary,
+        definition: vec![Symbol::Rule(LoxRule::Paren)],
+      },
+      // Paren := Literal | '(' Expr ')'
+      P {
+        rule: LoxRule::Paren,
+        definition: vec![Symbol::Rule(LoxRule::Literal)],
+      },
+      P {
+        rule: LoxRule::Paren,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::LParen),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::RParen),
+        ],
+      },
+      // Literal := 'Num' | 'Str' | 'True' | 'False' | 'Ident'
+      P {
+        rule: LoxRule::Literal,
+        definition: vec![Symbol::Token(LoxTokenKind::Number)],
+      },
+      P {
+        rule: LoxRule::Literal,
+        definition: vec![Symbol::Token(LoxTokenKind::String)],
+      },
+      P {
+        rule: LoxRule::Literal,
+        definition: vec![Symbol::Token(LoxTokenKind::True)],
+      },
+      P {
+        rule: LoxRule::Literal,
+        definition: vec![Symbol::Token(LoxTokenKind::False)],
+      },
+      P {
+        rule: LoxRule::Literal,
+        definition: vec![Symbol::Token(LoxTokenKind::Ident)],
+      },
+    ],
+  )
 }
 
 pub struct LoxParser(Parser<LoxRule>);
@@ -900,9 +900,9 @@ impl LValue {
 }
 
 impl Block {
-  pub fn new(first: Declaration) -> Self {
+  pub fn new() -> Self {
     Self {
-      declarations: vec![first],
+      declarations: Vec::new(),
     }
   }
 
@@ -916,7 +916,7 @@ impl Block {
         rule: LoxRule::BlockStatement,
         children,
       }) => match children.as_slice() {
-        [statement] => Block::new(Declaration::from_cst(ast, statement)),
+        [] => Block::new(),
         [block, statement] => {
           Block::from_cst(ast, block).push(Declaration::from_cst(ast, statement))
         }

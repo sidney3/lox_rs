@@ -11,6 +11,7 @@ use super::rule::Rule;
 use crate::lexer::TokenType;
 use crate::parse::debug::{DisplayWithGrammar, DisplayWithGrammarExt};
 use crate::usize_id;
+use either::Either;
 
 usize_id!(StateId);
 
@@ -31,10 +32,18 @@ impl State {
     in_progress: impl Iterator<Item = Item>,
     complete: impl Iterator<Item = ProductionId>,
   ) -> Self {
-    let mut in_progress: ItemList = closure(grammar, in_progress.collect());
+    let (mut in_progress, extra_complete) = closure(grammar, in_progress.collect());
     let mut complete: ProductionList = complete.collect();
+    complete.extend(extra_complete.into_iter());
     in_progress.sort();
     complete.sort();
+
+    assert!(
+      !in_progress
+        .iter()
+        .any(|i| grammar.production(i.production_id()).definition.is_empty()),
+      "Cannot construct a state with an in progress empty item. These are trivial",
+    );
 
     in_progress.dedup();
     complete.dedup();
@@ -46,16 +55,15 @@ impl State {
   }
 
   pub fn initial<R: Rule>(grammar: &Grammar<R>) -> Self {
-    let initial_productions: ItemList = grammar
+    let (initial_productions, trivially_complete): (ItemList, ProductionList) = grammar
       .productions_for_rule(grammar.target_rule())
       .iter()
-      .map(|production_id| Item::new(*production_id))
-      .collect();
+      .partition_map(|production_id| Item::new(grammar, *production_id));
 
     State::new(
       grammar,
       initial_productions.into_iter(),
-      ProductionList::new().into_iter(),
+      trivially_complete.into_iter(),
     )
   }
 
@@ -172,14 +180,17 @@ impl<R: Rule> DisplayWithGrammar<R> for State {
 /// items = {('b'.B)}
 /// closure(items) = {('b'.B), (.C), (.'a')}
 ///
+/// Closure also returns a set of potentially now completed items (which could
+/// arise with epsilon items).
 ///
-fn closure<R: Rule>(grammar: &Grammar<R>, mut items: ItemList) -> ItemList {
+fn closure<R: Rule>(grammar: &Grammar<R>, mut items: ItemList) -> (ItemList, ProductionList) {
   let mut worklist: Vec<ProductionId> = items
     .iter()
     .flat_map(|i| i.current_symbol(grammar).productions(grammar))
     .collect();
 
   let mut visited: HashSet<ProductionId> = HashSet::new();
+  let mut now_finished = ProductionList::new();
 
   while let Some(production_id) = worklist.pop() {
     if visited.contains(&production_id) {
@@ -188,15 +199,22 @@ fn closure<R: Rule>(grammar: &Grammar<R>, mut items: ItemList) -> ItemList {
       visited.insert(production_id);
     }
 
-    items.push(Item::new(production_id));
+    if let Either::Left(item) = Item::new(grammar, production_id) {
+      items.push(item);
+    }
+    match Item::new(grammar, production_id) {
+      Either::Left(item) => items.push(item),
+      Either::Right(completed_production) => now_finished.push(completed_production),
+    };
     worklist.extend(
       grammar
         .production(production_id)
         .definition
         .first()
-        .productions(grammar),
+        .iter()
+        .flat_map(|g| g.productions(grammar)),
     );
   }
 
-  items
+  (items, now_finished)
 }

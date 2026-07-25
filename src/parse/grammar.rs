@@ -23,7 +23,7 @@ impl<R: Rule> Copy for Symbol<R> {}
 
 pub struct Production<R: Rule> {
   pub rule: R,
-  pub definition: NonEmpty<Symbol<R>>,
+  pub definition: Vec<Symbol<R>>,
 }
 
 impl<R: Rule> Production<R> {
@@ -85,10 +85,11 @@ pub struct Grammar<R: Rule> {
   tokens: Vec<R::TokenType>,
   rules: Vec<R>,
   productions_for_rule: Vec<ProductionList>,
+  goal: R,
 }
 
 impl<R: Rule> Grammar<R> {
-  pub fn new(productions: Vec<Production<R>>) -> Self {
+  pub fn new(goal: R, productions: Vec<Production<R>>) -> Self {
     let mut productions_for_rule = Vec::new();
     let mut tokens = HashSet::new();
     let mut rules = HashSet::new();
@@ -114,6 +115,7 @@ impl<R: Rule> Grammar<R> {
       tokens: tokens.into_iter().collect(),
       rules: rules.into_iter().collect(),
       productions_for_rule,
+      goal,
     }
   }
 
@@ -126,6 +128,15 @@ impl<R: Rule> Grammar<R> {
   pub fn productions(&self) -> impl Iterator<Item = &Production<R>> {
     self.productions.iter()
   }
+  pub fn production_ids(&self) -> impl Iterator<Item = ProductionId> {
+    (0..self.productions.len()).map(ProductionId)
+  }
+
+  pub fn trivial_production_ids(&self) -> impl Iterator<Item = ProductionId> {
+    self
+      .production_ids()
+      .filter(|p| self.production(*p).definition.is_empty())
+  }
   pub fn tokens(&self) -> &Vec<R::TokenType> {
     &self.tokens
   }
@@ -133,6 +144,6 @@ impl<R: Rule> Grammar<R> {
     &self.rules
   }
   pub fn target_rule(&self) -> R {
-    R::goal()
+    self.goal
   }
 }

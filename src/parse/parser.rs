@@ -101,17 +101,35 @@ impl<R: Rule> Parser<R> {
             debug!("Reduce to {}", production.rule);
           }
 
-          match stack.len().checked_sub(production.len()) {
-            Some(drain_from) => {
-              curr_state_id = stack[drain_from].0;
+          // When we decide to reduce to a production P, this
+          // entails popping off the N nodes from the stack that
+          // its definition entails. Our current state (before
+          // pushing P back into the stack) is then exactly the
+          // state we were in BEFORE we pushed in the first of
+          // these N nodes.
+          //
+          // Therefore, in each stack entry, we stash the state id
+          // that we were in before pushing in that element. So
+          // we just inspect the first of these drained elements
+          // (stack[drain_from]) to figure out what our next state is.
+          if production.len() == 0 {
+            Node::Parent(Parent {
+              rule: production.rule,
+              children: vec![],
+            })
+          } else {
+            match stack.len().checked_sub(production.len()) {
+              Some(drain_from) => {
+                curr_state_id = stack[drain_from].0;
 
-              Node::Parent(Parent {
-                rule: production.rule,
-                children: stack.drain(drain_from..).map(|(_, node)| node).collect(),
-              })
-            }
-            None => {
-              return Err(Error::IncompleteProgram);
+                Node::Parent(Parent {
+                  rule: production.rule,
+                  children: stack.drain(drain_from..).map(|(_, node)| node).collect(),
+                })
+              }
+              None => {
+                return Err(Error::IncompleteProgram);
+              }
             }
           }
         }
@@ -155,10 +173,11 @@ mod test {
   use lasso::Rodeo;
   use lox_derive::Ordinal;
   use nonempty::nonempty;
+  use std::collections::VecDeque;
   use strum::Display;
 
   use super::*;
-  use crate::frontend::token::{LoxLexer, LoxTokenKind};
+  use crate::frontend::token::{LoxLexer, LoxToken, LoxTokenKind};
 
   // Grammar (BNF, start symbol = <Beta>):
   //   <Beta>  ::= <Alpha> <Alpha>
@@ -171,14 +190,13 @@ mod test {
     Literal,
     Expr,
     Paren,
+
+    ListArgs,
+    List,
   }
 
   impl Rule for TestRule {
     type TokenType = LoxTokenKind;
-
-    fn goal() -> Self {
-      TestRule::Expr
-    }
   }
 
   type TestProduction = Production<TestRule>;
@@ -190,6 +208,60 @@ mod test {
     Sum(Box<Expression>, Box<Expression>),
     Times(Box<Expression>, Box<Expression>),
     Literal(i64),
+  }
+
+  struct ListArgs {
+    pub vals: VecDeque<Expression>,
+  }
+
+  impl ListArgs {
+    pub fn new() -> Self {
+      Self {
+        vals: VecDeque::new(),
+      }
+    }
+
+    pub fn push_front(mut self, e: Expression) -> Self {
+      self.vals.push_front(e);
+      self
+    }
+    pub fn from_cst(root: &TestTree, node: &ExprNode) -> Self {
+      match node {
+        ExprNode::Parent(Parent {
+          rule: TestRule::ListArgs,
+          children,
+        }) => match children.as_slice() {
+          [] => ListArgs::new(),
+          [expr] => ListArgs::new().push_front(Expression::from_cst(root, expr)),
+          [expr, Node::Leaf(comma), list_args] if comma.token_type == LoxTokenKind::Comma => {
+            ListArgs::from_cst(root, list_args).push_front(Expression::from_cst(root, expr))
+          }
+          _ => panic!("unreachable: {:?}", node),
+        },
+        _ => panic!("unreachable"),
+      }
+    }
+  }
+
+  struct List {
+    pub args: ListArgs,
+  }
+
+  impl List {
+    pub fn from_cst(root: &TestTree, node: &ExprNode) -> Self {
+      match node {
+        ExprNode::Parent(Parent {
+          rule: TestRule::List,
+          children,
+        }) => match children.as_slice() {
+          [l, args, r] => List {
+            args: ListArgs::from_cst(root, args),
+          },
+          _ => panic!("unreachable"),
+        },
+        _ => panic!("unreachable"),
+      }
+    }
   }
 
   impl Expression {
@@ -246,6 +318,10 @@ mod test {
   ///
   /// yacc (style) definition
   ///
+  /// list := '[' list_args  ']'
+  ///
+  /// list_args := ε | expr list_args
+  ///
   /// expr : sum { TestRule::Expr(Box::new($1)) };
   ///
   /// sum  : term '+' sum { TestRule::Plus(Box::new($1), Box::new($3)) }
@@ -260,15 +336,15 @@ mod test {
   /// literal := 'num' { Literal::new($1) };
   ///
   ///
-  fn expression_grammar() -> Grammar<TestRule> {
+  fn expression_grammar_productions() -> Vec<TestProduction> {
     let expr_def = TestProduction {
       rule: TestRule::Expr,
-      definition: nonempty![Symbol::Rule(TestRule::Plus)],
+      definition: vec![Symbol::Rule(TestRule::Plus)],
     };
 
     let sum_recursive_def = TestProduction {
       rule: TestRule::Plus,
-      definition: nonempty![
+      definition: vec![
         Symbol::Rule(TestRule::Times),
         Symbol::Token(LoxTokenKind::Plus),
         Symbol::Rule(TestRule::Plus),
@@ -277,12 +353,12 @@ mod test {
 
     let sum_fallthrough_def = TestProduction {
       rule: TestRule::Plus,
-      definition: nonempty![Symbol::Rule(TestRule::Times),],
+      definition: vec![Symbol::Rule(TestRule::Times)],
     };
 
     let term_recursive_def = TestProduction {
       rule: TestRule::Times,
-      definition: nonempty![
+      definition: vec![
         Symbol::Rule(TestRule::Paren),
         Symbol::Token(LoxTokenKind::Star),
         Symbol::Rule(TestRule::Times),
@@ -291,12 +367,12 @@ mod test {
 
     let term_fallthrough_def = TestProduction {
       rule: TestRule::Times,
-      definition: nonempty![Symbol::Rule(TestRule::Paren),],
+      definition: vec![Symbol::Rule(TestRule::Paren)],
     };
 
     let paren_recursive_def = TestProduction {
       rule: TestRule::Paren,
-      definition: nonempty![
+      definition: vec![
         Symbol::Token(LoxTokenKind::LParen),
         Symbol::Rule(TestRule::Expr),
         Symbol::Token(LoxTokenKind::RParen),
@@ -305,15 +381,15 @@ mod test {
 
     let paren_fallthrough_def = TestProduction {
       rule: TestRule::Paren,
-      definition: nonempty![Symbol::Rule(TestRule::Literal),],
+      definition: vec![Symbol::Rule(TestRule::Literal)],
     };
 
     let literal_def = TestProduction {
       rule: TestRule::Literal,
-      definition: nonempty![Symbol::Token(LoxTokenKind::Number)],
+      definition: vec![Symbol::Token(LoxTokenKind::Number)],
     };
 
-    Grammar::new(vec![
+    vec![
       expr_def,
       sum_recursive_def,
       sum_fallthrough_def,
@@ -322,21 +398,59 @@ mod test {
       paren_recursive_def,
       paren_fallthrough_def,
       literal_def,
-    ])
+    ]
+  }
+  fn list_grammar() -> Grammar<TestRule> {
+    let list_def = TestProduction {
+      rule: TestRule::List,
+      definition: vec![
+        Symbol::Token(LoxTokenKind::LBrace),
+        Symbol::Rule(TestRule::ListArgs),
+        Symbol::Token(LoxTokenKind::RBrace),
+      ],
+    };
+    let list_fb = TestProduction {
+      rule: TestRule::List,
+      definition: vec![Symbol::Rule(TestRule::Expr)],
+    };
+    let list_args_eps = TestProduction {
+      rule: TestRule::ListArgs,
+      definition: vec![],
+    };
+    let list_args_unit = TestProduction {
+      rule: TestRule::ListArgs,
+      definition: vec![Symbol::Rule(TestRule::Expr)],
+    };
+    let list_args = TestProduction {
+      rule: TestRule::ListArgs,
+      definition: vec![
+        Symbol::Rule(TestRule::Expr),
+        Symbol::Token(LoxTokenKind::Comma),
+        Symbol::Rule(TestRule::ListArgs),
+      ],
+    };
+
+    let extra_list_productions = vec![list_def, list_args, list_args_unit, list_args_eps, list_fb];
+
+    let mut productions = expression_grammar_productions();
+
+    productions.extend(extra_list_productions.into_iter());
+
+    Grammar::new(TestRule::List, productions)
+  }
+  fn expression_grammar() -> Grammar<TestRule> {
+    Grammar::new(TestRule::Expr, expression_grammar_productions())
   }
 
   struct ExprFixture {
-    rodeo: Rodeo,
     lexer: LoxLexer,
     parser: Parser<TestRule>,
   }
 
   impl ExprFixture {
     fn new() -> Self {
-      let rodeo = Rodeo::default();
       let lexer = LoxLexer::new().unwrap();
       Self {
-        rodeo,
         lexer,
         parser: Parser::new(expression_grammar()),
       }
@@ -347,6 +461,23 @@ mod test {
       let cst = self.parser.parse(tokens).unwrap();
       Expression::from_cst(&cst, &cst.root).eval()
     }
+  }
+
+  #[test]
+  fn list_test() {
+    let _ = env_logger::builder().is_test(true).try_init();
+
+    let lexer = LoxLexer::new().unwrap();
+    let parser = Parser::new(list_grammar());
+
+    let tokens = lexer.lex("[1, 2, 3 + 4]").expect("lex");
+    let cst = parser.parse(tokens).expect("parse");
+
+    let list = List::from_cst(&cst, &cst.root).args.vals;
+
+    let evaluated: Vec<i64> = list.iter().map(|expr| expr.eval()).collect();
+
+    assert_eq!(evaluated, [1, 2, 7]);
   }
 
   #[test]
