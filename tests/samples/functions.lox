@@ -1,0 +1,5 @@
+fun f() {
+	print "Hello world";
+}
+
+fun g(arg) {}

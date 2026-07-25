@@ -1,4 +1,5 @@
 use lasso::Rodeo;
+use log::info;
 use nonempty::{NonEmpty, nonempty};
 
 use super::error::Result;
@@ -81,7 +82,14 @@ impl<'a> Compiler<'a> {
         let sym = self.symbols.get_or_intern(self.ident_sym(v.ident));
         self.func_mut().define_var(sym)?;
       }
-      Declaration::Fun(_) => todo!(),
+      Declaration::Fun(f) => {
+        self.compile_stack.push(FuncState::new());
+
+        self
+          .compile_stack
+          .pop()
+          .expect("Function compilation stack too small");
+      }
     };
     Ok(())
   }

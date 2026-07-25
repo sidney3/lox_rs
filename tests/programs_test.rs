@@ -32,3 +32,8 @@ pub fn test_conditionals() {
 pub fn test_variables() {
   run_test_file("variables.lox");
 }
+
+#[test]
+pub fn test_functions() {
+  run_test_file("functions.lox");
+}

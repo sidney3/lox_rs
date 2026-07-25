@@ -42,6 +42,7 @@ impl Rule for LoxRule {
   type TokenType = LoxTokenKind;
 }
 
+#[derive(Debug)]
 pub enum BinOp {
   Times,
   Divide,
@@ -84,6 +85,7 @@ pub struct Ast {
   pub root: Program,
 }
 
+#[derive(Debug)]
 pub enum UnaryOp {
   Minus,
   Not,
@@ -99,17 +101,20 @@ impl UnaryOp {
   }
 }
 
+#[derive(Debug)]
 pub struct Binary {
   pub lhs: Box<Expression>,
   pub op: BinOp,
   pub rhs: Box<Expression>,
 }
 
+#[derive(Debug)]
 pub struct Unary {
   pub operand: Box<Expression>,
   pub op: UnaryOp,
 }
 
+#[derive(Debug)]
 pub enum Literal {
   Num(f64),
   String(String),
@@ -117,6 +122,7 @@ pub enum Literal {
   Var(lasso::Spur),
 }
 
+#[derive(Debug)]
 pub enum Expression {
   Bin(Binary),
   Unary(Unary),
@@ -124,23 +130,28 @@ pub enum Expression {
   Assign(Assign),
 }
 
+#[derive(Debug)]
 pub struct ExprStatement {
   pub expr: Expression,
 }
 
+#[derive(Debug)]
 pub struct PrintStatement {
   pub operand: Expression,
 }
 
+#[derive(Debug)]
 pub struct AssertStatement {
   pub operand: Expression,
 }
 
+#[derive(Debug)]
 pub struct WhileStatement {
   pub cond: Expression,
   pub body: Box<Block>,
 }
 
+#[derive(Debug)]
 pub enum IfStatement {
   Trivial {
     cond: Expression,
@@ -153,15 +164,18 @@ pub enum IfStatement {
   },
 }
 
+#[derive(Debug)]
 pub enum ElseTail {
   Trivial(Box<Block>),
   If(Box<IfStatement>),
 }
 
+#[derive(Debug)]
 pub struct Block {
   pub declarations: Vec<Declaration>,
 }
 
+#[derive(Debug)]
 pub enum Statement {
   Expr(ExprStatement),
   Print(PrintStatement),
@@ -172,36 +186,43 @@ pub enum Statement {
   Break,
 }
 
+#[derive(Debug)]
 pub struct FuncArgs {
   vals: Vec<Ident>,
 }
 
+#[derive(Debug)]
 pub struct FuncDecl {
-  name: Ident,
-  body: Block,
+  pub name: Ident,
+  pub body: Block,
   args: FuncArgs,
 }
 
+#[derive(Debug)]
 pub struct VarDeclaration {
   pub ident: lasso::Spur,
   pub assign: Expression,
 }
 
+#[derive(Debug)]
 pub enum Declaration {
   Statement(Statement),
   Var(VarDeclaration),
   Fun(FuncDecl),
 }
 
+#[derive(Debug)]
 pub enum LValue {
   Var(lasso::Spur),
 }
 
+#[derive(Debug)]
 pub struct Assign {
   pub assignee: LValue,
   pub assign: Box<Expression>,
 }
 
+#[derive(Debug)]
 pub struct Program {
   pub declarations: NonEmpty<Declaration>,
 }
@@ -257,9 +278,21 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::LParen),
           Symbol::Rule(LoxRule::FuncArgs),
           Symbol::Token(LoxTokenKind::RParen),
-          Symbol::Token(LoxTokenKind::LBrace),
+          Symbol::Token(LoxTokenKind::LBracket),
           Symbol::Rule(LoxRule::BlockStatement),
-          Symbol::Token(LoxTokenKind::RBrace),
+          Symbol::Token(LoxTokenKind::RBracket),
+        ],
+      },
+      // FuncArgs := ε | FuncArgs; Ident
+      P {
+        rule: LoxRule::FuncArgs,
+        definition: vec![],
+      },
+      P {
+        rule: LoxRule::FuncArgs,
+        definition: vec![
+          Symbol::Rule(LoxRule::FuncArgs),
+          Symbol::Token(LoxTokenKind::Ident),
         ],
       },
       // Statement :=
@@ -817,9 +850,59 @@ impl VarDeclaration {
   }
 }
 
+impl FuncArgs {
+  pub fn new() -> Self {
+    FuncArgs { vals: Vec::new() }
+  }
+
+  pub fn push(mut self, ident: Ident) -> Self {
+    self.vals.push(ident);
+    self
+  }
+
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::FuncArgs,
+        children,
+      }) => match children.as_slice() {
+        [] => FuncArgs::new(),
+        [func_args, Node::Leaf(ident)] => FuncArgs::from_cst(ast, func_args).push(ident.lexeme),
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+}
 impl FuncDecl {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
-    todo!();
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::FuncDecl,
+        children,
+      }) => match children.as_slice() {
+        [
+          Node::Leaf(_fun),
+          Node::Leaf(name),
+          _lparen,
+          args,
+          Node::Leaf(_rparen),
+          _lbrace,
+          body,
+          Node::Leaf(_rbrace),
+        ] => FuncDecl {
+          name: name.lexeme,
+          body: Block::from_cst(ast, body),
+          args: FuncArgs::from_cst(ast, args),
+        },
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+
+  pub fn args(&self) -> &Vec<Ident> {
+    &self.args.vals
   }
 }
 
