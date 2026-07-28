@@ -9,4 +9,7 @@ impl RuntimeError {
       msg: msg.to_string(),
     }
   }
+  pub fn from_str(msg: String) -> Self {
+    RuntimeError { msg }
+  }
 }

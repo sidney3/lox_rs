@@ -3,6 +3,7 @@ use std::fmt;
 use lasso::Key;
 use log::{debug, info};
 use nonempty::{NonEmpty, nonempty};
+use std::ops::Deref;
 
 use super::call_frame::CallFrame;
 use super::obj::ObjData;
@@ -12,54 +13,59 @@ use super::vm::Vm;
 use super::vm::{Handle, Root};
 use crate::asm::{Chunk, Constant, Instruction, InstructionKind};
 use crate::codegen::Compilation;
-use crate::gc::{Ref, RefMut};
+use crate::gc::Ref;
 
-pub struct ModuleExecution<'a, 'b> {
-  vm: &'a mut Vm,
-  call_stack: NonEmpty<CallFrame<'b>>,
+pub struct ModuleExecution<'vm, 'b> {
+  vm: &'vm mut Vm,
+  call_stack: NonEmpty<CallFrame>,
   compilation: &'b Compilation,
-  constants: Vec<Value>,
 }
 
-impl<'a, 'b> ModuleExecution<'a, 'b> {
-  pub fn new(vm: &'a mut Vm, compilation: &'b Compilation) -> Self {
-    let constants: Vec<_> = compilation
-      .main
-      .chunk
-      .constants
-      .iter()
-      .map(|c| vm.load_const(c))
-      .collect();
+impl<'vm, 'b> ModuleExecution<'vm, 'b> {
+  pub fn new(vm: &'vm mut Vm, compilation: &'b Compilation) -> Self {
+    let main_handle = vm.heap.alloc(ObjData::Func(compilation.main.clone()));
+    let main_frame = CallFrame::new(vm, main_handle, 0);
+
     Self {
       vm,
-      call_stack: nonempty![CallFrame {
-        func: &compilation.main,
-        ip: 0,
-        base: 0,
-      }],
+      call_stack: nonempty![main_frame],
       compilation,
-      constants,
     }
   }
 
-  fn frame_mut(&mut self) -> &mut CallFrame<'b> {
-    self.call_stack.last_mut()
-  }
-
   fn pop(&mut self) -> Value {
-    self.vm.stack.pop().expect("empty stack. Programming error")
+    self
+      .vm
+      .value_stack
+      .pop()
+      .expect("empty stack. Programming error")
   }
 
   fn peek(&mut self) -> &Value {
     self
       .vm
-      .stack
-      .first()
+      .value_stack
+      .last()
       .expect("empty stack. Programming error")
   }
 
+  fn load_stack(&self, offset: usize) -> Value {
+    self
+      .call_stack
+      .last()
+      .load_val(offset, &self.vm.value_stack)
+      .expect("Stack offset out of range")
+  }
+  fn set_stack(&mut self, offset: usize, set_to: Value) {
+    self
+      .call_stack
+      .last()
+      .set_val(offset, &mut self.vm.value_stack, set_to)
+      .expect("Stack offset out of range");
+  }
+
   fn push_value(&mut self, val: Value) {
-    self.vm.stack.push(val);
+    self.vm.value_stack.push(val);
   }
 
   fn execute_binary<F: FnOnce(Value, Value, &mut Vm) -> Result<Value, RuntimeError>>(
@@ -99,17 +105,21 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
 
   pub fn execute(mut self) -> Result<(), RuntimeError> {
     loop {
-      let next_instruction: Instruction = if let Some(inst) = self.frame_mut().pop_instruction() {
-        inst
-      } else {
-        panic!("Walked off the end of frame!")
-      };
-      debug!("{:?}", next_instruction);
+      let next_instruction: Instruction =
+        if let Some(inst) = self.call_stack.last_mut().pop_instruction(&self.vm) {
+          inst
+        } else {
+          panic!("Walked off the end of frame!")
+        };
+      debug!(
+        "About to execute: {:?}. Ip = {}, Bp = {}, Sp = {}",
+        next_instruction,
+        self.call_stack.last().ip,
+        self.call_stack.last().base,
+        self.vm.value_stack.len()
+      );
 
       match next_instruction.kind {
-        InstructionKind::Return => {
-          return Ok(());
-        }
         InstructionKind::Add => self.execute_binary(Value::add)?,
         InstructionKind::Divide => self.execute_binary(Value::divide)?,
         InstructionKind::Mult => self.execute_binary(Value::mult)?,
@@ -123,7 +133,8 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
         InstructionKind::UnaryMinus => self.execute_unary(Value::unary_minus)?,
         InstructionKind::Not => self.execute_unary(Value::not)?,
         InstructionKind::Constant => {
-          let val = self.constants[next_instruction.operand as usize];
+          debug!("{:?}", self.call_stack.last().constants);
+          let val = self.call_stack.last().constants[next_instruction.operand as usize];
           self.push_value(val);
         }
         InstructionKind::Pop => {
@@ -135,21 +146,33 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
         }
         InstructionKind::JumpIfFalse => {
           if !bool::try_from(&self.pop())? {
-            self.frame_mut().jmp(next_instruction.operand as usize)
+            self
+              .call_stack
+              .last_mut()
+              .jmp(&self.vm, next_instruction.operand as usize)
           }
         }
         InstructionKind::JumpIfFalsePreserving => {
           if !bool::try_from(self.peek())? {
-            self.frame_mut().jmp(next_instruction.operand as usize)
+            self
+              .call_stack
+              .last_mut()
+              .jmp(&self.vm, next_instruction.operand as usize)
           }
         }
         InstructionKind::JumpIfTruePreserving => {
           if bool::try_from(self.peek())? {
-            self.frame_mut().jmp(next_instruction.operand as usize)
+            self
+              .call_stack
+              .last_mut()
+              .jmp(&self.vm, next_instruction.operand as usize)
           }
         }
         InstructionKind::Jmp => {
-          self.frame_mut().jmp(next_instruction.operand as usize);
+          self
+            .call_stack
+            .last_mut()
+            .jmp(&self.vm, next_instruction.operand as usize);
         }
         InstructionKind::Assert => {
           let operand = match self.pop() {
@@ -188,12 +211,13 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
         }
         InstructionKind::LoadLocal => {
           let stack_offset = next_instruction.operand as usize;
-          self.push_value(self.vm.stack[stack_offset]);
+          let val = self.load_stack(stack_offset);
+          self.push_value(val);
         }
         InstructionKind::SetLocal => {
           let assign: Value = self.pop();
           let stack_offset = next_instruction.operand as usize;
-          self.vm.stack[stack_offset] = assign;
+          self.set_stack(stack_offset, assign);
         }
         InstructionKind::SetGlobal => {
           let assign: Value = self.pop();
@@ -211,6 +235,49 @@ impl<'a, 'b> ModuleExecution<'a, 'b> {
             )
           })?;
           *global = assign;
+        }
+
+        InstructionKind::Callq => {
+          let nargs = next_instruction.operand as usize;
+          let f_idx = self.vm.stack_top() - nargs - 1;
+          let handle = match self.load_stack(f_idx) {
+            Value::Obj(obj) => obj,
+            _ => return Err(RuntimeError::new("Expected function")),
+          };
+
+          match self.vm.heap.borrow(handle).deref() {
+            ObjData::Func(_) => {}
+            _ => return Err(RuntimeError::new("Call can only be called on a function")),
+          }
+
+          self.call_stack.push(CallFrame::new(self.vm, handle, f_idx));
+        }
+        InstructionKind::Return => {
+          let returned_frame = match self.call_stack.pop() {
+            Some(called) => called,
+            None => return Ok(()),
+          };
+          let ret_val = self.pop();
+
+          {
+            let func = returned_frame.func(self.vm);
+            debug!("Func: {:?}", func.deref());
+          }
+          let leftover_stack_vals = returned_frame.func(self.vm).arity + 1;
+
+          assert!(
+            self.vm.value_stack.len() == returned_frame.base + leftover_stack_vals,
+            "We got calling conventions wrong. Stack sized {} when expecting bp={} + (f,args...)={}.",
+            self.vm.value_stack.len(),
+            returned_frame.base,
+            leftover_stack_vals,
+          );
+
+          while self.vm.value_stack.len() > returned_frame.base {
+            self.vm.value_stack.pop();
+          }
+
+          self.push_value(ret_val);
         }
       }
     }

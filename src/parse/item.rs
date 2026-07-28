@@ -30,6 +30,7 @@ impl Item {
       })
     }
   }
+
   pub fn current_symbol<R: Rule>(&self, grammar: &Grammar<R>) -> Symbol<R> {
     let production = grammar.production(self.production_id);
 

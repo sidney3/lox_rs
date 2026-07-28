@@ -1,3 +1,4 @@
+use super::call_frame::CallFrame;
 use std::collections::HashMap;
 
 use lasso::Spur;
@@ -15,7 +16,7 @@ pub type Handle = gc::Handle<ObjData>;
 pub type Root<'a> = gc::Root<'a, ObjData>;
 
 pub struct Vm {
-  pub stack: Vec<Value>,
+  pub value_stack: Vec<Value>,
   pub heap: Heap,
   pub symbols: lasso::Rodeo,
   pub globals: HashMap<Spur, Value>,
@@ -24,7 +25,7 @@ pub struct Vm {
 impl Vm {
   pub fn new() -> Self {
     Self {
-      stack: Vec::new(),
+      value_stack: Vec::new(),
       heap: Heap::new(),
       symbols: lasso::Rodeo::new(),
       globals: HashMap::new(),
@@ -39,15 +40,21 @@ impl Vm {
     self.heap.borrow(h)
   }
 
-  pub fn load_const(&mut self, x: &Constant) -> Value {
+  pub fn load_const(&mut self, x: Constant) -> Value {
     match x {
-      &Constant::Float(f) => Value::Num(f),
-      Constant::String(s) => self.alloc(ObjData::String(s.clone())),
-      &Constant::Bool(b) => Value::Bool(b),
+      Constant::Float(f) => Value::Num(f),
+      Constant::String(s) => self.alloc(ObjData::String(s)),
+      Constant::Bool(b) => Value::Bool(b),
+      Constant::Nil => Value::Nil,
+      Constant::Func(f) => self.alloc(ObjData::Func(f)),
     }
   }
 
   pub fn alloc(&mut self, obj: ObjData) -> Value {
     Value::Obj(self.heap.alloc(obj))
+  }
+
+  pub fn stack_top(&self) -> usize {
+    self.value_stack.len()
   }
 }

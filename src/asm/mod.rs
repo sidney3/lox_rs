@@ -9,7 +9,7 @@ mod symbolic_instruction;
 pub use chunk::Chunk;
 pub use constant::{Constant, LoxString};
 pub use error::{Error, Result};
-pub use func_state::FuncState;
+pub use func_state::{FuncState, Symbol};
 pub use function::Function;
 pub use instruction::{Instruction, InstructionKind, OperandType};
 pub use symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp};

@@ -5,6 +5,7 @@ use itertools::Itertools;
 use super::Constant;
 use super::instruction::Instruction;
 
+#[derive(Debug, Clone)]
 pub struct Chunk {
   pub instructions: Vec<Instruction>,
   pub constants: Vec<Constant>,

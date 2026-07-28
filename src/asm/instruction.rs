@@ -10,6 +10,7 @@ pub type OperandType = u8;
 pub enum InstructionKind {
   Return,
   Constant,
+  Callq,
 
   // peeks, doesn't pop
   JumpIfFalsePreserving,

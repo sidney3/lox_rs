@@ -1,3 +1,5 @@
-fun f() {
-	print "hello world";
+fun f(user) {
+  return "Hello " + user + ". What is your task for me?";
 }
+
+print f("Sidney");

@@ -14,7 +14,7 @@ pub type Symbol = lasso::Spur;
 // The only persistent value on the stack is a global.
 //
 // The index of `Local` is exactly its position on the stack
-// (relative to the base).
+// (relative to the stack pointer when the function is called)..
 #[derive(Clone, Copy)]
 pub struct Local {
   pub scope_depth: usize,
@@ -35,17 +35,25 @@ pub struct FuncState {
   scope_depth: usize,
   // active_loops.back() is the current loop
   active_loops: Vec<Label>,
+  name: Symbol,
+  arity: usize,
 }
 
 impl FuncState {
-  pub fn new() -> Self {
+  pub fn new(name: Symbol, arity: usize) -> Self {
     Self {
       constants: Vec::new(),
       instructions: SymbolicProgram::new(),
       locals: Vec::new(),
       active_loops: Vec::new(),
       scope_depth: 0,
+      name,
+      arity,
     }
+  }
+
+  pub fn name(&self) -> Symbol {
+    self.name
   }
 
   pub fn emit_symbolic(&mut self, instruction: SymbolicInstruction) {
@@ -73,18 +81,18 @@ impl FuncState {
   }
 
   pub fn assemble(self) -> Function {
-    let chunk = Chunk {
+    let chunk = Box::new(Chunk {
       instructions: self
         .instructions
         .parse()
         .expect("Symbolic resolution failure."),
       constants: self.constants,
-    };
+    });
 
     Function {
       chunk,
-      arity: 0,
-      name: "main".to_string(),
+      arity: self.arity,
+      name: self.name,
     }
   }
 
@@ -145,6 +153,22 @@ impl FuncState {
     Ok(())
   }
 
+  pub fn callq(&mut self, nargs: usize) -> Result<()> {
+    self.emit(Instruction {
+      kind: InstructionKind::Callq,
+      operand: index_to_op(nargs)?,
+    });
+    Ok(())
+  }
+
+  pub fn trivial_ret(&mut self) {
+    self.constant(Constant::Nil);
+    self.emit(Instruction::new(InstructionKind::Return));
+  }
+  pub fn ret(&mut self) {
+    self.emit(Instruction::new(InstructionKind::Return));
+  }
+
   pub fn loop_break(&mut self) -> Result<()> {
     if let Some(loop_end) = self.active_loops.last() {
       self.emit_symbolic(SymbolicInstruction::Instruction(
@@ -157,6 +181,16 @@ impl FuncState {
     }
   }
 
+  // stack_offset is the number of positions BEFORE the stack pointer.
+  // This is obviously pretty low level, and if you can avoid using it
+  // you should.
+  pub fn add_local(&mut self, sym: Symbol) {
+    self.locals.push(Local {
+      scope_depth: self.scope_depth,
+      symbol: sym,
+    });
+  }
+
   pub fn define_var(&mut self, sym: Symbol) -> Result<()> {
     if self.at_global_depth() {
       self.emit(Instruction {
@@ -164,10 +198,7 @@ impl FuncState {
         operand: index_to_op(sym.into_usize())?,
       });
     } else {
-      self.locals.push(Local {
-        scope_depth: self.scope_depth,
-        symbol: sym,
-      });
+      self.add_local(sym);
     }
 
     Ok(())
@@ -190,6 +221,8 @@ impl FuncState {
     }
   }
 
+  // Find, at compile time, the symbol `sym` and push it
+  // onto the stack.
   pub fn load_var(&mut self, sym: Symbol) -> Result<()> {
     match self.find_var(sym) {
       VariableLocation::Local(idx) => self.emit(Instruction {

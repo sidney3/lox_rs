@@ -4,7 +4,7 @@ use nonempty::{NonEmpty, nonempty};
 
 use super::error::Result;
 use crate::asm::{
-  Constant, FuncState, Function, Instruction, InstructionKind, Label, SymbolicInstruction,
+  Constant, FuncState, Function, Instruction, InstructionKind, Label, Symbol, SymbolicInstruction,
   SymbolicOp,
 };
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
@@ -34,9 +34,11 @@ impl<T> NonEmptyExt<T> for NonEmpty<T> {
 
 impl<'a> Compiler<'a> {
   pub fn new(ast: &'a Ast) -> Self {
+    let mut symbols = Rodeo::new();
+    let main_sym = symbols.get_or_intern_static("main");
     Self {
-      symbols: Rodeo::new(),
-      compile_stack: nonempty![FuncState::new()],
+      symbols,
+      compile_stack: nonempty![FuncState::new(main_sym, 0)],
       ast,
     }
   }
@@ -54,6 +56,10 @@ impl<'a> Compiler<'a> {
     })
   }
 
+  pub fn load_sym(&mut self, ident: Ident) -> Symbol {
+    self.symbols.get_or_intern(self.ident_sym(ident))
+  }
+
   fn ident_sym(&self, ident: Ident) -> &'a str {
     self.ast.lexeme_arena.resolve(&ident)
   }
@@ -61,6 +67,9 @@ impl<'a> Compiler<'a> {
   // Accessors to the current compiling func
   fn func_mut(&mut self) -> &mut FuncState {
     self.compile_stack.last_mut()
+  }
+  fn func(&self) -> &FuncState {
+    self.compile_stack.last()
   }
 
   fn ast(&mut self, ast: &Ast) -> Result<()> {
@@ -83,12 +92,31 @@ impl<'a> Compiler<'a> {
         self.func_mut().define_var(sym)?;
       }
       Declaration::Fun(f) => {
-        self.compile_stack.push(FuncState::new());
-
         self
           .compile_stack
+          .push(FuncState::new(f.name, f.args().len()));
+
+        // See docs/calling_convention.md
+        let f_name = self.load_sym(f.name);
+        self.func_mut().add_local(f_name);
+
+        for arg in f.args() {
+          let arg_name = self.load_sym(*arg);
+          self.func_mut().add_local(arg_name);
+        }
+
+        self.block(&f.body)?;
+
+        self.func_mut().trivial_ret();
+
+        let func = self
+          .compile_stack
           .pop()
-          .expect("Function compilation stack too small");
+          .expect("Function compilation stack too small")
+          .assemble();
+
+        self.func_mut().constant(Constant::Func(func))?;
+        self.func_mut().define_var(f_name)?;
       }
     };
     Ok(())
@@ -137,6 +165,11 @@ impl<'a> Compiler<'a> {
         self.func_mut().end_loop();
       }
       Statement::Break => self.func_mut().loop_break()?,
+      Statement::Return(ret) => {
+        // See docs/calling_convention.md
+        self.expr(&ret.expr)?;
+        self.func_mut().ret();
+      }
     };
     Ok(())
   }
@@ -221,6 +254,9 @@ impl<'a> Compiler<'a> {
 
   fn expr(&mut self, expr: &Expression) -> Result<()> {
     match expr {
+      Expression::Nil => {
+        self.func_mut().constant(Constant::Nil);
+      }
       Expression::Bin(b) => {
         let instruction_kind = match b.op {
           BinOp::And => return self.and(b.lhs.as_ref(), b.rhs.as_ref()),
@@ -262,6 +298,16 @@ impl<'a> Compiler<'a> {
           LValue::Var(v) => self.symbols.get_or_intern(self.ident_sym(*v)),
         };
         self.func_mut().set_variable(assignee_sym)?;
+      }
+      Expression::Call(call) => {
+        // See docs/calling_convention.md
+        let f_name = self.load_sym(call.f);
+        self.func_mut().load_var(f_name)?;
+        for arg in &call.args {
+          self.expr(arg)?;
+        }
+
+        self.func_mut().callq(call.args.len());
       }
     }
 

@@ -12,6 +12,7 @@ pub enum Value {
   Num(Num),
   Obj(Handle),
   Bool(Bool),
+  Nil,
 }
 
 impl TryFrom<&Value> for Bool {
@@ -22,6 +23,7 @@ impl TryFrom<&Value> for Bool {
       &Value::Bool(b) => Ok(b),
       &Value::Num(x) => Ok(x != 0f64),
       Value::Obj(_) => Err(RuntimeError::new("Obj cannot be converted to bool")),
+      Value::Nil => Ok(false),
     }
   }
 }
@@ -77,9 +79,10 @@ impl Value {
         let l = vm.obj(a);
         let r = vm.obj(b);
 
-        l.equals(&r)
+        l.equals(&r)?
       }
       (Value::Bool(a), Value::Bool(b)) => a == b,
+      (Value::Nil, Value::Nil) => true,
       _ => {
         return Err(RuntimeError {
           msg: "Incompatible binary operators to ==".to_string(),
@@ -137,6 +140,7 @@ impl Value {
         format!("{}", *vm.obj(o))
       }
       Value::Bool(b) => if b { "True" } else { "False" }.to_string(),
+      Value::Nil => "nil".to_string(),
     }
   }
 

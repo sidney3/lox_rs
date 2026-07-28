@@ -28,7 +28,7 @@ pub fn run(config: Config) -> Result<(), RuntimeError> {
     .expect("Compilation failed");
 
   if config.disasm {
-    println!("{}", compiled.main.chunk);
+    println!("{:?}", compiled.main.chunk);
   }
 
   let mut vm = vm::Vm::new();

@@ -33,6 +33,11 @@ pub enum LoxRule {
   IfStatement,
   ElseTail,
   WhileStatement,
+  Unit,
+  Call,
+  CallArgs,
+  NonemptyCallArgs,
+  Return,
 
   LValue,
   Assign,
@@ -123,11 +128,19 @@ pub enum Literal {
 }
 
 #[derive(Debug)]
+pub struct Call {
+  pub f: Ident,
+  pub args: Vec<Expression>,
+}
+
+#[derive(Debug)]
 pub enum Expression {
   Bin(Binary),
   Unary(Unary),
   Lit(Literal),
   Assign(Assign),
+  Call(Call),
+  Nil,
 }
 
 #[derive(Debug)]
@@ -176,6 +189,11 @@ pub struct Block {
 }
 
 #[derive(Debug)]
+pub struct Return {
+  pub expr: Expression,
+}
+
+#[derive(Debug)]
 pub enum Statement {
   Expr(ExprStatement),
   Print(PrintStatement),
@@ -183,6 +201,7 @@ pub enum Statement {
   Block(Block),
   If(IfStatement),
   While(WhileStatement),
+  Return(Return),
   Break,
 }
 
@@ -302,6 +321,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
       // | '{' BlockStatement '}';
       // | IfStatement
       // | WhileStatement
+      // | Return
       // | Break
       P {
         rule: LoxRule::Statement,
@@ -330,6 +350,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
       P {
         rule: LoxRule::Statement,
         definition: vec![Symbol::Rule(LoxRule::WhileStatement)],
+      },
+      P {
+        rule: LoxRule::Statement,
+        definition: vec![Symbol::Rule(LoxRule::Return)],
       },
       P {
         rule: LoxRule::Statement,
@@ -421,6 +445,22 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::LBracket),
           Symbol::Rule(LoxRule::BlockStatement),
           Symbol::Token(LoxTokenKind::RBracket),
+        ],
+      },
+      // ReturnStatement := 'return' ';' | 'return' expr ';' ;
+      P {
+        rule: LoxRule::Return,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Return),
+          Symbol::Token(LoxTokenKind::Semicolon),
+        ],
+      },
+      P {
+        rule: LoxRule::Return,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Return),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::Semicolon),
         ],
       },
       // ------------------
@@ -598,10 +638,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
         rule: LoxRule::Unary,
         definition: vec![Symbol::Rule(LoxRule::Paren)],
       },
-      // Paren := Literal | '(' Expr ')'
+      // Paren := Unit | '(' Expr ')'
       P {
         rule: LoxRule::Paren,
-        definition: vec![Symbol::Rule(LoxRule::Literal)],
+        definition: vec![Symbol::Rule(LoxRule::Unit)],
       },
       P {
         rule: LoxRule::Paren,
@@ -611,7 +651,48 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::RParen),
         ],
       },
-      // Literal := 'Num' | 'Str' | 'True' | 'False' | 'Ident'
+      // Unit := Literal | Call
+      P {
+        rule: LoxRule::Unit,
+        definition: vec![Symbol::Rule(LoxRule::Literal)],
+      },
+      P {
+        rule: LoxRule::Unit,
+        definition: vec![Symbol::Rule(LoxRule::Call)],
+      },
+      // Call := ident '( func_args ')'
+      P {
+        rule: LoxRule::Call,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Ident),
+          Symbol::Token(LoxTokenKind::LParen),
+          Symbol::Rule(LoxRule::CallArgs),
+          Symbol::Token(LoxTokenKind::RParen),
+        ],
+      },
+      // CallArgs := ε | NonemptyCallArgs
+      P {
+        rule: LoxRule::CallArgs,
+        definition: Vec::new(),
+      },
+      P {
+        rule: LoxRule::CallArgs,
+        definition: vec![Symbol::Rule(LoxRule::NonemptyCallArgs)],
+      },
+      // ArgList := Expr | ArgList ',' Expr;
+      P {
+        rule: LoxRule::NonemptyCallArgs,
+        definition: vec![Symbol::Rule(LoxRule::Expr)],
+      },
+      P {
+        rule: LoxRule::NonemptyCallArgs,
+        definition: vec![
+          Symbol::Rule(LoxRule::NonemptyCallArgs),
+          Symbol::Token(LoxTokenKind::Comma),
+          Symbol::Rule(LoxRule::Expr),
+        ],
+      },
+      // Literal := 'Num' | 'Str' | 'True' | 'False' | 'Ident' | 'Nil'
       P {
         rule: LoxRule::Literal,
         definition: vec![Symbol::Token(LoxTokenKind::Number)],
@@ -631,6 +712,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
       P {
         rule: LoxRule::Literal,
         definition: vec![Symbol::Token(LoxTokenKind::Ident)],
+      },
+      P {
+        rule: LoxRule::Literal,
+        definition: vec![Symbol::Token(LoxTokenKind::Nil)],
       },
     ],
   )
@@ -770,6 +855,33 @@ impl ElseTail {
   }
 }
 
+impl Return {
+  pub fn new(expr: Expression) -> Self {
+    Self { expr }
+  }
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::Return,
+        children,
+      }) => match children.as_slice() {
+        [Node::Leaf(_return), Node::Leaf(_semicolon)]
+          if _return.token_type == LoxTokenKind::Return =>
+        {
+          Return::new(Expression::Nil)
+        }
+        [Node::Leaf(_return), expr, Node::Leaf(_semicolon)]
+          if _return.token_type == LoxTokenKind::Return =>
+        {
+          Return::new(Expression::from_cst(ast, expr))
+        }
+        _ => panic!("unreachable: {:?}", node),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+}
+
 impl Statement {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
@@ -807,6 +919,12 @@ impl Statement {
             children: _,
           }),
         ] => Statement::Expr(ExprStatement::from_cst(ast, &children[0])),
+        [
+          Node::Parent(Parent {
+            rule: LoxRule::Return,
+            children: _,
+          }),
+        ] => Statement::Return(Return::from_cst(ast, &children[0])),
         [Node::Leaf(l), block, Node::Leaf(r)]
           if l.token_type == LoxTokenKind::LBracket && r.token_type == LoxTokenKind::RBracket =>
         {
@@ -1010,6 +1128,54 @@ impl Block {
   }
 }
 
+impl Call {
+  fn parse_nonempty_args(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Vec<Expression> {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::NonemptyCallArgs,
+        children,
+      }) => match children.as_slice() {
+        [expr] => vec![Expression::from_cst(ast, expr)],
+        [elts, Node::Leaf(_comma), expr] => {
+          let mut parsed_elts = Self::parse_nonempty_args(ast, elts);
+          parsed_elts.push(Expression::from_cst(ast, expr));
+          parsed_elts
+        }
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+  fn parse_args(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Vec<Expression> {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::CallArgs,
+        children,
+      }) => match children.as_slice() {
+        [] => Vec::new(),
+        [arg_list] => Self::parse_nonempty_args(ast, arg_list),
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::Call,
+        children,
+      }) => match children.as_slice() {
+        [Node::Leaf(f), _lparen, args, _rparen] => Call {
+          f: f.lexeme,
+          args: Self::parse_args(ast, args),
+        },
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable: {:?}", node),
+    }
+  }
+}
+
 // TODO: write a better parser-generator. The one we have right now
 // loses a lot of semantic information (and just emits the raw tokens
 // at each node). This is fine for the e2e api of this file (you give me
@@ -1045,34 +1211,53 @@ impl Expression {
             .unwrap_or_else(|| panic!("Unexpected unary op: {}", op.token_type)),
         }),
 
-        (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::Number => {
-          Expression::Lit(Literal::Num(
-            root.lexeme_arena.resolve(&num.lexeme).parse().unwrap(),
-          ))
-        }
-        (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::True => {
-          Expression::Lit(Literal::Bool(true))
-        }
+        (
+          LoxRule::Unit,
+          [
+            Node::Parent(Parent {
+              rule: LoxRule::Call,
+              children: _,
+            }),
+          ],
+        ) => Expression::Call(Call::from_cst(root, &t.children[0])),
+        (
+          LoxRule::Unit,
+          [
+            Node::Parent(Parent {
+              rule: LoxRule::Literal,
+              children,
+            }),
+          ],
+        ) => match children.as_slice() {
+          [Node::Leaf(num)] if num.token_type == LoxTokenKind::Number => Expression::Lit(
+            Literal::Num(root.lexeme_arena.resolve(&num.lexeme).parse().unwrap()),
+          ),
+          [Node::Leaf(num)] if num.token_type == LoxTokenKind::True => {
+            Expression::Lit(Literal::Bool(true))
+          }
 
-        (LoxRule::Literal, [Node::Leaf(num)]) if num.token_type == LoxTokenKind::False => {
-          Expression::Lit(Literal::Bool(false))
-        }
+          [Node::Leaf(num)] if num.token_type == LoxTokenKind::False => {
+            Expression::Lit(Literal::Bool(false))
+          }
 
-        (LoxRule::Literal, [Node::Leaf(ident)]) if ident.token_type == LoxTokenKind::Ident => {
-          Expression::Lit(Literal::Var(ident.lexeme))
-        }
+          [Node::Leaf(ident)] if ident.token_type == LoxTokenKind::Ident => {
+            Expression::Lit(Literal::Var(ident.lexeme))
+          }
+          [Node::Leaf(ident)] if ident.token_type == LoxTokenKind::Nil => Expression::Nil,
 
-        (LoxRule::Literal, [Node::Leaf(s)]) if s.token_type == LoxTokenKind::String => {
-          let inner = root
-            .lexeme_arena
-            .resolve(&s.lexeme)
-            .strip_prefix("\"")
-            .and_then(|s| s.strip_suffix("\""))
-            .unwrap()
-            .to_string();
+          [Node::Leaf(s)] if s.token_type == LoxTokenKind::String => {
+            let inner = root
+              .lexeme_arena
+              .resolve(&s.lexeme)
+              .strip_prefix("\"")
+              .and_then(|s| s.strip_suffix("\""))
+              .unwrap()
+              .to_string();
 
-          Expression::Lit(Literal::String(inner))
-        }
+            Expression::Lit(Literal::String(inner))
+          }
+          _ => panic!("unreachable literal"),
+        },
 
         // passthroughs
         (

@@ -1,5 +1,6 @@
-fun f() {
-	print "Hello world";
+fun f(arg) {
+	return "Hello " + arg;
 }
 
-fun g(arg) {}
+assert f("World") == "Hello World";
+assert f("Sidney") == "Hello Sidney";

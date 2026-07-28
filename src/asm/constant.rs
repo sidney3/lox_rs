@@ -1,12 +1,15 @@
+use super::function::Function;
 use std::fmt;
 
 pub type LoxString = String;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Constant {
   Float(f64),
   String(LoxString),
   Bool(bool),
+  Func(Function),
+  Nil,
 }
 
 impl fmt::Display for Constant {
@@ -17,6 +20,8 @@ impl fmt::Display for Constant {
       &Constant::Bool(x) => {
         write!(f, "{}", if x { "true" } else { "false" })
       }
+      Constant::Nil => write!(f, "nil"),
+      Constant::Func(_) => write!(f, "LoxFunc"),
     }
   }
 }
