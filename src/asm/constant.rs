@@ -1,5 +1,6 @@
-use super::function::Function;
 use std::fmt;
+
+use super::function::Function;
 
 pub type LoxString = String;
 

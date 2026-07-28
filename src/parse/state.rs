@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 
+use either::Either;
 use itertools::Itertools;
 use smallvec::SmallVec;
 
@@ -11,7 +12,6 @@ use super::rule::Rule;
 use crate::lexer::TokenType;
 use crate::parse::debug::{DisplayWithGrammar, DisplayWithGrammarExt};
 use crate::usize_id;
-use either::Either;
 
 usize_id!(StateId);
 

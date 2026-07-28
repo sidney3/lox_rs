@@ -1,9 +1,9 @@
 use std::fmt;
+use std::ops::Add;
 
 use super::RuntimeError;
 use super::value::Num;
 use crate::asm;
-use std::ops::Add;
 
 pub type Function = asm::Function;
 

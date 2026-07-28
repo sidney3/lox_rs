@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use super::{Instruction, InstructionKind, OperandType};
-
 use log::warn;
+
+use super::{Instruction, InstructionKind, OperandType};
 
 #[derive(Clone, Copy, Hash, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Label {

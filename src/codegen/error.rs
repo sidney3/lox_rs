@@ -1,5 +1,6 @@
-use crate::asm;
 use thiserror::Error;
+
+use crate::asm;
 
 #[derive(Debug, Error)]
 pub enum Error {

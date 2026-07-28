@@ -170,10 +170,11 @@ impl<R: Rule> Parser<R> {
 #[cfg(test)]
 mod test {
 
+  use std::collections::VecDeque;
+
   use lasso::Rodeo;
   use lox_derive::Ordinal;
   use nonempty::nonempty;
-  use std::collections::VecDeque;
   use strum::Display;
 
   use super::*;

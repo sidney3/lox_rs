@@ -1,8 +1,8 @@
 use std::collections::{VecDeque, vec_deque};
+use std::vec;
 
 use lox_derive::Ordinal;
 use nonempty::{NonEmpty, nonempty};
-use std::vec;
 use strum::Display;
 
 use super::error::Result;

@@ -1,9 +1,10 @@
-use super::Ref;
-use super::block::GcBlock;
-use super::header::GcHeader;
 use std::fmt;
 use std::marker::PhantomData;
 use std::ptr::NonNull;
+
+use super::Ref;
+use super::block::GcBlock;
+use super::header::GcHeader;
 
 #[derive(Debug)]
 pub struct Root<'a, U> {

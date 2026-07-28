@@ -1,8 +1,8 @@
-use super::call_frame::CallFrame;
 use std::collections::HashMap;
 
 use lasso::Spur;
 
+use super::call_frame::CallFrame;
 use super::module_execution::ModuleExecution;
 use super::obj::ObjData;
 use super::runtime_error::RuntimeError;

@@ -1,9 +1,9 @@
-use log::debug;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
 
 use either::Either;
+use log::debug;
 use nonempty::NonEmpty;
 use smallvec::{SmallVec, smallvec};
 

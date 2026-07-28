@@ -1,8 +1,9 @@
-use super::block::GcBlock;
-use super::header::GcHeader;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
+
+use super::block::GcBlock;
+use super::header::GcHeader;
 
 pub struct Ref<'a, U> {
   header: &'a GcHeader,

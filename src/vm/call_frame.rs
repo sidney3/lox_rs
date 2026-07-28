@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use super::obj::Function;
 use super::obj::ObjData;
 use super::value::Value;
@@ -5,7 +7,6 @@ use super::vm::{Handle, Vm};
 use crate::asm::Constant;
 use crate::asm::{Chunk, Instruction};
 use crate::gc::Ref;
-use std::ops::Deref;
 
 pub struct CallFrame {
   pub func: Handle,

@@ -1,9 +1,9 @@
 use std::fmt;
+use std::ops::Deref;
 
 use lasso::Key;
 use log::{debug, info};
 use nonempty::{NonEmpty, nonempty};
-use std::ops::Deref;
 
 use super::call_frame::CallFrame;
 use super::obj::ObjData;
