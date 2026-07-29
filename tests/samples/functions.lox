@@ -4,3 +4,17 @@ fun f(arg) {
 
 assert f("World") == "Hello World";
 assert f("Sidney") == "Hello Sidney";
+
+var z = f;
+
+assert f("World") == "Hello World";
+
+fun f(g) {
+	return g(4);
+}
+
+fun h(x) {
+  return x + 5;
+}
+
+assert f(h) == 9;

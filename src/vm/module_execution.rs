@@ -240,7 +240,7 @@ impl<'vm, 'b> ModuleExecution<'vm, 'b> {
         InstructionKind::Callq => {
           let nargs = next_instruction.operand as usize;
           let f_idx = self.vm.stack_top() - nargs - 1;
-          let handle = match self.load_stack(f_idx) {
+          let handle = match self.vm.value_stack[f_idx] {
             Value::Obj(obj) => obj,
             _ => return Err(RuntimeError::new("Expected function")),
           };
@@ -255,7 +255,11 @@ impl<'vm, 'b> ModuleExecution<'vm, 'b> {
         InstructionKind::Return => {
           let returned_frame = match self.call_stack.pop() {
             Some(called) => called,
-            None => return Ok(()),
+            None => {
+              assert!(self.vm.value_stack.is_empty());
+              assert!(self.call_stack.last().base == 0);
+              return Ok(());
+            }
           };
           let ret_val = self.pop();
 

@@ -1,5 +1,10 @@
-fun f(user) {
-  return "Hello " + user + ". What is your task for me?";
+fun recurse (at) {
+	if at == 0 {
+		return;
+	} else {
+		recurse(at - 1);
+	}
+	print "Hello. At stack level: " + at;
 }
 
-print f("Sidney");
+recurse(10);
