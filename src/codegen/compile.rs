@@ -1,3 +1,4 @@
+use super::Compilation;
 use lasso::Rodeo;
 use log::info;
 use nonempty::{NonEmpty, nonempty};
@@ -10,11 +11,6 @@ use crate::asm::{
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-
-pub struct Compilation {
-  pub main: Function,
-  pub symbols: lasso::Rodeo,
-}
 
 pub struct Compiler<'a> {
   symbols: lasso::Rodeo,

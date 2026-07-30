@@ -1,4 +1,6 @@
+mod compilation;
 mod compile;
 mod error;
 
-pub use compile::{Compilation, Compiler};
+pub use compilation::Compilation;
+pub use compile::Compiler;
