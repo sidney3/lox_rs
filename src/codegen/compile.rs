@@ -94,13 +94,13 @@ impl<'a> Compiler<'a> {
       Declaration::Fun(f) => {
         self
           .compile_stack
-          .push(FuncState::new(f.name, f.args().len()));
+          .push(FuncState::new(f.name, f.args.len()));
 
         // See docs/calling_convention.md
         let f_name = self.load_sym(f.name);
         self.func_mut().add_local(f_name);
 
-        for arg in f.args() {
+        for arg in &f.args {
           let arg_name = self.load_sym(*arg);
           self.func_mut().add_local(arg_name);
         }

@@ -18,3 +18,13 @@ fun h(x) {
 }
 
 assert f(h) == 9;
+
+fun square(f, elt) {
+	return f(f(elt));
+}
+
+fun times_5(x) {
+	return x * 5;
+}
+
+assert square(times_5, 5) == 125;

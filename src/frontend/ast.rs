@@ -26,6 +26,7 @@ pub enum LoxRule {
   Declaration,
   FuncDecl,
   FuncArgs,
+  NonemptyFuncArgs,
   VarDecl,
   Statement,
   ExprStatement,
@@ -206,15 +207,10 @@ pub enum Statement {
 }
 
 #[derive(Debug)]
-pub struct FuncArgs {
-  vals: Vec<Ident>,
-}
-
-#[derive(Debug)]
 pub struct FuncDecl {
   pub name: Ident,
   pub body: Block,
-  args: FuncArgs,
+  pub args: Vec<Ident>,
 }
 
 #[derive(Debug)]
@@ -302,15 +298,26 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::RBracket),
         ],
       },
-      // FuncArgs := ε | FuncArgs; Ident
+      // FuncArgs := ε | NonemptyFuncArgs
       P {
         rule: LoxRule::FuncArgs,
         definition: vec![],
       },
+      // FuncArgs := ε | NonemptyFuncArgs
       P {
         rule: LoxRule::FuncArgs,
+        definition: vec![Symbol::Rule(LoxRule::NonemptyFuncArgs)],
+      },
+      // NonemptyFuncArgs := 'ident' | NonemptyFuncArgs ',' 'ident'
+      P {
+        rule: LoxRule::NonemptyFuncArgs,
+        definition: vec![Symbol::Token(LoxTokenKind::Ident)],
+      },
+      P {
+        rule: LoxRule::NonemptyFuncArgs,
         definition: vec![
-          Symbol::Rule(LoxRule::FuncArgs),
+          Symbol::Rule(LoxRule::NonemptyFuncArgs),
+          Symbol::Token(LoxTokenKind::Comma),
           Symbol::Token(LoxTokenKind::Ident),
         ],
       },
@@ -968,31 +975,37 @@ impl VarDeclaration {
   }
 }
 
-impl FuncArgs {
-  pub fn new() -> Self {
-    FuncArgs { vals: Vec::new() }
-  }
-
-  pub fn push(mut self, ident: Ident) -> Self {
-    self.vals.push(ident);
-    self
-  }
-
-  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+impl FuncDecl {
+  fn parse_nonempty_args(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Vec<Ident> {
     match node {
       Node::Parent(Parent {
-        rule: LoxRule::FuncArgs,
+        rule: LoxRule::NonemptyFuncArgs,
         children,
       }) => match children.as_slice() {
-        [] => FuncArgs::new(),
-        [func_args, Node::Leaf(ident)] => FuncArgs::from_cst(ast, func_args).push(ident.lexeme),
+        [Node::Leaf(ident)] => vec![ident.lexeme],
+        [elts, Node::Leaf(_comma), Node::Leaf(ident)] => {
+          let mut parsed_elts = Self::parse_nonempty_args(ast, elts);
+          parsed_elts.push(ident.lexeme);
+          parsed_elts
+        }
         _ => panic!("unreachable"),
       },
       _ => panic!("unreachable"),
     }
   }
-}
-impl FuncDecl {
+  fn parse_args(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Vec<Ident> {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::FuncArgs,
+        children,
+      }) => match children.as_slice() {
+        [] => Vec::new(),
+        [arg_list] => Self::parse_nonempty_args(ast, arg_list),
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
       Node::Parent(Parent {
@@ -1011,16 +1024,12 @@ impl FuncDecl {
         ] => FuncDecl {
           name: name.lexeme,
           body: Block::from_cst(ast, body),
-          args: FuncArgs::from_cst(ast, args),
+          args: Self::parse_args(ast, args),
         },
         _ => panic!("unreachable"),
       },
       _ => panic!("unreachable"),
     }
-  }
-
-  pub fn args(&self) -> &Vec<Ident> {
-    &self.args.vals
   }
 }
 
