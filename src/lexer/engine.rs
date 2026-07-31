@@ -1,6 +1,7 @@
 use lasso::Rodeo;
 use log::error;
 
+use super::Span;
 use super::dfa::DFA;
 use super::error::{Error, Result};
 use super::nfa::NFA;
@@ -55,7 +56,7 @@ impl<T: TokenType> Lexer<T> {
     out.push(Token {
       lexeme: rodeo.get_or_intern("EOF"),
       token_type: T::eof(),
-      line: cursor.line(),
+      span: Span::new(program.len(), program.len()),
     });
 
     let result = Tokens {
@@ -67,7 +68,7 @@ impl<T: TokenType> Lexer<T> {
       None => Ok(result),
       Some(next_token) => Err(Error::NoMatchingToken {
         line: next_token.to_owned(),
-        line_number: cursor.line(),
+        pos: cursor.pos(),
       }),
     }
   }
@@ -76,8 +77,6 @@ impl<T: TokenType> Lexer<T> {
     let mut curr_state = self.dfa.initial_state;
     let mut history = vec![curr_state];
     let start = cursor.mark();
-    // we want the line _before_ we consumed the token, not after!
-    let line = cursor.line();
 
     while let Some(c) = cursor.advance() {
       match self.dfa[curr_state].transitions.get(&c) {
@@ -95,7 +94,7 @@ impl<T: TokenType> Lexer<T> {
     while let Some(curr_state) = history.pop() {
       match self.dfa.terminal_states.get(&curr_state) {
         Some(&token_type) => {
-          let lexeme = cursor.slice(start);
+          let (span, lexeme) = cursor.slice(start);
 
           // We will never accept an empty token
           if lexeme.is_empty() {
@@ -104,7 +103,7 @@ impl<T: TokenType> Lexer<T> {
           return Some(Token {
             lexeme: rodeo.get_or_intern(lexeme),
             token_type,
-            line,
+            span,
           });
         }
         None => {
@@ -124,16 +123,18 @@ impl<T: TokenType> Lexer<T> {
 struct Cursor<'a> {
   input: &'a str,
   pos: usize,
-  line: usize,
   history: Vec<usize>,
 }
 
 impl<'a> Cursor<'a> {
+  pub fn pos(&self) -> usize {
+    self.pos
+  }
+
   fn make(input: &'a str) -> Self {
     Self {
       input,
       pos: 0,
-      line: 1,
       history: Vec::new(),
     }
   }
@@ -146,7 +147,6 @@ impl<'a> Cursor<'a> {
     let c = self.peek()?;
     self.history.push(self.pos);
     self.pos += c.len_utf8();
-    self.line += (c == '\n') as usize;
     Some(c)
   }
 
@@ -154,19 +154,16 @@ impl<'a> Cursor<'a> {
     assert!(!self.history.is_empty());
 
     self.pos = self.history.pop().unwrap();
-    self.line -= (self.peek() == Some('\n')) as usize;
   }
 
   fn mark(&self) -> usize {
     self.pos
   }
 
-  fn slice(&self, start: usize) -> &'a str {
-    &self.input[start..self.pos]
-  }
+  fn slice(&self, start: usize) -> (Span, &'a str) {
+    let span = Span::new(start, self.pos);
 
-  fn line(&self) -> usize {
-    self.line
+    (span, span.lexeme(self.input))
   }
 
   // Try to return the next word (space delimited).
@@ -183,6 +180,7 @@ impl<'a> Cursor<'a> {
 #[cfg(test)]
 mod test {
 
+  use super::super::TRIVIAL_SPAN;
   use super::*;
 
   #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -216,49 +214,51 @@ mod test {
     let ws_token = Token {
       lexeme: spur(" "),
       token_type: TokenT::Whitespace,
-      line: 1,
+      span: TRIVIAL_SPAN,
     };
     let struct_token = Token {
       lexeme: spur("struct"),
       token_type: TokenT::Struct,
-      line: 1,
+      span: TRIVIAL_SPAN,
     };
 
-    let expected_tokens = vec![
+    let expected_tokens: Vec<_> = vec![
       struct_token,
       ws_token,
       Token {
         lexeme: spur("structa"),
         token_type: TokenT::Literal,
-        line: 1,
+        span: TRIVIAL_SPAN,
       },
       ws_token,
       Token {
         lexeme: spur("structs"),
         token_type: TokenT::Literal,
-        line: 1,
+        span: TRIVIAL_SPAN,
       },
       ws_token,
       Token {
         lexeme: spur("sstruct"),
         token_type: TokenT::Literal,
-        line: 1,
+        span: TRIVIAL_SPAN,
       },
       ws_token,
       struct_token,
       Token {
         lexeme: spur("EOF"),
         token_type: TokenT::Eof,
-        line: 1,
+        span: TRIVIAL_SPAN,
       },
     ];
 
-    assert_eq!(
-      lexer
-        .lex("struct structa structs sstruct struct")
-        .unwrap()
-        .tokens,
-      expected_tokens
-    )
+    let seen_tokens: Vec<_> = lexer
+      .lex("struct structa structs sstruct struct")
+      .expect("Unable to lex")
+      .tokens
+      .iter()
+      .map(|t| t.canonical())
+      .collect();
+
+    assert_eq!(seen_tokens, expected_tokens,)
   }
 }

@@ -76,7 +76,7 @@ impl<R: Rule> Parser<R> {
     let mut iter = tokens.iter().peekable();
 
     loop {
-      let next_token = iter.peek().ok_or(Error::IncompleteProgram)?;
+      let next_token = iter.peek().ok_or(Error::IncompleteProgram).cloned()?;
 
       debug!(
         "Current state: {}",
@@ -89,10 +89,10 @@ impl<R: Rule> Parser<R> {
       let next_node: Node<R> = match action {
         Action::Shift => match iter.next() {
           Some(token) => {
-            debug!("shift {:?}", token);
+            debug!("shift {:?}", &token);
             Node::Leaf(*token)
           }
-          None => return Err(Error::ExpectedToken),
+          None => return Err(Error::ExpectedToken(next_token.span)),
         },
         Action::Reduce(production_id) | Action::Accept(production_id) => {
           let production = self.grammar.production(*production_id);
@@ -137,7 +137,7 @@ impl<R: Rule> Parser<R> {
 
       if let Action::Accept(_) = action {
         if !stack.is_empty() {
-          return Err(Error::ExcessProgram);
+          return Err(Error::ExcessProgram(next_token.span));
         }
 
         match next_node {
@@ -158,7 +158,7 @@ impl<R: Rule> Parser<R> {
         }
         None => {
           error!("Unrecognized token {}", next_node.symbol());
-          return Err(Error::UnrecognizedToken);
+          return Err(Error::UnrecognizedToken(next_token.span));
         }
       }
 

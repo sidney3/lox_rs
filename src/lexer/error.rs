@@ -14,8 +14,8 @@ pub enum Error {
   #[error("Unordered range: '{0}'-'{1}'")]
   UnorderedRange(char, char),
 
-  #[error("At line {line_number}, no matching token for {line}")]
-  NoMatchingToken { line: String, line_number: usize },
+  #[error("At pos {pos}, no matching token for {line}")]
+  NoMatchingToken { line: String, pos: usize },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

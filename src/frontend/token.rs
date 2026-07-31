@@ -152,48 +152,56 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
 mod test {
   use super::*;
 
+  use crate::lexer::TRIVIAL_SPAN;
+
   #[test]
   fn test_program() {
     let program = "print 9 + 2;\n";
 
     let lexer = LoxLexer::new().unwrap();
 
-    let mut tokens = lexer.lex(program).unwrap();
+    let mut resolved_tokens = lexer.lex(program).unwrap();
 
-    let mut spur = |s| tokens.lexeme_arena.get_or_intern(s);
+    let mut spur = |s| resolved_tokens.lexeme_arena.get_or_intern(s);
+
+    let parsed_tokens: Vec<_> = resolved_tokens
+      .tokens
+      .iter()
+      .map(|t| t.canonical())
+      .collect();
 
     assert_eq!(
-      tokens.tokens,
+      parsed_tokens,
       vec![
         LoxToken {
           lexeme: spur("print"),
           token_type: LoxTokenKind::Print,
-          line: 1
+          span: TRIVIAL_SPAN,
         },
         LoxToken {
           lexeme: spur("9"),
           token_type: LoxTokenKind::Number,
-          line: 1
+          span: TRIVIAL_SPAN,
         },
         LoxToken {
           lexeme: spur("+"),
           token_type: LoxTokenKind::Plus,
-          line: 1
+          span: TRIVIAL_SPAN,
         },
         LoxToken {
           lexeme: spur("2"),
           token_type: LoxTokenKind::Number,
-          line: 1
+          span: TRIVIAL_SPAN,
         },
         LoxToken {
           lexeme: spur(";"),
           token_type: LoxTokenKind::Semicolon,
-          line: 1
+          span: TRIVIAL_SPAN,
         },
         LoxToken {
           lexeme: spur("EOF"),
           token_type: LoxTokenKind::Eof,
-          line: 2,
+          span: TRIVIAL_SPAN,
         }
       ]
     )
