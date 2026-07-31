@@ -4,7 +4,7 @@ fun recurse (at) {
 	} else {
 		recurse(at - 1);
 	}
-	print "Hello. At stack level: " + at;
+	print Hello
 }
 
 recurse(10);

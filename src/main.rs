@@ -9,9 +9,6 @@ struct Cli {
   /// Path to the .lox source file (omit for REPL)
   #[arg(short, long)]
   script: PathBuf,
-
-  #[arg(long, default_value_t = false)]
-  disasm: bool,
 }
 
 fn main() {
@@ -19,10 +16,7 @@ fn main() {
 
   let cli = Cli::parse();
 
-  let cfg = Config {
-    script: cli.script,
-    disasm: cli.disasm,
-  };
+  let cfg = Config { script: cli.script };
 
   run(cfg).unwrap();
 }

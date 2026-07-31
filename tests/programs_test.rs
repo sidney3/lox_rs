@@ -10,7 +10,6 @@ fn run_test_file(file_name: &str) {
     script: Path::new(env!("CARGO_MANIFEST_DIR"))
       .join(SAMPLE_PATH)
       .join(file_name),
-    disasm: false,
   };
 
   let out = run(config);

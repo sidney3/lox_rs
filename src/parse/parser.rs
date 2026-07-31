@@ -157,8 +157,7 @@ impl<R: Rule> Parser<R> {
           curr_state_id = next_state_id;
         }
         None => {
-          error!("Unrecognized token {}", next_node.symbol());
-          return Err(Error::UnrecognizedToken(next_token.span));
+          return Err(Error::UnexpectedToken(next_token.span));
         }
       }
 

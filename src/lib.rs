@@ -7,30 +7,69 @@ mod lexer;
 mod parse;
 mod vm;
 
+use log::error;
 use std::path::PathBuf;
+use thiserror::Error;
 
+use crate::frontend::{Diagnostic, ToDiagnostic};
 use crate::vm::RuntimeError;
 
 pub struct Config {
   pub script: PathBuf,
-  pub disasm: bool,
 }
 
-pub fn run(config: Config) -> Result<(), RuntimeError> {
-  let lexer = frontend::token::LoxLexer::new().unwrap();
+#[derive(Debug, Error)]
+pub enum CompileError {
+  #[error(transparent)]
+  Frontend(#[from] frontend::Error),
+
+  #[error(transparent)]
+  Backend(#[from] codegen::Error),
+}
+
+#[derive(Debug)]
+pub enum LoxError {
+  Compile(CompileError),
+  Runtime(RuntimeError),
+}
+
+impl ToDiagnostic for CompileError {
+  fn to_diagnostic(&self) -> Diagnostic {
+    match self {
+      Self::Frontend(err) => err.to_diagnostic(),
+      Self::Backend(err) => err.to_diagnostic(),
+    }
+  }
+}
+
+fn compile(program: &str) -> Result<codegen::Compilation, CompileError> {
+  let lexer = frontend::token::LoxLexer::new().expect("Token definition error");
   let parser = frontend::ast::LoxParser::new();
 
-  let source_code = std::fs::read_to_string(config.script).unwrap();
-  let token_result = lexer.lex(&source_code).unwrap();
-  let ast = parser.parse(token_result).unwrap();
-  let compiled = codegen::Compiler::new(&ast)
-    .compile()
-    .expect("Compilation failed");
+  let tokens = lexer.lex(program)?;
+  let ast = parser.parse(tokens)?;
+  Ok(codegen::Compiler::new(&ast).compile()?)
+}
 
-  if config.disasm {
-    println!("{:?}", compiled.main.chunk);
-  }
+pub fn run(config: Config) -> Result<(), LoxError> {
+  let source_code = std::fs::read_to_string(config.script).expect("Source code reading error");
+
+  let diagnostic_renderer = frontend::diagnostics::DiagnosticRenderer::new(&source_code);
+
+  let compiled = match compile(source_code.as_str()) {
+    Ok(c) => c,
+    Err(e) => {
+      error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));
+      return Err(LoxError::Compile(e));
+    }
+  };
 
   let mut vm = vm::Vm::new();
-  vm.run(&compiled)
+  match vm.run(&compiled) {
+    Ok(()) => Ok(()),
+    Err(e) => {
+      error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));
+      Err(LoxError::Runtime(e))
+    }
+  }
 }

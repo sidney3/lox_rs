@@ -66,10 +66,10 @@ impl<T: TokenType> Lexer<T> {
 
     match cursor.next_word() {
       None => Ok(result),
-      Some(next_token) => Err(Error::NoMatchingToken {
-        line: next_token.to_owned(),
-        pos: cursor.pos(),
-      }),
+      Some(next_token) => Err(Error::NoMatchingToken(Span::new(
+        cursor.pos(),
+        cursor.pos(),
+      ))),
     }
   }
 
