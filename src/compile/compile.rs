@@ -42,10 +42,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     let main = self.compile_stack.into_last().assemble();
 
     Ok(Compilation {
-      // NOTE: if we hit more situations like this (where we statically know the Obj type,
-      // and want safelty retain this information, we can totally add this to Obj)
-      main: Obj::<Function>::downcast(self.runtime.alloc(ObjData::Func(main)), self.runtime)
-        .expect("We just allocated a function."),
+      main: self.runtime.alloc_typed(main),
     })
   }
 

@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use lasso::Spur;
 
-use super::obj::ObjData;
+use super::Obj;
+use super::ObjData;
+use super::ObjKind;
 use super::value::Value;
 use crate::gc;
 
@@ -34,6 +36,11 @@ impl Runtime {
 
   pub fn alloc(&mut self, obj: ObjData) -> Handle {
     self.heap.alloc(obj)
+  }
+
+  pub fn alloc_typed<T: ObjKind>(&mut self, obj: T) -> Obj<T> {
+    Obj::<T>::downcast(self.heap.alloc(obj.embed()), self)
+      .expect("We know the type of the object we just allocated")
   }
 
   pub fn stack_top(&self) -> usize {

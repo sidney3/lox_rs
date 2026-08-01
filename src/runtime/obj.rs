@@ -3,6 +3,7 @@ use std::ops::Deref;
 
 use crate::gc::Ref;
 
+use super::Closure;
 use super::Function;
 use super::Handle;
 use super::Runtime;
@@ -16,6 +17,7 @@ type LoxString = String;
 pub enum ObjData {
   String(LoxString),
   Func(Function),
+  Closure(Closure),
 }
 impl ObjData {
   pub fn add_right(&self, rhs: Num) -> Result<ObjData, RuntimeError> {
@@ -62,6 +64,7 @@ impl fmt::Display for ObjData {
     match self {
       ObjData::String(s) => write!(f, "{s}"),
       ObjData::Func(_func) => write!(f, "LoxFunc"),
+      ObjData::Closure(_closure) => write!(f, "LoxClosure"),
     }
   }
 }
@@ -69,10 +72,12 @@ impl fmt::Display for ObjData {
 pub trait ObjKind: Sized {
   fn project(obj: &ObjData) -> Option<&Self>;
   fn project_mut(obj: &mut ObjData) -> Option<&mut Self>;
+  fn embed(self) -> ObjData;
 }
 
 // The underlying storage is just ObjData, but we can brand
 // the ObjData blobs with the type we know they hold.
+#[derive(Debug)]
 pub struct Obj<T: ObjKind> {
   raw: Handle,
   _kind: PhantomData<T>,
@@ -111,20 +116,8 @@ impl ObjKind for LoxString {
       _ => None,
     }
   }
-}
 
-impl ObjKind for Function {
-  fn project(obj: &ObjData) -> Option<&Self> {
-    match obj {
-      ObjData::Func(s) => Some(s),
-      _ => None,
-    }
-  }
-
-  fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
-    match obj {
-      ObjData::Func(s) => Some(s),
-      _ => None,
-    }
+  fn embed(self) -> ObjData {
+    ObjData::String(self)
   }
 }

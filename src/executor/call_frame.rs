@@ -2,10 +2,10 @@ use std::ops::Deref;
 
 use crate::asm::Instruction;
 use crate::gc::Ref;
-use crate::runtime::{Function, Handle, Obj, ObjData, Runtime, Value};
+use crate::runtime::{Closure, Function, Handle, Obj, ObjData, Runtime, Value};
 
 pub struct CallFrame {
-  pub func: Obj<Function>,
+  pub closure: Obj<Closure>,
   pub ip: usize,
   pub base: usize,
 
@@ -13,11 +13,19 @@ pub struct CallFrame {
 }
 
 impl CallFrame {
-  pub fn new(vm: &mut Runtime, func: Obj<Function>, base: usize) -> Self {
-    let constants: Vec<Value> = func.borrow(vm).chunk.constants.iter().cloned().collect();
+  pub fn new(vm: &mut Runtime, closure: Obj<Closure>, base: usize) -> Self {
+    let constants: Vec<Value> = closure
+      .borrow(vm)
+      .func
+      .borrow(vm)
+      .chunk
+      .constants
+      .iter()
+      .cloned()
+      .collect();
 
     Self {
-      func,
+      closure,
       ip: 0,
       base,
       constants,
@@ -25,7 +33,14 @@ impl CallFrame {
   }
 
   pub fn pop_instruction(&mut self, vm: &Runtime) -> Option<Instruction> {
-    match self.func.borrow(vm).chunk.instructions.get(self.ip) {
+    match self
+      .closure
+      .borrow(vm)
+      .borrow_func(vm)
+      .chunk
+      .instructions
+      .get(self.ip)
+    {
       Some(&instruction) => {
         self.ip += 1;
         Some(instruction)
@@ -35,7 +50,15 @@ impl CallFrame {
   }
 
   pub fn jmp(&mut self, vm: &Runtime, to: usize) {
-    assert!(to < self.func.borrow(vm).chunk.instructions.len());
+    assert!(
+      to < self
+        .closure
+        .borrow(vm)
+        .borrow_func(vm)
+        .chunk
+        .instructions
+        .len()
+    );
 
     self.ip = to;
   }

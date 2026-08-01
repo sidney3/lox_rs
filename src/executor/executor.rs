@@ -6,7 +6,7 @@ use nonempty::{NonEmpty, nonempty};
 
 use super::call_frame::CallFrame;
 use crate::asm::{Instruction, InstructionKind};
-use crate::runtime::{Function, Handle, Obj, ObjData, Runtime, RuntimeError, Value};
+use crate::runtime::{Closure, Function, Handle, Obj, ObjData, Runtime, RuntimeError, Value};
 
 pub struct Executor<'vm> {
   vm: &'vm mut Runtime,
@@ -15,7 +15,8 @@ pub struct Executor<'vm> {
 
 impl<'vm> Executor<'vm> {
   pub fn new(vm: &'vm mut Runtime, main: Obj<Function>) -> Self {
-    let main_frame = CallFrame::new(vm, main, 0);
+    let main_closure = vm.alloc_typed(Closure { func: main });
+    let main_frame = CallFrame::new(vm, main_closure, 0);
 
     Self {
       vm,
@@ -232,7 +233,11 @@ impl<'vm> Executor<'vm> {
             None => return Err(RuntimeError::new("Call can only be called on a function")),
           };
 
-          self.call_stack.push(CallFrame::new(self.vm, func, f_idx));
+          let func_closure = self.vm.alloc_typed(Closure { func });
+
+          self
+            .call_stack
+            .push(CallFrame::new(self.vm, func_closure, f_idx));
         }
         InstructionKind::Return => {
           let returned_frame = match self.call_stack.pop() {
@@ -245,7 +250,12 @@ impl<'vm> Executor<'vm> {
           };
           let ret_val = self.pop();
 
-          let leftover_stack_vals = returned_frame.func.borrow(self.vm).arity + 1;
+          let leftover_stack_vals = returned_frame
+            .closure
+            .borrow(self.vm)
+            .borrow_func(self.vm)
+            .arity
+            + 1;
 
           assert!(
             self.vm.value_stack.len() == returned_frame.base + leftover_stack_vals,
