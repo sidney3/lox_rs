@@ -1,18 +1,20 @@
 mod asm;
 mod codegen;
 mod core;
+mod executor;
 mod frontend;
 mod gc;
 mod lexer;
 mod parse;
-mod vm;
+mod runtime;
 
 use log::error;
 use std::path::PathBuf;
 use thiserror::Error;
 
+use crate::executor::Executor;
 use crate::frontend::{Diagnostic, ToDiagnostic};
-use crate::vm::RuntimeError;
+use crate::runtime::RuntimeError;
 
 pub struct Config {
   pub script: PathBuf,
@@ -55,6 +57,7 @@ pub fn run(config: Config) -> Result<(), LoxError> {
   let source_code = std::fs::read_to_string(config.script).expect("Source code reading error");
 
   let diagnostic_renderer = frontend::diagnostics::DiagnosticRenderer::new(&source_code);
+  let mut vm = runtime::Runtime::new();
 
   let compiled = match compile(source_code.as_str()) {
     Ok(c) => c,
@@ -64,8 +67,7 @@ pub fn run(config: Config) -> Result<(), LoxError> {
     }
   };
 
-  let mut vm = vm::Vm::new();
-  match vm.run(&compiled) {
+  match Executor::new(&mut vm, &compiled).run() {
     Ok(()) => Ok(()),
     Err(e) => {
       error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));

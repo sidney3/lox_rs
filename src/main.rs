@@ -18,5 +18,5 @@ fn main() {
 
   let cfg = Config { script: cli.script };
 
-  run(cfg).unwrap();
+  run(cfg).expect("Compilation failed");
 }

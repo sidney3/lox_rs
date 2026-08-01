@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use lasso::Spur;
 
-use super::call_frame::CallFrame;
-use super::module_execution::ModuleExecution;
 use super::obj::ObjData;
 use super::runtime_error::RuntimeError;
 use super::value::Value;
@@ -15,14 +13,14 @@ pub type Heap = gc::Heap<ObjData>;
 pub type Handle = gc::Handle<ObjData>;
 pub type Root<'a> = gc::Root<'a, ObjData>;
 
-pub struct Vm {
+pub struct Runtime {
   pub value_stack: Vec<Value>,
   pub heap: Heap,
   pub symbols: lasso::Rodeo,
   pub globals: HashMap<Spur, Value>,
 }
 
-impl Vm {
+impl Runtime {
   pub fn new() -> Self {
     Self {
       value_stack: Vec::new(),
@@ -30,10 +28,6 @@ impl Vm {
       symbols: lasso::Rodeo::new(),
       globals: HashMap::new(),
     }
-  }
-
-  pub fn run(&mut self, compilation: &Compilation) -> Result<(), RuntimeError> {
-    ModuleExecution::new(self, compilation).execute()
   }
 
   pub fn obj(&self, h: Handle) -> gc::Ref<'_, ObjData> {

@@ -6,23 +6,19 @@ use log::{debug, info};
 use nonempty::{NonEmpty, nonempty};
 
 use super::call_frame::CallFrame;
-use super::obj::ObjData;
-use super::runtime_error::RuntimeError;
-use super::value::Value;
-use super::vm::Vm;
-use super::vm::{Handle, Root};
 use crate::asm::{Chunk, Constant, Instruction, InstructionKind};
 use crate::codegen::Compilation;
 use crate::gc::Ref;
+use crate::runtime::{Handle, ObjData, Root, Runtime, RuntimeError, Value};
 
-pub struct ModuleExecution<'vm, 'b> {
-  vm: &'vm mut Vm,
+pub struct Executor<'vm, 'b> {
+  vm: &'vm mut Runtime,
   call_stack: NonEmpty<CallFrame>,
   compilation: &'b Compilation,
 }
 
-impl<'vm, 'b> ModuleExecution<'vm, 'b> {
-  pub fn new(vm: &'vm mut Vm, compilation: &'b Compilation) -> Self {
+impl<'vm, 'b> Executor<'vm, 'b> {
+  pub fn new(vm: &'vm mut Runtime, compilation: &'b Compilation) -> Self {
     let main_handle = vm.heap.alloc(ObjData::Func(compilation.main.clone()));
     let main_frame = CallFrame::new(vm, main_handle, 0);
 
@@ -31,6 +27,10 @@ impl<'vm, 'b> ModuleExecution<'vm, 'b> {
       call_stack: nonempty![main_frame],
       compilation,
     }
+  }
+
+  pub fn run(self) -> Result<(), RuntimeError> {
+    self.execute()
   }
 
   fn pop(&mut self) -> Value {
@@ -68,7 +68,7 @@ impl<'vm, 'b> ModuleExecution<'vm, 'b> {
     self.vm.value_stack.push(val);
   }
 
-  fn execute_binary<F: FnOnce(Value, Value, &mut Vm) -> Result<Value, RuntimeError>>(
+  fn execute_binary<F: FnOnce(Value, Value, &mut Runtime) -> Result<Value, RuntimeError>>(
     &mut self,
     f: F,
   ) -> Result<(), RuntimeError> {
@@ -82,7 +82,7 @@ impl<'vm, 'b> ModuleExecution<'vm, 'b> {
     Ok(())
   }
 
-  fn execute_unary<F: FnOnce(Value, &mut Vm) -> Result<Value, RuntimeError>>(
+  fn execute_unary<F: FnOnce(Value, &mut Runtime) -> Result<Value, RuntimeError>>(
     &mut self,
     f: F,
   ) -> Result<(), RuntimeError> {
