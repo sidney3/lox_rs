@@ -1,4 +1,5 @@
-use crate::asm::{Chunk, Symbol};
+use super::Symbol;
+use crate::asm::Chunk;
 
 #[derive(Debug, Clone)]
 pub struct Function {

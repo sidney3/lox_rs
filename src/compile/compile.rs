@@ -1,19 +1,14 @@
 use super::Compilation;
-use lasso::Rodeo;
-use log::info;
 use nonempty::{NonEmpty, nonempty};
 
 use super::error::Result;
-use crate::asm::{
-  FuncState, Instruction, InstructionKind, Label, Symbol, SymbolicInstruction, SymbolicOp,
-};
+use crate::asm::{FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp};
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::runtime::{Function, ObjData, Runtime, Value};
+use crate::runtime::{Function, ObjData, Runtime, Symbol, Value};
 
 pub struct Compiler<'a, 'vm> {
-  symbols: lasso::Rodeo,
   compile_stack: NonEmpty<FuncState>,
   ast: &'a Ast,
   runtime: &'vm mut Runtime,
@@ -31,10 +26,8 @@ impl<T> NonEmptyExt<T> for NonEmpty<T> {
 
 impl<'a, 'vm> Compiler<'a, 'vm> {
   pub fn new(ast: &'a Ast, runtime: &'vm mut Runtime) -> Self {
-    let mut symbols = Rodeo::new();
-    let main_sym = symbols.get_or_intern_static("main");
+    let main_sym = runtime.symbols.get_or_intern_static("main");
     Self {
-      symbols,
       compile_stack: nonempty![FuncState::new(main_sym, 0)],
       ast,
       runtime,
@@ -48,14 +41,15 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
 
     let asm = self.compile_stack.into_last().assemble();
 
-    Ok(Compilation {
-      main: asm,
-      symbols: self.symbols,
-    })
+    Ok(Compilation { main: asm })
   }
 
-  pub fn load_sym(&mut self, ident: Ident) -> Symbol {
-    self.symbols.get_or_intern(self.ident_sym(ident))
+  pub fn load_ident_sym(&mut self, ident: Ident) -> Symbol {
+    self.load_str_sym(self.ident_sym(ident))
+  }
+
+  pub fn load_str_sym(&mut self, s: &str) -> Symbol {
+    self.runtime.symbols.get_or_intern(s)
   }
 
   fn ident_sym(&self, ident: Ident) -> &'a str {
@@ -86,7 +80,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       Declaration::Statement(s) => self.statement(s)?,
       Declaration::Var(v) => {
         self.expr(&v.assign)?;
-        let sym = self.symbols.get_or_intern(self.ident_sym(v.ident));
+        let sym = self.load_ident_sym(v.ident);
         self.func_mut().define_var(sym)?;
       }
       Declaration::Fun(f) => {
@@ -95,11 +89,11 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
           .push(FuncState::new(f.name, f.args.len()));
 
         // See docs/calling_convention.md
-        let f_name = self.load_sym(f.name);
+        let f_name = self.load_ident_sym(f.name);
         self.func_mut().add_local(f_name);
 
         for arg in &f.args {
-          let arg_name = self.load_sym(*arg);
+          let arg_name = self.load_ident_sym(*arg);
           self.func_mut().add_local(arg_name);
         }
 
@@ -294,13 +288,13 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       Expression::Assign(Assign { assignee, assign }) => {
         self.expr(assign)?;
         let assignee_sym = match assignee {
-          LValue::Var(v) => self.symbols.get_or_intern(self.ident_sym(*v)),
+          LValue::Var(v) => self.load_ident_sym(*v),
         };
         self.func_mut().set_variable(assignee_sym)?;
       }
       Expression::Call(call) => {
         // See docs/calling_convention.md
-        let f_name = self.load_sym(call.f);
+        let f_name = self.load_ident_sym(call.f);
         self.func_mut().load_var(f_name)?;
         for arg in &call.args {
           self.expr(arg)?;
@@ -322,7 +316,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       }
       &Literal::Bool(x) => self.func_mut().constant(Value::Bool(x))?,
       Literal::Var(v) => {
-        let sym = self.symbols.get_or_intern(self.ident_sym(*v));
+        let sym = self.load_ident_sym(*v);
         self.func_mut().load_var(sym)?;
       }
     };

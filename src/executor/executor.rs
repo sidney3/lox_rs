@@ -94,15 +94,6 @@ impl<'vm, 'b> Executor<'vm, 'b> {
     Ok(())
   }
 
-  fn resolve_foreign_symbol(&mut self, foreign_symbol: lasso::Spur) -> lasso::Spur {
-    let sym = self
-      .compilation
-      .symbols
-      .try_resolve(&foreign_symbol)
-      .expect("Garbage symbol");
-    self.vm.symbols.get_or_intern(sym)
-  }
-
   pub fn execute(mut self) -> Result<(), RuntimeError> {
     loop {
       let next_instruction: Instruction =
@@ -186,16 +177,14 @@ impl<'vm, 'b> Executor<'vm, 'b> {
         }
         InstructionKind::AddGlobal => {
           let assign = self.pop();
-          let global_idx = self.resolve_foreign_symbol(
-            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur"),
-          );
+          let global_idx =
+            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
 
           self.vm.globals.insert(global_idx, assign);
         }
         InstructionKind::LoadGlobal => {
-          let global_idx = self.resolve_foreign_symbol(
-            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur"),
-          );
+          let global_idx =
+            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
 
           let global = self.vm.globals.get(&global_idx).ok_or_else(|| {
             RuntimeError::new(
@@ -221,9 +210,8 @@ impl<'vm, 'b> Executor<'vm, 'b> {
         }
         InstructionKind::SetGlobal => {
           let assign: Value = self.pop();
-          let global_idx = self.resolve_foreign_symbol(
-            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur"),
-          );
+          let global_idx =
+            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
 
           let global: &mut Value = self.vm.globals.get_mut(&global_idx).ok_or_else(|| {
             RuntimeError::new(

@@ -1,13 +1,11 @@
 use lasso::Key;
 
-use crate::runtime::{Function, Value};
+use crate::runtime::{Function, Symbol, Value};
 
 use super::chunk::Chunk;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
-
-pub type Symbol = lasso::Spur;
 
 // Expression results are transient on the stack.
 //
