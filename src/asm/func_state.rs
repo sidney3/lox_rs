@@ -1,11 +1,10 @@
 use lasso::Key;
 
-use crate::runtime::{Function, Symbol, Value};
-
 use super::chunk::Chunk;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
+use crate::runtime::{Function, Symbol, Value};
 
 // Expression results are transient on the stack.
 //
@@ -18,8 +17,6 @@ pub struct Local {
   pub scope_depth: usize,
   pub symbol: Symbol,
 }
-
-type LValue<'a> = &'a str;
 
 enum VariableLocation {
   Global(Symbol),
@@ -48,10 +45,6 @@ impl FuncState {
       name,
       arity,
     }
-  }
-
-  pub fn name(&self) -> Symbol {
-    self.name
   }
 
   pub fn emit_symbolic(&mut self, instruction: SymbolicInstruction) {
@@ -159,9 +152,10 @@ impl FuncState {
     Ok(())
   }
 
-  pub fn trivial_ret(&mut self) {
-    self.constant(Value::Nil);
+  pub fn trivial_ret(&mut self) -> Result<()> {
+    self.constant(Value::Nil)?;
     self.emit(Instruction::new(InstructionKind::Return));
+    Ok(())
   }
   pub fn ret(&mut self) {
     self.emit(Instruction::new(InstructionKind::Return));

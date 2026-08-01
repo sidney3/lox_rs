@@ -1,7 +1,5 @@
-use std::fmt;
-
 use super::RuntimeError;
-use crate::runtime::{Handle, ObjData, Runtime};
+use crate::runtime::{Handle, Runtime};
 
 pub type Num = f64;
 pub type Bool = bool;
@@ -33,11 +31,11 @@ impl Value {
       (Value::Num(a), Value::Num(b)) => Ok(Value::Num(a + b)),
       (Value::Obj(a), Value::Num(b)) => {
         let obj = vm.obj(a).add_right(b)?;
-        Ok(vm.alloc(obj))
+        Ok(Value::Obj(vm.alloc(obj)))
       }
       (Value::Num(a), Value::Obj(b)) => {
         let obj = vm.obj(b).add_left(a)?;
-        Ok(vm.alloc(obj))
+        Ok(Value::Obj(vm.alloc(obj)))
       }
       (Value::Obj(a), Value::Obj(b)) => {
         let out = {
@@ -46,7 +44,7 @@ impl Value {
           lhs.add(&rhs)
         };
 
-        out.map(|o| vm.alloc(o))
+        out.map(|o| Value::Obj(vm.alloc(o)))
       }
       _ => Err(RuntimeError {
         msg: format!("Bad binary expression between: {:?}, {:?}", self, rhs,),

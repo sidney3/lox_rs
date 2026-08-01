@@ -8,8 +8,9 @@ mod lexer;
 mod parse;
 mod runtime;
 
-use log::error;
 use std::path::PathBuf;
+
+use log::error;
 use thiserror::Error;
 
 use crate::executor::Executor;
@@ -67,7 +68,7 @@ pub fn run(config: Config) -> Result<(), LoxError> {
     }
   };
 
-  match Executor::new(&mut rt, &compiled).run() {
+  match Executor::new(&mut rt, compiled.main).run() {
     Ok(()) => Ok(()),
     Err(e) => {
       error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));

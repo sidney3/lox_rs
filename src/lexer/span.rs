@@ -16,6 +16,10 @@ impl Span {
     &program[self.start..self.end]
   }
 
+  pub fn trivial() -> Self {
+    Span::new(0, 0)
+  }
+
   pub fn combine_overlapping(self, other: Span) -> Option<Self> {
     let (earlier, later) = if self.start <= other.start {
       (self, other)

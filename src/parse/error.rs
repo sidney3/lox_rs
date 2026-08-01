@@ -1,6 +1,7 @@
+use thiserror::Error;
+
 use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
 use crate::lexer::Span;
-use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {

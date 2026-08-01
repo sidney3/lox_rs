@@ -32,8 +32,8 @@ impl Runtime {
     self.heap.borrow(h)
   }
 
-  pub fn alloc(&mut self, obj: ObjData) -> Value {
-    Value::Obj(self.heap.alloc(obj))
+  pub fn alloc(&mut self, obj: ObjData) -> Handle {
+    self.heap.alloc(obj)
   }
 
   pub fn stack_top(&self) -> usize {

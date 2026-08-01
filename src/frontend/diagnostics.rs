@@ -1,6 +1,8 @@
-pub use crate::lexer::Span;
-use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
 use std::fmt::Display;
+
+use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
+
+pub use crate::lexer::Span;
 
 pub struct Diagnostic {
   pub message: String,

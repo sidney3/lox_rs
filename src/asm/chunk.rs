@@ -3,7 +3,6 @@ use std::fmt;
 use itertools::Itertools;
 
 use super::instruction::Instruction;
-
 use crate::runtime::Value;
 
 #[derive(Debug, Clone)]

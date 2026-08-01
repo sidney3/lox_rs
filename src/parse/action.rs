@@ -47,7 +47,7 @@ fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
   let mut follow_table: Vec<HashSet<R::TokenType>> =
     (0..R::COUNT).map(|_| HashSet::new()).collect();
 
-  let initial_symbols: Vec<_> = grammar
+  let _initial_symbols: Vec<_> = grammar
     .productions()
     .filter_map(|production| match production.definition.first() {
       Some(&Symbol::Token(t)) => Some(t),

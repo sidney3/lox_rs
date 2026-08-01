@@ -1,5 +1,5 @@
+
 use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
-use thiserror::Error;
 
 #[derive(Debug)]
 pub struct RuntimeError {

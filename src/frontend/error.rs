@@ -1,6 +1,6 @@
-use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
 use thiserror::Error;
 
+use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
 use crate::lexer::Error as LexError;
 use crate::parse::Error as ParseError;
 

@@ -1,7 +1,7 @@
-use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
 use thiserror::Error;
 
 use crate::asm;
+use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
 
 #[derive(Debug, Error)]
 pub enum Error {

@@ -1,4 +1,3 @@
-use std::collections::{VecDeque, vec_deque};
 use std::vec;
 
 use lox_derive::Ordinal;
@@ -950,7 +949,7 @@ impl VarDeclaration {
     match node {
       Node::Parent(Parent {
         rule: LoxRule::VarDecl,
-        children: children,
+        children,
       }) => match children.as_slice() {
         [
           Node::Leaf(var),
@@ -1038,7 +1037,7 @@ impl Declaration {
     match node {
       Node::Parent(Parent {
         rule: LoxRule::Declaration,
-        children: children,
+        children,
       }) => match children.as_slice() {
         [
           Node::Parent(Parent {

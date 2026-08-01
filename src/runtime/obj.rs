@@ -1,5 +1,4 @@
 use std::fmt;
-use std::ops::Add;
 
 use super::Function;
 use super::RuntimeError;
@@ -57,7 +56,7 @@ impl fmt::Display for ObjData {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       ObjData::String(s) => write!(f, "{s}"),
-      ObjData::Func(func) => write!(f, "LoxFunc"),
+      ObjData::Func(_func) => write!(f, "LoxFunc"),
     }
   }
 }

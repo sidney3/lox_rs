@@ -1,4 +1,3 @@
-use std::fmt;
 use std::ops::Deref;
 
 use lasso::Key;
@@ -7,25 +6,20 @@ use nonempty::{NonEmpty, nonempty};
 
 use super::call_frame::CallFrame;
 use crate::asm::{Instruction, InstructionKind};
-use crate::compile::Compilation;
-use crate::gc::Ref;
-use crate::runtime::{Handle, ObjData, Root, Runtime, RuntimeError, Value};
+use crate::runtime::{Handle, ObjData, Runtime, RuntimeError, Value};
 
-pub struct Executor<'vm, 'b> {
+pub struct Executor<'vm> {
   vm: &'vm mut Runtime,
   call_stack: NonEmpty<CallFrame>,
-  compilation: &'b Compilation,
 }
 
-impl<'vm, 'b> Executor<'vm, 'b> {
-  pub fn new(vm: &'vm mut Runtime, compilation: &'b Compilation) -> Self {
-    let main_handle = vm.heap.alloc(ObjData::Func(compilation.main.clone()));
-    let main_frame = CallFrame::new(vm, main_handle, 0);
+impl<'vm> Executor<'vm> {
+  pub fn new(vm: &'vm mut Runtime, main: Handle) -> Self {
+    let main_frame = CallFrame::new(vm, main, 0);
 
     Self {
       vm,
       call_stack: nonempty![main_frame],
-      compilation,
     }
   }
 

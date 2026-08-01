@@ -1,13 +1,12 @@
 use std::hash::Hash;
 
-use super::Span;
 use lasso::Spur;
+
+use super::Span;
 
 pub trait TokenType: Hash + Eq + Clone + Copy + PartialEq {
   fn eof() -> Self;
 }
-
-pub const TRIVIAL_SPAN: Span = Span::new(0, 0);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Token<T: TokenType> {
@@ -21,7 +20,7 @@ impl<T: TokenType> Token<T> {
     Token {
       lexeme: self.lexeme,
       token_type: self.token_type,
-      span: TRIVIAL_SPAN,
+      span: Span::trivial(),
     }
   }
 }

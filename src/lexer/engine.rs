@@ -66,7 +66,7 @@ impl<T: TokenType> Lexer<T> {
 
     match cursor.next_word() {
       None => Ok(result),
-      Some(next_token) => Err(Error::NoMatchingToken(Span::new(
+      Some(_next_token) => Err(Error::NoMatchingToken(Span::new(
         cursor.pos(),
         cursor.pos(),
       ))),
@@ -180,7 +180,6 @@ impl<'a> Cursor<'a> {
 #[cfg(test)]
 mod test {
 
-  use super::super::TRIVIAL_SPAN;
   use super::*;
 
   #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -214,12 +213,12 @@ mod test {
     let ws_token = Token {
       lexeme: spur(" "),
       token_type: TokenT::Whitespace,
-      span: TRIVIAL_SPAN,
+      span: Span::trivial(),
     };
     let struct_token = Token {
       lexeme: spur("struct"),
       token_type: TokenT::Struct,
-      span: TRIVIAL_SPAN,
+      span: Span::trivial(),
     };
 
     let expected_tokens: Vec<_> = vec![
@@ -228,26 +227,26 @@ mod test {
       Token {
         lexeme: spur("structa"),
         token_type: TokenT::Literal,
-        span: TRIVIAL_SPAN,
+        span: Span::trivial(),
       },
       ws_token,
       Token {
         lexeme: spur("structs"),
         token_type: TokenT::Literal,
-        span: TRIVIAL_SPAN,
+        span: Span::trivial(),
       },
       ws_token,
       Token {
         lexeme: spur("sstruct"),
         token_type: TokenT::Literal,
-        span: TRIVIAL_SPAN,
+        span: Span::trivial(),
       },
       ws_token,
       struct_token,
       Token {
         lexeme: spur("EOF"),
         token_type: TokenT::Eof,
-        span: TRIVIAL_SPAN,
+        span: Span::trivial(),
       },
     ];
 

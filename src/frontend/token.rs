@@ -152,7 +152,7 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
 mod test {
   use super::*;
 
-  use crate::lexer::TRIVIAL_SPAN;
+  use crate::lexer::Span;
 
   #[test]
   fn test_program() {
@@ -176,32 +176,32 @@ mod test {
         LoxToken {
           lexeme: spur("print"),
           token_type: LoxTokenKind::Print,
-          span: TRIVIAL_SPAN,
+          span: Span::trivial(),
         },
         LoxToken {
           lexeme: spur("9"),
           token_type: LoxTokenKind::Number,
-          span: TRIVIAL_SPAN,
+          span: Span::trivial(),
         },
         LoxToken {
           lexeme: spur("+"),
           token_type: LoxTokenKind::Plus,
-          span: TRIVIAL_SPAN,
+          span: Span::trivial(),
         },
         LoxToken {
           lexeme: spur("2"),
           token_type: LoxTokenKind::Number,
-          span: TRIVIAL_SPAN,
+          span: Span::trivial(),
         },
         LoxToken {
           lexeme: spur(";"),
           token_type: LoxTokenKind::Semicolon,
-          span: TRIVIAL_SPAN,
+          span: Span::trivial(),
         },
         LoxToken {
           lexeme: spur("EOF"),
           token_type: LoxTokenKind::Eof,
-          span: TRIVIAL_SPAN,
+          span: Span::trivial(),
         }
       ]
     )

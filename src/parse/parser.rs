@@ -1,5 +1,5 @@
 use lasso::Rodeo;
-use log::{debug, error};
+use log::debug;
 use ndarray::Array2;
 
 use super::action::{Action, make_action};

@@ -13,4 +13,4 @@ mod fa_test;
 pub use engine::{Lexer, Tokens};
 pub use error::Error;
 pub use span::Span;
-pub use token::{TRIVIAL_SPAN, Token, TokenType};
+pub use token::{Token, TokenType};

@@ -1,12 +1,12 @@
-use super::Compilation;
 use nonempty::{NonEmpty, nonempty};
 
+use super::Compilation;
 use super::error::Result;
 use crate::asm::{FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp};
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::runtime::{Function, ObjData, Runtime, Symbol, Value};
+use crate::runtime::{ObjData, Runtime, Symbol, Value};
 
 pub struct Compiler<'a, 'vm> {
   compile_stack: NonEmpty<FuncState>,
@@ -39,9 +39,11 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
 
     assert!(self.compile_stack.len() == 1);
 
-    let asm = self.compile_stack.into_last().assemble();
+    let main = self.compile_stack.into_last().assemble();
 
-    Ok(Compilation { main: asm })
+    Ok(Compilation {
+      main: self.runtime.alloc(ObjData::Func(main)),
+    })
   }
 
   pub fn load_ident_sym(&mut self, ident: Ident) -> Symbol {
@@ -59,9 +61,6 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
   // Accessors to the current compiling func
   fn func_mut(&mut self) -> &mut FuncState {
     self.compile_stack.last_mut()
-  }
-  fn func(&self) -> &FuncState {
-    self.compile_stack.last()
   }
 
   fn ast(&mut self, ast: &Ast) -> Result<()> {
@@ -99,7 +98,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
 
         self.block(&f.body)?;
 
-        self.func_mut().trivial_ret();
+        self.func_mut().trivial_ret()?;
 
         let func = self
           .compile_stack
@@ -107,7 +106,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
           .expect("Function compilation stack too small")
           .assemble();
 
-        let func_handle = self.runtime.alloc(ObjData::Func(func));
+        let func_handle = Value::Obj(self.runtime.alloc(ObjData::Func(func)));
         self.func_mut().constant(func_handle)?;
         self.func_mut().define_var(f_name)?;
       }
@@ -248,7 +247,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
   fn expr(&mut self, expr: &Expression) -> Result<()> {
     match expr {
       Expression::Nil => {
-        self.func_mut().constant(Value::Nil);
+        self.func_mut().constant(Value::Nil)?;
       }
       Expression::Bin(b) => {
         let instruction_kind = match b.op {
@@ -300,7 +299,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
           self.expr(arg)?;
         }
 
-        self.func_mut().callq(call.args.len());
+        self.func_mut().callq(call.args.len())?;
       }
     }
 
@@ -311,8 +310,8 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     match lit {
       &Literal::Num(x) => self.func_mut().constant(Value::Num(x))?,
       Literal::String(x) => {
-        let string_val = self.runtime.alloc(ObjData::String(x.clone()));
-        self.func_mut().constant(string_val);
+        let string_val = Value::Obj(self.runtime.alloc(ObjData::String(x.clone())));
+        self.func_mut().constant(string_val)?;
       }
       &Literal::Bool(x) => self.func_mut().constant(Value::Bool(x))?,
       Literal::Var(v) => {
