@@ -2,14 +2,16 @@ use nonempty::{NonEmpty, nonempty};
 
 use super::Compilation;
 use super::error::Result;
-use crate::asm::{FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp};
+use crate::asm::{
+  FuncStack, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
+};
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::runtime::{Function, Obj, ObjData, Runtime, Symbol, Value};
+use crate::runtime::{Function, Obj, ObjData, Runtime, Symbol, UpValueDescriptor, Value};
 
 pub struct Compiler<'a, 'vm> {
-  compile_stack: NonEmpty<FuncState>,
+  compile_stack: FuncStack,
   ast: &'a Ast,
   runtime: &'vm mut Runtime,
 }
@@ -28,7 +30,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
   pub fn new(ast: &'a Ast, runtime: &'vm mut Runtime) -> Self {
     let main_sym = runtime.symbols.get_or_intern_static("main");
     Self {
-      compile_stack: nonempty![FuncState::new(main_sym, 0)],
+      compile_stack: FuncStack::new(FuncState::new(main_sym, 0, None)),
       ast,
       runtime,
     }
@@ -37,9 +39,10 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
   pub fn compile(mut self) -> Result<Compilation> {
     self.ast(self.ast)?;
 
-    assert!(self.compile_stack.len() == 1);
-
-    let main = self.compile_stack.into_last().assemble();
+    let main = self
+      .compile_stack
+      .pop_last()
+      .expect("Finished compilation with excess remaining frames");
 
     Ok(Compilation {
       main: self.runtime.alloc_typed(main),
@@ -60,7 +63,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
 
   // Accessors to the current compiling func
   fn func_mut(&mut self) -> &mut FuncState {
-    self.compile_stack.last_mut()
+    self.compile_stack.head_mut()
   }
 
   fn ast(&mut self, ast: &Ast) -> Result<()> {
@@ -83,9 +86,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         self.func_mut().define_var(sym)?;
       }
       Declaration::Fun(f) => {
-        self
-          .compile_stack
-          .push(FuncState::new(f.name, f.args.len()));
+        self.compile_stack.push(f.name, f.args.len());
 
         // See docs/calling_convention.md
         let f_name = self.load_ident_sym(f.name);
@@ -103,8 +104,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         let func = self
           .compile_stack
           .pop()
-          .expect("Function compilation stack too small")
-          .assemble();
+          .expect("Compilation stack too small");
 
         let func_handle = Value::Obj(self.runtime.alloc(ObjData::Func(func)));
 

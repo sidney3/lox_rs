@@ -33,10 +33,45 @@ pub struct FuncState {
   active_loops: Vec<Label>,
   name: Symbol,
   arity: usize,
+
+  parent: Option<Box<Self>>,
+}
+
+pub struct FuncStack(Box<FuncState>);
+
+impl FuncStack {
+  pub fn new(main: FuncState) -> Self {
+    Self(Box::new(main))
+  }
+  pub fn head_mut(&mut self) -> &mut Box<FuncState> {
+    &mut self.0
+  }
+
+  pub fn push(&mut self, name: Symbol, arity: usize) {
+    let prev_head = std::mem::replace(&mut self.0, Box::new(FuncState::new(name, arity, None)));
+    self.0.set_parent(prev_head);
+  }
+
+  pub fn pop(&mut self) -> Option<Function> {
+    match self.0.try_pop() {
+      Some(prev_head) => {
+        let head = std::mem::replace(&mut self.0, prev_head);
+        Some(head.assemble())
+      }
+      None => None,
+    }
+  }
+
+  pub fn pop_last(mut self) -> Option<Function> {
+    match self.0.try_pop() {
+      Some(_) => None,
+      None => Some(self.0.assemble()),
+    }
+  }
 }
 
 impl FuncState {
-  pub fn new(name: Symbol, arity: usize) -> Self {
+  pub fn new(name: Symbol, arity: usize, parent: Option<Box<Self>>) -> Self {
     Self {
       constants: Vec::new(),
       instructions: SymbolicProgram::new(),
@@ -46,6 +81,7 @@ impl FuncState {
       scope_depth: 0,
       name,
       arity,
+      parent,
     }
   }
 
@@ -73,7 +109,22 @@ impl FuncState {
     OperandType::try_from(index).map_err(|_| Error::IndexOutOfRange(index))
   }
 
-  pub fn assemble(self) -> Function {
+  // These two functions exist only for the dance of safely maintaining the
+  // state of the stack.
+  //
+  // PUSH is done by replacing the head stack node with a trivial FuncState,
+  // and then set_parent'ing the previous head.
+  //
+  // POP is done by orphaning the head node, and replacing the previous head with it.
+  fn try_pop(&mut self) -> Option<Box<Self>> {
+    self.parent.take()
+  }
+
+  fn set_parent(&mut self, parent: Box<Self>) {
+    self.parent = Some(parent);
+  }
+
+  fn assemble(self) -> Function {
     let chunk = Box::new(Chunk {
       instructions: self
         .instructions
@@ -88,6 +139,10 @@ impl FuncState {
       arity: self.arity,
       name: self.name,
     }
+  }
+
+  fn has_parent(&self) -> bool {
+    self.parent.is_some()
   }
 
   pub fn at_global_depth(&self) -> bool {

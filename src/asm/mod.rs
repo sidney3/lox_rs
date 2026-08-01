@@ -6,6 +6,6 @@ mod symbolic_instruction;
 
 pub use chunk::Chunk;
 pub use error::Error;
-pub use func_state::FuncState;
+pub use func_state::{FuncStack, FuncState};
 pub use instruction::{Instruction, InstructionKind, OperandType};
 pub use symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp};
