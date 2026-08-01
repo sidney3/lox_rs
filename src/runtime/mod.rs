@@ -5,6 +5,7 @@ mod runtime_error;
 mod value;
 
 pub use function::Function;
+pub use obj::Obj;
 pub use obj::ObjData;
 pub use runtime::{Handle, Runtime, Symbol};
 pub use runtime_error::RuntimeError;

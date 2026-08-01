@@ -6,7 +6,7 @@ use crate::asm::{FuncState, Instruction, InstructionKind, Label, SymbolicInstruc
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::runtime::{ObjData, Runtime, Symbol, Value};
+use crate::runtime::{Function, Obj, ObjData, Runtime, Symbol, Value};
 
 pub struct Compiler<'a, 'vm> {
   compile_stack: NonEmpty<FuncState>,
@@ -42,7 +42,10 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     let main = self.compile_stack.into_last().assemble();
 
     Ok(Compilation {
-      main: self.runtime.alloc(ObjData::Func(main)),
+      // NOTE: if we hit more situations like this (where we statically know the Obj type,
+      // and want safelty retain this information, we can totally add this to Obj)
+      main: Obj::<Function>::downcast(self.runtime.alloc(ObjData::Func(main)), self.runtime)
+        .expect("We just allocated a function."),
     })
   }
 

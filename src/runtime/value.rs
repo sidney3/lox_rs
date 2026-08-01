@@ -30,17 +30,17 @@ impl Value {
     match (self, rhs) {
       (Value::Num(a), Value::Num(b)) => Ok(Value::Num(a + b)),
       (Value::Obj(a), Value::Num(b)) => {
-        let obj = vm.obj(a).add_right(b)?;
+        let obj = vm.borrow(a).add_right(b)?;
         Ok(Value::Obj(vm.alloc(obj)))
       }
       (Value::Num(a), Value::Obj(b)) => {
-        let obj = vm.obj(b).add_left(a)?;
+        let obj = vm.borrow(b).add_left(a)?;
         Ok(Value::Obj(vm.alloc(obj)))
       }
       (Value::Obj(a), Value::Obj(b)) => {
         let out = {
-          let lhs = vm.obj(a);
-          let rhs = vm.obj(b);
+          let lhs = vm.borrow(a);
+          let rhs = vm.borrow(b);
           lhs.add(&rhs)
         };
 
@@ -73,8 +73,8 @@ impl Value {
     let eq = match (self, rhs) {
       (Value::Num(a), Value::Num(b)) => a == b,
       (Value::Obj(a), Value::Obj(b)) => {
-        let l = vm.obj(a);
-        let r = vm.obj(b);
+        let l = vm.borrow(a);
+        let r = vm.borrow(b);
 
         l.equals(&r)?
       }
@@ -134,7 +134,7 @@ impl Value {
     match self {
       Value::Num(x) => x.to_string(),
       Value::Obj(o) => {
-        format!("{}", *vm.obj(o))
+        format!("{}", *vm.borrow(o))
       }
       Value::Bool(b) => if b { "True" } else { "False" }.to_string(),
       Value::Nil => "nil".to_string(),

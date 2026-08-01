@@ -28,7 +28,7 @@ impl Runtime {
     }
   }
 
-  pub fn obj(&self, h: Handle) -> gc::Ref<'_, ObjData> {
+  pub fn borrow(&self, h: Handle) -> gc::Ref<'_, ObjData> {
     self.heap.borrow(h)
   }
 

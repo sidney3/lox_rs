@@ -1,8 +1,14 @@
 use std::fmt;
+use std::ops::Deref;
+
+use crate::gc::Ref;
 
 use super::Function;
+use super::Handle;
+use super::Runtime;
 use super::RuntimeError;
 use super::value::Num;
+use std::marker::PhantomData;
 
 type LoxString = String;
 
@@ -11,7 +17,6 @@ pub enum ObjData {
   String(LoxString),
   Func(Function),
 }
-
 impl ObjData {
   pub fn add_right(&self, rhs: Num) -> Result<ObjData, RuntimeError> {
     match self {
@@ -57,6 +62,69 @@ impl fmt::Display for ObjData {
     match self {
       ObjData::String(s) => write!(f, "{s}"),
       ObjData::Func(_func) => write!(f, "LoxFunc"),
+    }
+  }
+}
+
+pub trait ObjKind: Sized {
+  fn project(obj: &ObjData) -> Option<&Self>;
+  fn project_mut(obj: &mut ObjData) -> Option<&mut Self>;
+}
+
+// The underlying storage is just ObjData, but we can brand
+// the ObjData blobs with the type we know they hold.
+pub struct Obj<T: ObjKind> {
+  raw: Handle,
+  _kind: PhantomData<T>,
+}
+
+impl<T: ObjKind> Obj<T> {
+  pub fn downcast(raw: Handle, vm: &Runtime) -> Option<Self> {
+    if T::project(vm.borrow(raw).deref()).is_some() {
+      Some(Self {
+        raw,
+        _kind: PhantomData,
+      })
+    } else {
+      None
+    }
+  }
+
+  pub fn borrow<'a>(&self, vm: &'a Runtime) -> Ref<'a, T> {
+    Ref::map(vm.borrow(self.raw), |obj| {
+      T::project(obj).expect("Objects cannot change type")
+    })
+  }
+}
+
+impl ObjKind for LoxString {
+  fn project(obj: &ObjData) -> Option<&Self> {
+    match obj {
+      ObjData::String(s) => Some(s),
+      _ => None,
+    }
+  }
+
+  fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
+    match obj {
+      ObjData::String(s) => Some(s),
+      _ => None,
+    }
+  }
+}
+
+impl ObjKind for Function {
+  fn project(obj: &ObjData) -> Option<&Self> {
+    match obj {
+      ObjData::Func(s) => Some(s),
+      _ => None,
+    }
+  }
+
+  fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
+    match obj {
+      ObjData::Func(s) => Some(s),
+      _ => None,
     }
   }
 }

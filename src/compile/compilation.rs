@@ -1,5 +1,5 @@
-use crate::runtime::{Handle, Value};
+use crate::runtime::{Function, Handle, Obj, Value};
 
 pub struct Compilation {
-  pub main: Handle,
+  pub main: Obj<Function>,
 }
