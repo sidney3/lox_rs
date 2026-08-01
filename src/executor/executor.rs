@@ -7,7 +7,7 @@ use nonempty::{NonEmpty, nonempty};
 
 use super::call_frame::CallFrame;
 use crate::asm::{Chunk, Constant, Instruction, InstructionKind};
-use crate::codegen::Compilation;
+use crate::compile::Compilation;
 use crate::gc::Ref;
 use crate::runtime::{Handle, ObjData, Root, Runtime, RuntimeError, Value};
 

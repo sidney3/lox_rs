@@ -6,7 +6,7 @@ use super::obj::ObjData;
 use super::runtime_error::RuntimeError;
 use super::value::Value;
 use crate::asm::{Chunk, Constant};
-use crate::codegen::Compilation;
+use crate::compile::Compilation;
 use crate::gc;
 
 pub type Heap = gc::Heap<ObjData>;

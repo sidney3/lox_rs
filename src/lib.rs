@@ -1,5 +1,5 @@
 mod asm;
-mod codegen;
+mod compile;
 mod core;
 mod executor;
 mod frontend;
@@ -26,7 +26,7 @@ pub enum CompileError {
   Frontend(#[from] frontend::Error),
 
   #[error(transparent)]
-  Backend(#[from] codegen::Error),
+  Backend(#[from] compile::Error),
 }
 
 #[derive(Debug)]
@@ -44,13 +44,13 @@ impl ToDiagnostic for CompileError {
   }
 }
 
-fn compile(program: &str) -> Result<codegen::Compilation, CompileError> {
+fn compile(program: &str) -> Result<compile::Compilation, CompileError> {
   let lexer = frontend::token::LoxLexer::new().expect("Token definition error");
   let parser = frontend::ast::LoxParser::new();
 
   let tokens = lexer.lex(program)?;
   let ast = parser.parse(tokens)?;
-  Ok(codegen::Compiler::new(&ast).compile()?)
+  Ok(compile::Compiler::new(&ast).compile()?)
 }
 
 pub fn run(config: Config) -> Result<(), LoxError> {
