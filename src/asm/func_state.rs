@@ -4,7 +4,7 @@ use super::chunk::Chunk;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
-use crate::runtime::{Function, Obj, ObjKind, Symbol, Value};
+use crate::runtime::{Function, Obj, ObjKind, Symbol, UpValue, UpValueDescriptor, Value};
 
 // Expression results are transient on the stack.
 //
@@ -27,6 +27,7 @@ pub struct FuncState {
   constants: Vec<Value>,
   instructions: SymbolicProgram,
   locals: Vec<Local>,
+  upvalues: Vec<UpValueDescriptor>,
   scope_depth: usize,
   // active_loops.back() is the current loop
   active_loops: Vec<Label>,
@@ -40,6 +41,7 @@ impl FuncState {
       constants: Vec::new(),
       instructions: SymbolicProgram::new(),
       locals: Vec::new(),
+      upvalues: Vec::new(),
       active_loops: Vec::new(),
       scope_depth: 0,
       name,
@@ -82,6 +84,7 @@ impl FuncState {
 
     Function {
       chunk,
+      upvalues: self.upvalues,
       arity: self.arity,
       name: self.name,
     }

@@ -8,6 +8,7 @@ use super::Function;
 use super::Handle;
 use super::Runtime;
 use super::RuntimeError;
+use super::UpValue;
 use super::value::Num;
 use std::marker::PhantomData;
 
@@ -18,7 +19,9 @@ pub enum ObjData {
   String(LoxString),
   Func(Function),
   Closure(Closure),
+  UpValue(UpValue),
 }
+
 impl ObjData {
   pub fn add_right(&self, rhs: Num) -> Result<ObjData, RuntimeError> {
     match self {
@@ -65,6 +68,9 @@ impl fmt::Display for ObjData {
       ObjData::String(s) => write!(f, "{s}"),
       ObjData::Func(_func) => write!(f, "LoxFunc"),
       ObjData::Closure(_closure) => write!(f, "LoxClosure"),
+      ObjData::UpValue(up) => match up {
+        UpValue::Open { absolute_stack_pos } => write!(f, "Open UpValue --> {absolute_stack_pos}"),
+      },
     }
   }
 }
