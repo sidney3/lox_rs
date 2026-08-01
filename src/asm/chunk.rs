@@ -2,13 +2,14 @@ use std::fmt;
 
 use itertools::Itertools;
 
-use super::Constant;
 use super::instruction::Instruction;
+
+use crate::runtime::Value;
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
   pub instructions: Vec<Instruction>,
-  pub constants: Vec<Constant>,
+  pub constants: Vec<Value>,
 }
 
 impl fmt::Display for Chunk {

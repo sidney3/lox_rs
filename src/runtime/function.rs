@@ -1,4 +1,4 @@
-use super::{Chunk, LoxString, Symbol};
+use crate::asm::{Chunk, Symbol};
 
 #[derive(Debug, Clone)]
 pub struct Function {

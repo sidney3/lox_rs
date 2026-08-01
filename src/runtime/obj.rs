@@ -1,11 +1,9 @@
 use std::fmt;
 use std::ops::Add;
 
+use super::Function;
 use super::RuntimeError;
 use super::value::Num;
-use crate::asm;
-
-pub type Function = asm::Function;
 
 type LoxString = String;
 

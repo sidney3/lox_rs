@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use lasso::Spur;
 
 use super::obj::ObjData;
-use super::runtime_error::RuntimeError;
 use super::value::Value;
-use crate::asm::{Chunk, Constant};
-use crate::compile::Compilation;
 use crate::gc;
 
 pub type Heap = gc::Heap<ObjData>;
@@ -32,16 +29,6 @@ impl Runtime {
 
   pub fn obj(&self, h: Handle) -> gc::Ref<'_, ObjData> {
     self.heap.borrow(h)
-  }
-
-  pub fn load_const(&mut self, x: Constant) -> Value {
-    match x {
-      Constant::Float(f) => Value::Num(f),
-      Constant::String(s) => self.alloc(ObjData::String(s)),
-      Constant::Bool(b) => Value::Bool(b),
-      Constant::Nil => Value::Nil,
-      Constant::Func(f) => self.alloc(ObjData::Func(f)),
-    }
   }
 
   pub fn alloc(&mut self, obj: ObjData) -> Value {

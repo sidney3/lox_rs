@@ -1,7 +1,6 @@
 use std::ops::Deref;
 
-use crate::asm::Constant;
-use crate::asm::{Chunk, Instruction};
+use crate::asm::Instruction;
 use crate::gc::Ref;
 use crate::runtime::{Function, Handle, ObjData, Runtime, Value};
 
@@ -15,15 +14,10 @@ pub struct CallFrame {
 
 impl CallFrame {
   pub fn new(vm: &mut Runtime, func: Handle, base: usize) -> Self {
-    let extern_constants: Vec<Constant> = match vm.heap.borrow(func).deref() {
+    let constants: Vec<Value> = match vm.heap.borrow(func).deref() {
       ObjData::Func(f) => f.chunk.constants.iter().cloned().collect(),
       _ => panic!("CallFrame called on not a function"),
     };
-
-    let constants = extern_constants
-      .into_iter()
-      .map(|c| vm.load_const(c))
-      .collect();
 
     Self {
       func,

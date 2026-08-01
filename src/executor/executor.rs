@@ -2,11 +2,11 @@ use std::fmt;
 use std::ops::Deref;
 
 use lasso::Key;
-use log::{debug, info};
+use log::debug;
 use nonempty::{NonEmpty, nonempty};
 
 use super::call_frame::CallFrame;
-use crate::asm::{Chunk, Constant, Instruction, InstructionKind};
+use crate::asm::{Instruction, InstructionKind};
 use crate::compile::Compilation;
 use crate::gc::Ref;
 use crate::runtime::{Handle, ObjData, Root, Runtime, RuntimeError, Value};

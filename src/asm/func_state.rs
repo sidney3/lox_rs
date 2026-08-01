@@ -1,8 +1,8 @@
 use lasso::Key;
 
-use super::Function;
+use crate::runtime::{Function, Value};
+
 use super::chunk::Chunk;
-use super::constant::Constant;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
@@ -29,7 +29,7 @@ enum VariableLocation {
 }
 
 pub struct FuncState {
-  constants: Vec<Constant>,
+  constants: Vec<Value>,
   instructions: SymbolicProgram,
   locals: Vec<Local>,
   scope_depth: usize,
@@ -74,7 +74,7 @@ impl FuncState {
     self.emit_symbolic(SymbolicInstruction::Label(label));
   }
 
-  pub fn add_constant(&mut self, constant: Constant) -> Result<OperandType> {
+  pub fn add_constant(&mut self, constant: Value) -> Result<OperandType> {
     let index = self.constants.len();
     self.constants.push(constant);
     OperandType::try_from(index).map_err(|_| Error::IndexOutOfRange(index))
@@ -144,7 +144,7 @@ impl FuncState {
       SymbolicOp::Label(to),
     ));
   }
-  pub fn constant(&mut self, constant: Constant) -> Result<()> {
+  pub fn constant(&mut self, constant: Value) -> Result<()> {
     let index = self.add_constant(constant)?;
     self.emit(Instruction {
       kind: InstructionKind::Constant,
@@ -162,7 +162,7 @@ impl FuncState {
   }
 
   pub fn trivial_ret(&mut self) {
-    self.constant(Constant::Nil);
+    self.constant(Value::Nil);
     self.emit(Instruction::new(InstructionKind::Return));
   }
   pub fn ret(&mut self) {

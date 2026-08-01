@@ -5,17 +5,18 @@ use nonempty::{NonEmpty, nonempty};
 
 use super::error::Result;
 use crate::asm::{
-  Constant, FuncState, Function, Instruction, InstructionKind, Label, Symbol, SymbolicInstruction,
-  SymbolicOp,
+  FuncState, Instruction, InstructionKind, Label, Symbol, SymbolicInstruction, SymbolicOp,
 };
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
+use crate::runtime::{Function, ObjData, Runtime, Value};
 
-pub struct Compiler<'a> {
+pub struct Compiler<'a, 'vm> {
   symbols: lasso::Rodeo,
   compile_stack: NonEmpty<FuncState>,
   ast: &'a Ast,
+  runtime: &'vm mut Runtime,
 }
 
 trait NonEmptyExt<T> {
@@ -28,14 +29,15 @@ impl<T> NonEmptyExt<T> for NonEmpty<T> {
   }
 }
 
-impl<'a> Compiler<'a> {
-  pub fn new(ast: &'a Ast) -> Self {
+impl<'a, 'vm> Compiler<'a, 'vm> {
+  pub fn new(ast: &'a Ast, runtime: &'vm mut Runtime) -> Self {
     let mut symbols = Rodeo::new();
     let main_sym = symbols.get_or_intern_static("main");
     Self {
       symbols,
       compile_stack: nonempty![FuncState::new(main_sym, 0)],
       ast,
+      runtime,
     }
   }
 
@@ -111,7 +113,8 @@ impl<'a> Compiler<'a> {
           .expect("Function compilation stack too small")
           .assemble();
 
-        self.func_mut().constant(Constant::Func(func))?;
+        let func_handle = self.runtime.alloc(ObjData::Func(func));
+        self.func_mut().constant(func_handle)?;
         self.func_mut().define_var(f_name)?;
       }
     };
@@ -251,7 +254,7 @@ impl<'a> Compiler<'a> {
   fn expr(&mut self, expr: &Expression) -> Result<()> {
     match expr {
       Expression::Nil => {
-        self.func_mut().constant(Constant::Nil);
+        self.func_mut().constant(Value::Nil);
       }
       Expression::Bin(b) => {
         let instruction_kind = match b.op {
@@ -312,9 +315,12 @@ impl<'a> Compiler<'a> {
 
   fn lit(&mut self, lit: &Literal) -> Result<()> {
     match lit {
-      &Literal::Num(x) => self.func_mut().constant(Constant::Float(x))?,
-      Literal::String(x) => self.func_mut().constant(Constant::String(x.clone()))?,
-      &Literal::Bool(x) => self.func_mut().constant(Constant::Bool(x))?,
+      &Literal::Num(x) => self.func_mut().constant(Value::Num(x))?,
+      Literal::String(x) => {
+        let string_val = self.runtime.alloc(ObjData::String(x.clone()));
+        self.func_mut().constant(string_val);
+      }
+      &Literal::Bool(x) => self.func_mut().constant(Value::Bool(x))?,
       Literal::Var(v) => {
         let sym = self.symbols.get_or_intern(self.ident_sym(*v));
         self.func_mut().load_var(sym)?;
