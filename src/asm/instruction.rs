@@ -12,6 +12,8 @@ pub enum InstructionKind {
   Constant,
   Callq,
 
+  MakeClosure,
+
   // peeks, doesn't pop
   JumpIfFalsePreserving,
   JumpIfTruePreserving,

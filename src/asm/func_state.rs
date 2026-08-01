@@ -4,7 +4,7 @@ use super::chunk::Chunk;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
-use crate::runtime::{Function, Symbol, Value};
+use crate::runtime::{Function, Obj, ObjKind, Symbol, Value};
 
 // Expression results are transient on the stack.
 //
@@ -87,7 +87,7 @@ impl FuncState {
     }
   }
 
-  fn at_global_depth(&self) -> bool {
+  pub fn at_global_depth(&self) -> bool {
     self.scope_depth == 0
   }
 
@@ -181,6 +181,15 @@ impl FuncState {
       scope_depth: self.scope_depth,
       symbol: sym,
     });
+  }
+
+  pub fn make_closure(&mut self, func: Value) -> Result<()> {
+    let func_index = self.add_constant(func)?;
+    self.emit(Instruction {
+      kind: InstructionKind::MakeClosure,
+      operand: func_index,
+    });
+    Ok(())
   }
 
   pub fn define_var(&mut self, sym: Symbol) -> Result<()> {

@@ -107,7 +107,8 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
           .assemble();
 
         let func_handle = Value::Obj(self.runtime.alloc(ObjData::Func(func)));
-        self.func_mut().constant(func_handle)?;
+
+        self.func_mut().make_closure(func_handle)?;
         self.func_mut().define_var(f_name)?;
       }
     };

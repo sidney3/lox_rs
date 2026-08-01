@@ -220,6 +220,20 @@ impl<'vm> Executor<'vm> {
           *global = assign;
         }
 
+        InstructionKind::MakeClosure => {
+          let func_handle = self.call_stack.last().constants[next_instruction.operand as usize];
+
+          let func = match func_handle {
+            Value::Obj(handle) => {
+              Obj::<Function>::downcast(handle, self.vm).expect("MakeClosure expects a function")
+            }
+            _ => panic!("MakeClosure expects a function"),
+          };
+
+          let closure = self.vm.alloc(ObjData::Closure(Closure { func }));
+
+          self.push_value(Value::Obj(closure));
+        }
         InstructionKind::Callq => {
           let nargs = next_instruction.operand as usize;
           let f_idx = self.vm.stack_top() - nargs - 1;
@@ -228,16 +242,12 @@ impl<'vm> Executor<'vm> {
             _ => return Err(RuntimeError::new("Expected function")),
           };
 
-          let func = match Obj::<Function>::downcast(handle, self.vm) {
+          let func = match Obj::<Closure>::downcast(handle, self.vm) {
             Some(func) => func,
             None => return Err(RuntimeError::new("Call can only be called on a function")),
           };
 
-          let func_closure = self.vm.alloc_typed(Closure { func });
-
-          self
-            .call_stack
-            .push(CallFrame::new(self.vm, func_closure, f_idx));
+          self.call_stack.push(CallFrame::new(self.vm, func, f_idx));
         }
         InstructionKind::Return => {
           let returned_frame = match self.call_stack.pop() {
