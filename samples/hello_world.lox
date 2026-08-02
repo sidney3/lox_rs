@@ -1,10 +1,14 @@
-fun recurse (at) {
-	if at == 0 {
-		return;
-	} else {
-		recurse(at - 1);
-	}
-	print Hello
-}
+{
+	var x = 9;
 
-recurse(10);
+	fun f() {
+		fun inner() {
+			assert x == 9;
+		}
+
+		return inner;
+	}
+
+	var inner = f();
+	inner();
+}

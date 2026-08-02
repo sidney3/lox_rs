@@ -21,13 +21,14 @@ pub struct Local {
 enum VariableLocation {
   Global(Symbol),
   Local(usize),
+  UpValue(usize), // upvalue array
 }
 
 pub struct FuncState {
   constants: Vec<Value>,
   instructions: SymbolicProgram,
   locals: Vec<Local>,
-  upvalues: Vec<UpValueDescriptor>,
+  upvalues: Vec<(Symbol, UpValueDescriptor)>,
   scope_depth: usize,
   // active_loops.back() is the current loop
   active_loops: Vec<Label>,
@@ -265,7 +266,7 @@ impl FuncState {
 
   // mut as we late bind globals, so if this is a global this might be the first
   // time we see `var_name`
-  fn find_var(&mut self, sym: Symbol) -> VariableLocation {
+  fn find_local(&self, sym: Symbol) -> Option<usize> {
     let maybe_local_index = self
       .locals
       .iter()
@@ -274,7 +275,62 @@ impl FuncState {
       .map(|(i, _)| i);
 
     if let Some(local_index) = maybe_local_index {
+      Some(local_index)
+    } else {
+      None
+    }
+  }
+
+  fn resolve_upvalue(&mut self, sym: Symbol) -> Option<UpValueDescriptor> {
+    if let Some(local_index) = self.find_local(sym) {
+      Some(UpValueDescriptor::Local {
+        parent_stack_pos: local_index,
+      })
+    } else if let Some(recursive_upvalue) = self
+      .parent
+      .as_deref_mut()
+      .and_then(|p| p.resolve_upvalue(sym))
+    {
+      Some(UpValueDescriptor::Recursive {
+        parent_upvalue_pos: self.add_upvalue(sym, recursive_upvalue),
+      })
+    } else {
+      None
+    }
+  }
+
+  fn add_upvalue(&mut self, sym: Symbol, desc: UpValueDescriptor) -> usize {
+    let maybe_upvalue_index = self
+      .upvalues
+      .iter()
+      .enumerate()
+      .rfind(|(_, l)| l.0 == sym)
+      .map(|(i, _)| i);
+
+    if let Some(upvalue_index) = maybe_upvalue_index {
+      upvalue_index
+    } else {
+      let idx = self.upvalues.len();
+      self.upvalues.push((sym, desc));
+      idx
+    }
+  }
+
+  // &mut as resolve_upvalue, in the recursive case, might have to register
+  // the thing
+  //
+  // Never null as we fallback to VariableLocation::Global (late binding means
+  // we don't really know if a global load is valid, we just emit and let
+  // it fail at runtime :shrug:)
+  fn resolve_var_location(&mut self, sym: Symbol) -> VariableLocation {
+    if let Some(local_index) = self.find_local(sym) {
       VariableLocation::Local(local_index)
+    } else if let Some(upvalue_descriptor) = self
+      .parent
+      .as_deref_mut()
+      .and_then(|p| p.resolve_upvalue(sym))
+    {
+      VariableLocation::UpValue(self.add_upvalue(sym, upvalue_descriptor))
     } else {
       VariableLocation::Global(sym)
     }
@@ -283,10 +339,14 @@ impl FuncState {
   // Find, at compile time, the symbol `sym` and push it
   // onto the stack.
   pub fn load_var(&mut self, sym: Symbol) -> Result<()> {
-    match self.find_var(sym) {
+    match self.resolve_var_location(sym) {
       VariableLocation::Local(idx) => self.emit(Instruction {
         kind: InstructionKind::LoadLocal,
         operand: index_to_op(idx)?,
+      }),
+      VariableLocation::UpValue(upvalue_index) => self.emit(Instruction {
+        kind: InstructionKind::LoadUpValue,
+        operand: index_to_op(upvalue_index)?,
       }),
       VariableLocation::Global(sym) => self.emit(Instruction {
         kind: InstructionKind::LoadGlobal,
@@ -300,7 +360,7 @@ impl FuncState {
   // an additional instruction to push
   // the new value onto the stack
   pub fn set_variable(&mut self, lhs: Symbol) -> Result<()> {
-    match self.find_var(lhs) {
+    match self.resolve_var_location(lhs) {
       VariableLocation::Global(g) => {
         let global_index_op = index_to_op(g.into_usize())?;
         self.emit(Instruction {
@@ -320,6 +380,17 @@ impl FuncState {
         });
         self.emit(Instruction {
           kind: InstructionKind::LoadLocal,
+          operand: local_index_op,
+        });
+      }
+      VariableLocation::UpValue(l) => {
+        let local_index_op = index_to_op(l)?;
+        self.emit(Instruction {
+          kind: InstructionKind::SetUpValue,
+          operand: local_index_op,
+        });
+        self.emit(Instruction {
+          kind: InstructionKind::LoadUpValue,
           operand: local_index_op,
         });
       }

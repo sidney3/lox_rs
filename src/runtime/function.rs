@@ -19,7 +19,7 @@ pub struct Function {
   pub chunk: Box<Chunk>,
   pub arity: usize,
   pub name: Symbol,
-  pub upvalues: Vec<UpValueDescriptor>,
+  pub upvalues: Vec<(Symbol, UpValueDescriptor)>,
 }
 
 impl ObjKind for Function {

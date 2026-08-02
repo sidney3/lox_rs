@@ -6,7 +6,9 @@ use nonempty::{NonEmpty, nonempty};
 
 use super::call_frame::CallFrame;
 use crate::asm::{Instruction, InstructionKind};
-use crate::runtime::{Closure, Function, Handle, Obj, ObjData, Runtime, RuntimeError, Value};
+use crate::runtime::{
+  Closure, Function, Handle, Obj, ObjData, Runtime, RuntimeError, UpValue, UpValueDescriptor, Value,
+};
 
 pub struct Executor<'vm> {
   vm: &'vm mut Runtime,
@@ -15,7 +17,14 @@ pub struct Executor<'vm> {
 
 impl<'vm> Executor<'vm> {
   pub fn new(vm: &'vm mut Runtime, main: Obj<Function>) -> Self {
-    let main_closure = vm.alloc_typed(Closure { func: main });
+    assert!(
+      main.borrow(vm).upvalues.is_empty(),
+      "main should not capture any closure references"
+    );
+    let main_closure = vm.alloc_typed(Closure {
+      func: main,
+      upvalues: Vec::new(),
+    });
     let main_frame = CallFrame::new(vm, main_closure, 0);
 
     Self {
@@ -44,6 +53,9 @@ impl<'vm> Executor<'vm> {
       .expect("empty stack. Programming error")
   }
 
+  fn frame(&self) -> &CallFrame {
+    self.call_stack.last()
+  }
   fn load_stack(&self, offset: usize) -> Value {
     self
       .call_stack
@@ -230,7 +242,25 @@ impl<'vm> Executor<'vm> {
             _ => panic!("MakeClosure expects a function"),
           };
 
-          let closure = self.vm.alloc(ObjData::Closure(Closure { func }));
+          let mut upvalues: Vec<Obj<UpValue>> = Vec::new();
+
+          let upvalue_descs = func.borrow(self.vm).upvalues.clone();
+
+          for (sym, upvalue_desc) in upvalue_descs {
+            match upvalue_desc {
+              UpValueDescriptor::Local { parent_stack_pos } => {
+                let absolute_stack_pos = self.frame().base + parent_stack_pos;
+                upvalues.push(self.vm.alloc_typed(UpValue::Open { absolute_stack_pos }));
+              }
+              UpValueDescriptor::Recursive {
+                parent_upvalue_pos: _,
+              } => {
+                todo!("Recursive");
+              }
+            }
+          }
+
+          let closure = self.vm.alloc(ObjData::Closure(Closure { func, upvalues }));
 
           self.push_value(Value::Obj(closure));
         }
@@ -280,6 +310,23 @@ impl<'vm> Executor<'vm> {
           }
 
           self.push_value(ret_val);
+        }
+        InstructionKind::LoadUpValue => {
+          let stack_pos = {
+            let idx = next_instruction.operand as usize;
+            let upvalue = &self.frame().upvalues(self.vm)[idx];
+
+            match upvalue.borrow(self.vm).deref() {
+              &UpValue::Open { absolute_stack_pos } => absolute_stack_pos,
+            }
+          };
+
+          // TODO: when we add promotion from stack -> heap, make some
+          // enum that models "load strategy" or something
+          self.push_value(self.vm.value_stack[stack_pos]);
+        }
+        InstructionKind::SetUpValue => {
+          todo!("Mutable references");
         }
       }
     }

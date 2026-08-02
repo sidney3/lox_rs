@@ -1,9 +1,10 @@
-use super::{Function, Obj, ObjData, ObjKind, Runtime};
+use super::{Function, Obj, ObjData, ObjKind, Runtime, UpValue};
 use crate::gc::Ref;
 
 #[derive(Debug)]
 pub struct Closure {
   pub func: Obj<Function>,
+  pub upvalues: Vec<Obj<UpValue>>,
 }
 
 impl Closure {

@@ -13,6 +13,8 @@ pub enum InstructionKind {
   Callq,
 
   MakeClosure,
+  LoadUpValue,
+  SetUpValue,
 
   // peeks, doesn't pop
   JumpIfFalsePreserving,

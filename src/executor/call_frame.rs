@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::asm::Instruction;
 use crate::gc::Ref;
-use crate::runtime::{Closure, Function, Handle, Obj, ObjData, Runtime, Value};
+use crate::runtime::{Closure, Function, Handle, Obj, ObjData, Runtime, UpValue, Value};
 
 pub struct CallFrame {
   pub closure: Obj<Closure>,
@@ -30,6 +30,10 @@ impl CallFrame {
       base,
       constants,
     }
+  }
+
+  pub fn upvalues<'a>(&self, vm: &'a Runtime) -> Ref<'a, Vec<Obj<UpValue>>> {
+    Ref::map(self.closure.borrow(vm), |closure| &closure.upvalues)
   }
 
   pub fn pop_instruction(&mut self, vm: &Runtime) -> Option<Instruction> {
