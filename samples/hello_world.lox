@@ -1,14 +1,24 @@
 {
-	fun f() {
+	var z = 9;
+
+	fun outer() {
+
 		fun inner() {
-			print "Hello from inner";
+			print "Hello from inner. z is " + z;
+			z = z + 2;
+			return z;
 		}
 
-		print "Hello from f";
+		z = 4;
 
 		return inner;
 	}
 
-	var inner = f();
-	inner();
+	var f = outer();
+
+	assert z == 4;
+	assert f() == 6;
+	assert z == 6;
+	assert f() == 8;
 }
+

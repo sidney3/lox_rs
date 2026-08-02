@@ -298,16 +298,11 @@ impl<'vm> Executor<'vm> {
           };
           let ret_val = self.pop();
 
-          let leftover_stack_vals = returned_frame
-            .closure
-            .borrow(self.vm)
-            .borrow_func(self.vm)
-            .arity
-            + 1;
+          let leftover_stack_vals = returned_frame.func(self.vm).arity + 1;
 
           assert!(
-            self.vm.value_stack.len() == returned_frame.base + leftover_stack_vals,
-            "We got calling conventions wrong. Stack sized {} when expecting bp={} + (f,args...)={}.",
+            self.vm.value_stack.len() >= returned_frame.base + leftover_stack_vals,
+            "We got calling conventions wrong. Stack sized {} when at least expecting bp={} + (f,args...)={}.",
             self.vm.value_stack.len(),
             returned_frame.base,
             leftover_stack_vals,
@@ -334,7 +329,17 @@ impl<'vm> Executor<'vm> {
           self.push_value(self.vm.value_stack[stack_pos]);
         }
         InstructionKind::SetUpValue => {
-          todo!("Mutable references");
+          let set_to = self.pop();
+
+          let stack_pos = {
+            match self.frame().upvalues(self.vm)[next_instruction.operand as usize]
+              .borrow(self.vm)
+              .deref()
+            {
+              &UpValue::Open { absolute_stack_pos } => absolute_stack_pos,
+            }
+          };
+          self.vm.value_stack[stack_pos] = set_to;
         }
       }
     }

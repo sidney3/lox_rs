@@ -14,15 +14,7 @@ pub struct CallFrame {
 
 impl CallFrame {
   pub fn new(vm: &mut Runtime, closure: Obj<Closure>, base: usize) -> Self {
-    let constants: Vec<Value> = closure
-      .borrow(vm)
-      .func
-      .borrow(vm)
-      .chunk
-      .constants
-      .iter()
-      .cloned()
-      .collect();
+    let constants: Vec<Value> = closure.borrow(vm).func.borrow(vm).chunk.constants.clone();
 
     Self {
       closure,
@@ -36,15 +28,12 @@ impl CallFrame {
     Ref::map(self.closure.borrow(vm), |closure| &closure.upvalues)
   }
 
+  pub fn func<'a>(&self, vm: &'a Runtime) -> Ref<'a, Function> {
+    self.closure.borrow(vm).func.borrow(vm)
+  }
+
   pub fn pop_instruction(&mut self, vm: &Runtime) -> Option<Instruction> {
-    match self
-      .closure
-      .borrow(vm)
-      .borrow_func(vm)
-      .chunk
-      .instructions
-      .get(self.ip)
-    {
+    match self.func(vm).chunk.instructions.get(self.ip) {
       Some(&instruction) => {
         self.ip += 1;
         Some(instruction)
@@ -54,28 +43,15 @@ impl CallFrame {
   }
 
   pub fn jmp(&mut self, vm: &Runtime, to: usize) {
-    assert!(
-      to < self
-        .closure
-        .borrow(vm)
-        .borrow_func(vm)
-        .chunk
-        .instructions
-        .len()
-    );
+    assert!(to < self.func(vm).chunk.instructions.len());
 
     self.ip = to;
   }
 
-  pub fn load_val<'vm>(&self, offset: usize, value_stack: &Vec<Value>) -> Option<Value> {
+  pub fn load_val(&self, offset: usize, value_stack: &Vec<Value>) -> Option<Value> {
     value_stack.get(self.base + offset).cloned()
   }
-  pub fn set_val<'vm>(
-    &self,
-    offset: usize,
-    value_stack: &mut Vec<Value>,
-    set_to: Value,
-  ) -> Option<()> {
+  pub fn set_val(&self, offset: usize, value_stack: &mut Vec<Value>, set_to: Value) -> Option<()> {
     let idx = self.base + offset;
     if idx < value_stack.len() {
       value_stack[idx] = set_to;

@@ -16,3 +16,29 @@
 
 	inner();
 }
+
+
+{
+	var x = 2;
+	var z = 9;
+
+	fun outer() {
+
+		fun inner() {
+			z = z + x;
+			return z;
+		}
+
+		z = 4;
+
+		return inner;
+	}
+
+	var f = outer();
+
+	assert z == 4;
+	assert f() == 6;
+	assert z == 6;
+	assert f() == 8;
+}
+
