@@ -6,6 +6,7 @@ use crate::gc::Ref;
 use super::Closure;
 use super::Function;
 use super::Handle;
+use super::ProtoValue;
 use super::Runtime;
 use super::RuntimeError;
 use super::UpValue;
@@ -25,9 +26,9 @@ pub enum ObjData {
 }
 
 impl ObjData {
-  pub fn add_right(&self, rhs: Num) -> Result<ObjData, RuntimeError> {
+  pub fn add_right(&self, rhs: Num, _: &Runtime) -> Result<ProtoValue, RuntimeError> {
     match self {
-      ObjData::String(s) => Ok(ObjData::String(format!("{s}{rhs}"))),
+      ObjData::String(s) => Ok(ProtoValue::Obj(ObjData::String(format!("{s}{rhs}")))),
       _ => Err(RuntimeError::from_str(format!(
         "Addition is not defined on {:?}",
         &self
@@ -35,9 +36,9 @@ impl ObjData {
     }
   }
 
-  pub fn add_left(&self, lhs: Num) -> Result<ObjData, RuntimeError> {
+  pub fn add_left(&self, lhs: Num, _: &Runtime) -> Result<ProtoValue, RuntimeError> {
     match self {
-      ObjData::String(s) => Ok(ObjData::String(format!("{lhs}{s}"))),
+      ObjData::String(s) => Ok(ProtoValue::Obj(ObjData::String(format!("{lhs}{s}")))),
       _ => Err(RuntimeError::from_str(format!(
         "Addition is not defined on {}",
         &self
@@ -45,9 +46,11 @@ impl ObjData {
     }
   }
 
-  pub fn add(&self, rhs: &ObjData) -> Result<ObjData, RuntimeError> {
+  pub fn add(&self, rhs: &ObjData, _: &Runtime) -> Result<ProtoValue, RuntimeError> {
     match (self, rhs) {
-      (ObjData::String(lhs), ObjData::String(rhs)) => Ok(ObjData::String(lhs.clone() + rhs)),
+      (ObjData::String(lhs), ObjData::String(rhs)) => {
+        Ok(ProtoValue::Obj(ObjData::String(lhs.clone() + rhs)))
+      }
       _ => Err(RuntimeError::new("Unsupported binary operation")),
     }
   }

@@ -15,6 +15,6 @@ pub use obj::ObjKind;
 pub use runtime::{Handle, Runtime, Symbol};
 pub use runtime_error::RuntimeError;
 pub use upvalue::UpValue;
+pub use value::ProtoValue;
 pub use value::Value;
 pub use value_object::ValueObject;
-

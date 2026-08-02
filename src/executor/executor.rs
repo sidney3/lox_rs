@@ -7,7 +7,8 @@ use nonempty::{NonEmpty, nonempty};
 use super::call_frame::CallFrame;
 use crate::asm::{Instruction, InstructionKind};
 use crate::runtime::{
-  Closure, Function, Handle, Obj, ObjData, Runtime, RuntimeError, UpValue, UpValueDescriptor, Value,
+  Closure, Function, Handle, Obj, ObjData, ProtoValue, Runtime, RuntimeError, UpValue,
+  UpValueDescriptor, Value,
 };
 
 pub struct Executor<'vm> {
@@ -75,7 +76,7 @@ impl<'vm> Executor<'vm> {
     self.vm.value_stack.push(val);
   }
 
-  fn execute_binary<F: FnOnce(Value, Value, &mut Runtime) -> Result<Value, RuntimeError>>(
+  fn execute_binary<F: FnOnce(Value, Value, &Runtime) -> Result<Value, RuntimeError>>(
     &mut self,
     f: F,
   ) -> Result<(), RuntimeError> {
@@ -89,7 +90,7 @@ impl<'vm> Executor<'vm> {
     Ok(())
   }
 
-  fn execute_unary<F: FnOnce(Value, &mut Runtime) -> Result<Value, RuntimeError>>(
+  fn execute_unary<F: FnOnce(Value, &Runtime) -> Result<Value, RuntimeError>>(
     &mut self,
     f: F,
   ) -> Result<(), RuntimeError> {
@@ -104,7 +105,7 @@ impl<'vm> Executor<'vm> {
   pub fn execute(mut self) -> Result<(), RuntimeError> {
     loop {
       let next_instruction: Instruction =
-        if let Some(inst) = self.call_stack.last_mut().pop_instruction(&self.vm) {
+        if let Some(inst) = self.call_stack.last_mut().pop_instruction(self.vm) {
           inst
         } else {
           panic!("Walked off the end of frame!")
@@ -118,7 +119,6 @@ impl<'vm> Executor<'vm> {
       );
 
       match next_instruction.kind {
-        InstructionKind::Add => self.execute_binary(Value::add)?,
         InstructionKind::Divide => self.execute_binary(Value::divide)?,
         InstructionKind::Mult => self.execute_binary(Value::mult)?,
         InstructionKind::Sub => self.execute_binary(Value::sub)?,
@@ -130,6 +130,13 @@ impl<'vm> Executor<'vm> {
         InstructionKind::Less => self.execute_binary(Value::less)?,
         InstructionKind::UnaryMinus => self.execute_unary(Value::unary_minus)?,
         InstructionKind::Not => self.execute_unary(Value::not)?,
+        InstructionKind::Add => {
+          let rhs = self.pop();
+          let lhs = self.pop();
+          let proto_val = lhs.add(rhs, self.vm)?;
+          let val = proto_val.to_value(self.vm);
+          self.push_value(val);
+        }
         InstructionKind::Constant => {
           debug!("{:?}", self.call_stack.last().constants);
           let val = self.call_stack.last().constants[next_instruction.operand as usize];
@@ -147,7 +154,7 @@ impl<'vm> Executor<'vm> {
             self
               .call_stack
               .last_mut()
-              .jmp(&self.vm, next_instruction.operand as usize)
+              .jmp(self.vm, next_instruction.operand as usize)
           }
         }
         InstructionKind::JumpIfFalsePreserving => {
@@ -155,7 +162,7 @@ impl<'vm> Executor<'vm> {
             self
               .call_stack
               .last_mut()
-              .jmp(&self.vm, next_instruction.operand as usize)
+              .jmp(self.vm, next_instruction.operand as usize)
           }
         }
         InstructionKind::JumpIfTruePreserving => {
@@ -163,14 +170,14 @@ impl<'vm> Executor<'vm> {
             self
               .call_stack
               .last_mut()
-              .jmp(&self.vm, next_instruction.operand as usize)
+              .jmp(self.vm, next_instruction.operand as usize)
           }
         }
         InstructionKind::Jmp => {
           self
             .call_stack
             .last_mut()
-            .jmp(&self.vm, next_instruction.operand as usize);
+            .jmp(self.vm, next_instruction.operand as usize);
         }
         InstructionKind::Assert => {
           let operand = match self.pop() {
