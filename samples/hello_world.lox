@@ -1,10 +1,10 @@
 {
-	var x = 9;
-
 	fun f() {
 		fun inner() {
-			assert x == 9;
+			print "Hello from inner";
 		}
+
+		print "Hello from f";
 
 		return inner;
 	}

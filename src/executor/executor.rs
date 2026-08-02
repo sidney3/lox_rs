@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use lasso::Key;
-use log::debug;
+use log::{debug, info};
 use nonempty::{NonEmpty, nonempty};
 
 use super::call_frame::CallFrame;
@@ -246,19 +246,27 @@ impl<'vm> Executor<'vm> {
 
           let upvalue_descs = func.borrow(self.vm).upvalues.clone();
 
-          for (sym, upvalue_desc) in upvalue_descs {
+          for (_, upvalue_desc) in upvalue_descs {
             match upvalue_desc {
               UpValueDescriptor::Local { parent_stack_pos } => {
                 let absolute_stack_pos = self.frame().base + parent_stack_pos;
                 upvalues.push(self.vm.alloc_typed(UpValue::Open { absolute_stack_pos }));
               }
-              UpValueDescriptor::Recursive {
-                parent_upvalue_pos: _,
-              } => {
-                todo!("Recursive");
+              UpValueDescriptor::Recursive { parent_upvalue_pos } => {
+                let parent = self.call_stack.last();
+
+                info!("Parent upvalues: {:?}", parent.upvalues(self.vm).deref());
+
+                upvalues.push(parent.upvalues(self.vm)[parent_upvalue_pos]);
               }
             }
           }
+
+          info!(
+            "Func: {:?} with upvalues {:?}",
+            &func.borrow(self.vm).name,
+            upvalues
+          );
 
           let closure = self.vm.alloc(ObjData::Closure(Closure { func, upvalues }));
 

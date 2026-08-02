@@ -89,6 +89,17 @@ pub struct Obj<T: ObjKind> {
   _kind: PhantomData<T>,
 }
 
+impl<T: ObjKind> Clone for Obj<T> {
+  fn clone(&self) -> Self {
+    Self {
+      raw: self.raw,
+      _kind: PhantomData,
+    }
+  }
+}
+
+impl<T: ObjKind> Copy for Obj<T> {}
+
 impl<T: ObjKind> Obj<T> {
   pub fn downcast(raw: Handle, vm: &Runtime) -> Option<Self> {
     if T::project(vm.borrow(raw).deref()).is_some() {
