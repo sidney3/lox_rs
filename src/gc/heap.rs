@@ -2,9 +2,9 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::ptr::NonNull;
 
-use super::Ref;
 use super::block::GcBlock;
 use super::header::GcHeader;
+use super::{Ref, RefMut};
 
 #[derive(Debug)]
 pub struct Root<'a, U> {
@@ -28,10 +28,6 @@ impl<U> Handle<U> {
   fn new(value: NonNull<GcBlock<U>>) -> Self {
     Self { value }
   }
-
-  unsafe fn header(&self) -> &GcHeader {
-    unsafe { &self.value.as_ref().header }
-  }
 }
 
 impl<'a, U> Root<'a, U> {
@@ -46,6 +42,13 @@ impl<'a, U> Root<'a, U> {
     unsafe {
       let block = &self.value.as_ref();
       Ref::new(&block.header, NonNull::from_ref(&block.data))
+    }
+  }
+
+  pub fn borrow_mut(&self) -> RefMut<'_, U> {
+    unsafe {
+      let block = &self.value.as_ref();
+      RefMut::new(&block.header, NonNull::from_ref(&block.data))
     }
   }
 }
@@ -79,6 +82,13 @@ impl<U> Heap<U> {
     unsafe {
       let block = &gc.value.as_ref();
       Ref::new(&block.header, NonNull::from_ref(&block.data))
+    }
+  }
+
+  pub fn borrow_mut<'a>(&'a self, gc: Handle<U>) -> RefMut<'a, U> {
+    unsafe {
+      let block = &gc.value.as_ref();
+      RefMut::new(&block.header, NonNull::from_ref(&block.data))
     }
   }
 }

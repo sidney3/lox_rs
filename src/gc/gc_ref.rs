@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
 
 use super::header::GcHeader;
@@ -32,12 +32,56 @@ impl<'a, U> Ref<'a, U> {
 impl<'a, U> Deref for Ref<'a, U> {
   type Target = U;
   fn deref(&self) -> &Self::Target {
-    unsafe { &self.value.as_ref() }
+    unsafe { self.value.as_ref() }
   }
 }
 
 impl<'a, U> Drop for Ref<'a, U> {
   fn drop(&mut self) {
     self.header.end_borrow();
+  }
+}
+
+pub struct RefMut<'a, U> {
+  header: &'a GcHeader,
+  value: NonNull<U>,
+  _life: PhantomData<&'a U>,
+}
+
+impl<'a, U> RefMut<'a, U> {
+  pub fn map<T, F: FnOnce(&U) -> &T>(r: Self, f: F) -> RefMut<'a, T> {
+    unsafe {
+      let next_ref = f(r.value.as_ref());
+      RefMut::new(r.header, NonNull::from_ref(next_ref))
+    }
+  }
+
+  pub unsafe fn new(header: &'a GcHeader, value: NonNull<U>) -> Self {
+    header.start_borrow_mut();
+
+    Self {
+      header,
+      value,
+      _life: PhantomData,
+    }
+  }
+}
+
+impl<'a, U> DerefMut for RefMut<'a, U> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    unsafe { self.value.as_mut() }
+  }
+}
+
+impl<'a, U> Deref for RefMut<'a, U> {
+  type Target = U;
+  fn deref(&self) -> &Self::Target {
+    unsafe { self.value.as_ref() }
+  }
+}
+
+impl<'a, U> Drop for RefMut<'a, U> {
+  fn drop(&mut self) {
+    self.header.end_borrow_mut();
   }
 }
