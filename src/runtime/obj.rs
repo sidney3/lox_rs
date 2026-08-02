@@ -26,26 +26,6 @@ pub enum ObjData {
 }
 
 impl ObjData {
-  pub fn add_right(&self, rhs: Num, _: &Runtime) -> Result<ProtoValue, RuntimeError> {
-    match self {
-      ObjData::String(s) => Ok(ProtoValue::Obj(ObjData::String(format!("{s}{rhs}")))),
-      _ => Err(RuntimeError::from_str(format!(
-        "Addition is not defined on {:?}",
-        &self
-      ))),
-    }
-  }
-
-  pub fn add_left(&self, lhs: Num, _: &Runtime) -> Result<ProtoValue, RuntimeError> {
-    match self {
-      ObjData::String(s) => Ok(ProtoValue::Obj(ObjData::String(format!("{lhs}{s}")))),
-      _ => Err(RuntimeError::from_str(format!(
-        "Addition is not defined on {}",
-        &self
-      ))),
-    }
-  }
-
   pub fn add(&self, rhs: &ObjData, _: &Runtime) -> Result<ProtoValue, RuntimeError> {
     match (self, rhs) {
       (ObjData::String(lhs), ObjData::String(rhs)) => {

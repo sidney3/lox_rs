@@ -46,8 +46,6 @@ impl Value {
   pub fn add(self, rhs: Value, vm: &Runtime) -> Result<ProtoValue, RuntimeError> {
     match (self, rhs) {
       (Value::Num(a), Value::Num(b)) => Ok(ProtoValue::Imm(Value::Num(a + b))),
-      (Value::Obj(a), Value::Num(b)) => Ok(vm.borrow(a).add_right(b, vm)?),
-      (Value::Num(a), Value::Obj(b)) => Ok(vm.borrow(b).add_left(a, vm)?),
       (Value::Obj(a), Value::Obj(b)) => {
         let lhs = vm.borrow(a);
         let rhs = vm.borrow(b);
