@@ -73,8 +73,8 @@ impl Value {
     let eq = match (self, rhs) {
       (Value::Num(a), Value::Num(b)) => a == b,
       (Value::Obj(a), Value::Obj(b)) => {
-        let l = vm.borrow(a);
-        let r = vm.borrow(b);
+        let l = vm.obj(a);
+        let r = vm.obj(b);
 
         l.equals(&r)?
       }
@@ -134,7 +134,7 @@ impl Value {
     match self {
       Value::Num(x) => x.to_string(),
       Value::Obj(o) => {
-        format!("{}", *vm.borrow(o))
+        format!("{}", *vm.obj(o))
       }
       Value::Bool(b) => if b { "True" } else { "False" }.to_string(),
       Value::Nil => "nil".to_string(),

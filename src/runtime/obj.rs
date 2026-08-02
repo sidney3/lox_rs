@@ -9,6 +9,7 @@ use super::Handle;
 use super::Runtime;
 use super::RuntimeError;
 use super::UpValue;
+use super::ValueObject;
 use super::value::Num;
 use std::marker::PhantomData;
 
@@ -20,6 +21,7 @@ pub enum ObjData {
   Func(Function),
   Closure(Closure),
   UpValue(UpValue),
+  Value(ValueObject),
 }
 
 impl ObjData {
@@ -71,6 +73,7 @@ impl fmt::Display for ObjData {
       ObjData::UpValue(up) => match up {
         UpValue::Open { absolute_stack_pos } => write!(f, "Open UpValue --> {absolute_stack_pos}"),
       },
+      ObjData::Value(v) => write!(f, "{:?}", v),
     }
   }
 }

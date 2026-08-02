@@ -5,6 +5,7 @@ mod runtime;
 mod runtime_error;
 mod upvalue;
 mod value;
+mod value_object;
 
 pub use closure::Closure;
 pub use function::{Function, UpValueDescriptor};
@@ -15,3 +16,5 @@ pub use runtime::{Handle, Runtime, Symbol};
 pub use runtime_error::RuntimeError;
 pub use upvalue::UpValue;
 pub use value::Value;
+pub use value_object::ValueObject;
+
