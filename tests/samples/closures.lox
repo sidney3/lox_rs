@@ -69,3 +69,53 @@
 	assert f() == 10;
 	assert f() == 12;
 }
+
+fun make_vector() {
+	var x = 0;
+	var y = 0;
+
+	fun vector_impl(op, arg) {
+
+		if op == "get_x" {
+			return x;
+		} else if op == "get_y" {
+			return y;
+		} else if op == "set_x" {
+			x = arg;
+			return 0;
+		} else if op == "set_y" {
+			y = arg;
+			return 0;
+		}
+	}
+
+	return vector_impl;
+}
+
+
+{
+
+	{
+		var vec = make_vector();
+
+		vec("set_x", 9);
+		vec("set_y", 3);
+
+
+		assert vec("get_x", -1) == 9;
+		assert vec("get_y", -1) == 3;
+
+		var z = 0;
+
+		vec("set_x", z);
+
+		while (z < 1000) {
+			z = z + 1;
+			vec("set_y", vec("get_x", -1));
+			vec("set_x", z);
+
+			assert vec("get_y", -1) == z - 1;
+			assert vec("get_x", -1) == z;
+		}
+	}
+}

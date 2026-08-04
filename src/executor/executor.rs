@@ -122,7 +122,6 @@ impl<'vm> Executor<'vm> {
     };
 
     for upval in drained_upvals {
-      info!("Shifting upval {:?} to the heap", upval);
       let stack_pos = {
         match upval.borrow(self.vm).deref() {
           &UpValue::Open { absolute_stack_pos } => absolute_stack_pos,
@@ -132,7 +131,6 @@ impl<'vm> Executor<'vm> {
 
       let mut r = upval.borrow_mut(self.vm);
       *r = UpValue::Closed(self.vm.value_stack[stack_pos]);
-      info!("Done shifting")
     }
 
     self.vm.value_stack.drain(until..);
@@ -174,7 +172,6 @@ impl<'vm> Executor<'vm> {
           self.push_value(val);
         }
         InstructionKind::Constant => {
-          debug!("{:?}", self.call_stack.last().constants);
           let val = self.call_stack.last().constants[next_instruction.operand as usize];
           self.push_value(val);
         }
@@ -307,12 +304,6 @@ impl<'vm> Executor<'vm> {
             }
           }
 
-          info!(
-            "Func: {:?} with upvalues {:?}",
-            &func.borrow(self.vm).name,
-            upvalues
-          );
-
           let closure = self.vm.alloc(ObjData::Closure(Closure { func, upvalues }));
 
           self.push_value(Value::Obj(closure));
@@ -329,6 +320,16 @@ impl<'vm> Executor<'vm> {
             Some(func) => func,
             None => return Err(RuntimeError::new("Call can only be called on a function")),
           };
+
+          let true_arity = func.borrow(self.vm).func.borrow(self.vm).arity;
+          if nargs != true_arity {
+            return Err(RuntimeError::new(
+              format!(
+                "Called function with wrong number of args, saw {nargs} expecting {true_arity}"
+              )
+              .as_str(),
+            ));
+          }
 
           self.call_stack.push(CallFrame::new(self.vm, func, f_idx));
         }
