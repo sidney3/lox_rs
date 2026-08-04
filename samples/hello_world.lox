@@ -1,24 +1,18 @@
 {
-	var z = 9;
+	fun inner() {
+		var x = 9;
 
-	fun outer() {
-
-		fun inner() {
-			print "Hello from inner. z is " + z;
-			z = z + 2;
-			return z;
+		fun f(equal_to) {
+			assert x == equal_to;
 		}
 
-		z = 4;
+		f(9);
 
-		return inner;
+		x = 10;
+
+		f(10);
+		f(10);
 	}
 
-	var f = outer();
-
-	assert z == 4;
-	assert f() == 6;
-	assert z == 6;
-	assert f() == 8;
+	inner();
 }
-

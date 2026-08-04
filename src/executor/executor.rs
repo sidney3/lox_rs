@@ -1,8 +1,9 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use lasso::Key;
 use log::{debug, info};
 use nonempty::{NonEmpty, nonempty};
+use smallvec::SmallVec;
 
 use super::call_frame::CallFrame;
 use crate::asm::{Instruction, InstructionKind};
@@ -10,10 +11,12 @@ use crate::runtime::{
   Closure, Function, Handle, Obj, ObjData, ProtoValue, Runtime, RuntimeError, UpValue,
   UpValueDescriptor, Value,
 };
+use either::Either;
 
 pub struct Executor<'vm> {
   vm: &'vm mut Runtime,
   call_stack: NonEmpty<CallFrame>,
+  open_upvalues: Vec<Obj<UpValue>>,
 }
 
 impl<'vm> Executor<'vm> {
@@ -31,6 +34,7 @@ impl<'vm> Executor<'vm> {
     Self {
       vm,
       call_stack: nonempty![main_frame],
+      open_upvalues: Vec::new(),
     }
   }
 
@@ -102,6 +106,38 @@ impl<'vm> Executor<'vm> {
     Ok(())
   }
 
+  // Drain the stack, specifically checking for upvalues
+  //
+  // until is inclusive. e.g. AFTER drain_stack runs,
+  // value_stack.len() == until
+  fn drain_stack(&mut self, until: usize) {
+    let drained_upvals: SmallVec<[Obj<UpValue>; 4]> = {
+      self
+        .open_upvalues
+        .extract_if(.., |upval| match upval.borrow(self.vm).deref() {
+          &UpValue::Open { absolute_stack_pos } => absolute_stack_pos >= until,
+          _ => panic!("open_upvalues array should just be open upvalues"),
+        })
+        .collect()
+    };
+
+    for upval in drained_upvals {
+      info!("Shifting upval {:?} to the heap", upval);
+      let stack_pos = {
+        match upval.borrow(self.vm).deref() {
+          &UpValue::Open { absolute_stack_pos } => absolute_stack_pos,
+          _ => panic!("unreachable"),
+        }
+      };
+
+      let mut r = upval.borrow_mut(self.vm);
+      *r = UpValue::Closed(self.vm.value_stack[stack_pos]);
+      info!("Done shifting")
+    }
+
+    self.vm.value_stack.drain(until..);
+  }
+
   pub fn execute(mut self) -> Result<(), RuntimeError> {
     loop {
       let next_instruction: Instruction =
@@ -134,7 +170,7 @@ impl<'vm> Executor<'vm> {
           let rhs = self.pop();
           let lhs = self.pop();
           let proto_val = lhs.add(rhs, self.vm)?;
-          let val = proto_val.to_value(self.vm);
+          let val = proto_val.into_value(self.vm);
           self.push_value(val);
         }
         InstructionKind::Constant => {
@@ -143,7 +179,7 @@ impl<'vm> Executor<'vm> {
           self.push_value(val);
         }
         InstructionKind::Pop => {
-          self.pop();
+          self.drain_stack(self.vm.value_stack.len() - 1);
         }
         InstructionKind::Print => {
           let val = self.pop();
@@ -257,7 +293,9 @@ impl<'vm> Executor<'vm> {
             match upvalue_desc {
               UpValueDescriptor::Local { parent_stack_pos } => {
                 let absolute_stack_pos = self.frame().base + parent_stack_pos;
-                upvalues.push(self.vm.alloc_typed(UpValue::Open { absolute_stack_pos }));
+                let upval = self.vm.alloc_typed(UpValue::Open { absolute_stack_pos });
+                upvalues.push(upval);
+                self.open_upvalues.push(upval);
               }
               UpValueDescriptor::Recursive { parent_upvalue_pos } => {
                 let parent = self.call_stack.last();
@@ -315,38 +353,42 @@ impl<'vm> Executor<'vm> {
             leftover_stack_vals,
           );
 
-          while self.vm.value_stack.len() > returned_frame.base {
-            self.vm.value_stack.pop();
-          }
-
+          self.drain_stack(returned_frame.base);
           self.push_value(ret_val);
         }
         InstructionKind::LoadUpValue => {
-          let stack_pos = {
+          let val = {
             let idx = next_instruction.operand as usize;
             let upvalue = &self.frame().upvalues(self.vm)[idx];
 
             match upvalue.borrow(self.vm).deref() {
-              &UpValue::Open { absolute_stack_pos } => absolute_stack_pos,
+              &UpValue::Open { absolute_stack_pos } => self.vm.value_stack[absolute_stack_pos],
+              &UpValue::Closed(val) => val,
             }
           };
 
-          // TODO: when we add promotion from stack -> heap, make some
-          // enum that models "load strategy" or something
-          self.push_value(self.vm.value_stack[stack_pos]);
+          self.push_value(val);
         }
         InstructionKind::SetUpValue => {
           let set_to = self.pop();
 
-          let stack_pos = {
-            match self.frame().upvalues(self.vm)[next_instruction.operand as usize]
-              .borrow(self.vm)
-              .deref()
-            {
-              &UpValue::Open { absolute_stack_pos } => absolute_stack_pos,
+          let pos = {
+            let upval = self.frame().upvalues(self.vm)[next_instruction.operand as usize];
+            match upval.borrow(self.vm).deref() {
+              &UpValue::Open { absolute_stack_pos } => Either::Left(absolute_stack_pos),
+              UpValue::Closed(_) => Either::Right(upval),
             }
           };
-          self.vm.value_stack[stack_pos] = set_to;
+
+          match pos {
+            Either::Left(stack_pos) => self.vm.value_stack[stack_pos] = set_to,
+            Either::Right(heap_val) => {
+              *heap_val.borrow_mut(self.vm).deref_mut() = UpValue::Closed(set_to)
+            }
+          }
+        }
+        InstructionKind::PopUpValue => {
+          self.drain_stack(self.vm.value_stack.len() - 1);
         }
       }
     }

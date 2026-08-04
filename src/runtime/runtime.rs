@@ -34,6 +34,10 @@ impl Runtime {
     self.heap.borrow(h)
   }
 
+  pub fn borrow_mut(&self, h: Handle) -> gc::RefMut<'_, ObjData> {
+    self.heap.borrow_mut(h)
+  }
+
   pub fn alloc(&mut self, obj: ObjData) -> Handle {
     self.heap.alloc(obj)
   }

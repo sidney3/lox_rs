@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::asm::Instruction;
 use crate::gc::Ref;
 use crate::runtime::{Closure, Function, Handle, Obj, ObjData, Runtime, UpValue, Value};

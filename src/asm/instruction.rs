@@ -15,6 +15,7 @@ pub enum InstructionKind {
   MakeClosure,
   LoadUpValue,
   SetUpValue,
+  PopUpValue,
 
   // peeks, doesn't pop
   JumpIfFalsePreserving,

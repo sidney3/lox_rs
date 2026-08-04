@@ -1,6 +1,9 @@
+use log::info;
+use std::backtrace::Backtrace;
 use std::cell::Cell;
+use strum::Display;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Display)]
 pub enum BorrowState {
   Unborrowed,
   Shared(u32),
@@ -40,7 +43,7 @@ impl GcHeader {
   pub fn start_borrow_mut(&self) {
     let borrow_state_after = match self.borrow_state.get() {
       BorrowState::Unborrowed => BorrowState::BorrowedMut,
-      _ => panic!("unreachable"),
+      _ => panic!("Cannot borrow_mut. Object is: {}", self.borrow_state.get()),
     };
     self.borrow_state.set(borrow_state_after);
   }

@@ -1,9 +1,11 @@
 use super::ObjData;
 use super::ObjKind;
+use super::Value;
 
 #[derive(Debug)]
 pub enum UpValue {
   Open { absolute_stack_pos: usize },
+  Closed(Value),
 }
 
 impl ObjKind for UpValue {

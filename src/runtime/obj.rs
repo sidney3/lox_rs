@@ -2,6 +2,8 @@ use std::fmt;
 use std::ops::Deref;
 
 use crate::gc::Ref;
+use crate::gc::RefMut;
+use crate::runtime::Value;
 
 use super::Closure;
 use super::Function;
@@ -10,7 +12,6 @@ use super::ProtoValue;
 use super::Runtime;
 use super::RuntimeError;
 use super::UpValue;
-use super::ValueObject;
 use super::value::Num;
 use std::marker::PhantomData;
 
@@ -22,7 +23,6 @@ pub enum ObjData {
   Func(Function),
   Closure(Closure),
   UpValue(UpValue),
-  Value(ValueObject),
 }
 
 impl ObjData {
@@ -31,6 +31,10 @@ impl ObjData {
       (ObjData::String(lhs), ObjData::String(rhs)) => {
         Ok(ProtoValue::Obj(ObjData::String(lhs.clone() + rhs)))
       }
+
+      // NOTE: we distinctly don't handle ValueObject here.
+      // There are too many possibilities to handle. Instead, we
+      // "flatten" every value.
       _ => Err(RuntimeError::new("Unsupported binary operation")),
     }
   }
@@ -55,8 +59,8 @@ impl fmt::Display for ObjData {
       ObjData::Closure(_closure) => write!(f, "LoxClosure"),
       ObjData::UpValue(up) => match up {
         UpValue::Open { absolute_stack_pos } => write!(f, "Open UpValue --> {absolute_stack_pos}"),
+        UpValue::Closed(val) => write!(f, "Closed UpValue --> {:?}", val),
       },
-      ObjData::Value(v) => write!(f, "{:?}", v),
     }
   }
 }
@@ -98,8 +102,17 @@ impl<T: ObjKind> Obj<T> {
     }
   }
 
+  pub fn embed(self) -> Handle {
+    self.raw
+  }
+
   pub fn borrow<'a>(&self, vm: &'a Runtime) -> Ref<'a, T> {
     Ref::map(vm.borrow(self.raw), |obj| {
+      T::project(obj).expect("Objects cannot change type")
+    })
+  }
+  pub fn borrow_mut<'a>(&self, vm: &'a Runtime) -> RefMut<'a, T> {
+    RefMut::map(vm.borrow_mut(self.raw), |obj| {
       T::project(obj).expect("Objects cannot change type")
     })
   }

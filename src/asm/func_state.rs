@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use lasso::Key;
 
 use super::chunk::Chunk;
@@ -169,12 +170,23 @@ impl FuncState {
     assert!(!self.at_global_depth());
 
     while let Some(local) = self.locals.last() {
-      if local.scope_depth == self.scope_depth {
-        self.emit(Instruction::new(InstructionKind::Pop));
-        self.locals.pop();
-      } else {
+      if local.scope_depth != self.scope_depth {
         break;
       }
+
+      let upval = self
+        .upvalues
+        .iter()
+        .position(|upvalue| upvalue.0 == local.symbol)
+        .map(|i| self.upvalues.remove(i));
+
+      let instruction = if upval.is_some() {
+        InstructionKind::PopUpValue
+      } else {
+        InstructionKind::Pop
+      };
+      self.emit(Instruction::new(instruction));
+      self.locals.pop();
     }
     self.scope_depth -= 1;
   }

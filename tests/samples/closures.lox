@@ -42,3 +42,30 @@
 	assert f() == 8;
 }
 
+
+{
+	fun outer() {
+		var z = 4;
+		fun inner() {
+			z = z + 2;
+			return z;
+		}
+
+		fun middle() {
+			fun even_more_middle() {
+				return inner();
+			}
+
+			return even_more_middle();
+		}
+
+		return middle;
+	}
+
+	var f = outer();
+
+	assert f() == 6;
+	assert f() == 8;
+	assert f() == 10;
+	assert f() == 12;
+}

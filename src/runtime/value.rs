@@ -1,5 +1,8 @@
+use std::ops::Deref;
+
 use super::RuntimeError;
-use crate::runtime::{Handle, ObjData, Runtime};
+use crate::runtime::{Handle, ObjData, Runtime, UpValue};
+use log::info;
 
 pub type Num = f64;
 pub type Bool = bool;
@@ -34,7 +37,7 @@ pub enum ProtoValue {
 }
 
 impl ProtoValue {
-  pub fn to_value(self, vm: &mut Runtime) -> Value {
+  pub fn into_value(self, vm: &mut Runtime) -> Value {
     match self {
       Self::Imm(val) => val,
       Self::Obj(obj) => Value::Obj(vm.alloc(obj)),
@@ -43,22 +46,43 @@ impl ProtoValue {
 }
 
 impl Value {
+  //
+  fn flatten(self, vm: &Runtime) -> Self {
+    match self {
+      Self::Obj(obj) => match vm.borrow(obj).deref() {
+        ObjData::UpValue(UpValue::Closed(inner)) => inner.flatten(vm),
+        ObjData::UpValue(UpValue::Open { absolute_stack_pos }) => {
+          vm.value_stack[*absolute_stack_pos].flatten(vm)
+        }
+        _ => self,
+      },
+      _ => self,
+    }
+  }
+
   pub fn add(self, rhs: Value, vm: &Runtime) -> Result<ProtoValue, RuntimeError> {
-    match (self, rhs) {
+    match (self.flatten(vm), rhs.flatten(vm)) {
       (Value::Num(a), Value::Num(b)) => Ok(ProtoValue::Imm(Value::Num(a + b))),
       (Value::Obj(a), Value::Obj(b)) => {
         let lhs = vm.borrow(a);
         let rhs = vm.borrow(b);
         lhs.add(&rhs, vm)
       }
-      _ => Err(RuntimeError {
-        msg: format!("Bad binary expression between: {:?}, {:?}", self, rhs,),
-      }),
+
+      _ => {
+        if let Value::Obj(obj) = self {
+          info!("LoxVal: {}", vm.borrow(obj).deref())
+        }
+
+        Err(RuntimeError {
+          msg: format!("Bad binary expression between: {:?}, {:?}", self, rhs,),
+        })
+      }
     }
   }
 
-  pub fn divide(self, rhs: Value, _: &Runtime) -> Result<Value, RuntimeError> {
-    match (self, rhs) {
+  pub fn divide(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
+    match (self.flatten(vm), rhs.flatten(vm)) {
       (Value::Num(a), Value::Num(b)) => {
         if b != 0f64 {
           Ok(Value::Num(a / b))
@@ -75,7 +99,7 @@ impl Value {
   }
 
   pub fn equals(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
-    let eq = match (self, rhs) {
+    let eq = match (self.flatten(vm), rhs.flatten(vm)) {
       (Value::Num(a), Value::Num(b)) => a == b,
       (Value::Obj(a), Value::Obj(b)) => {
         let l = vm.borrow(a);
@@ -99,44 +123,44 @@ impl Value {
       _ => panic!("unreachable. equals() should always return Value::Bool"),
     }
   }
-  pub fn mult(self, rhs: Value, _: &Runtime) -> Result<Value, RuntimeError> {
-    self.binary_arithmetic(rhs, |a, b| Value::Num(a * b), "*")
+  pub fn mult(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
+    self.binary_arithmetic(rhs, |a, b| Value::Num(a * b), "*", vm)
   }
 
-  pub fn sub(self, rhs: Value, _: &Runtime) -> Result<Value, RuntimeError> {
-    self.binary_arithmetic(rhs, |a, b| Value::Num(a - b), "-")
+  pub fn sub(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
+    self.binary_arithmetic(rhs, |a, b| Value::Num(a - b), "-", vm)
   }
 
-  pub fn greater(self, rhs: Value, _: &Runtime) -> Result<Value, RuntimeError> {
-    self.binary_arithmetic(rhs, |a, b| Value::Bool(a > b), ">")
+  pub fn greater(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
+    self.binary_arithmetic(rhs, |a, b| Value::Bool(a > b), ">", vm)
   }
 
-  pub fn less(self, rhs: Value, _: &Runtime) -> Result<Value, RuntimeError> {
-    self.binary_arithmetic(rhs, |a, b| Value::Bool(a < b), "<")
+  pub fn less(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
+    self.binary_arithmetic(rhs, |a, b| Value::Bool(a < b), "<", vm)
   }
-  pub fn leq(self, rhs: Value, _: &Runtime) -> Result<Value, RuntimeError> {
-    self.binary_arithmetic(rhs, |a, b| Value::Bool(a <= b), "<=")
+  pub fn leq(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
+    self.binary_arithmetic(rhs, |a, b| Value::Bool(a <= b), "<=", vm)
   }
-  pub fn geq(self, rhs: Value, _: &Runtime) -> Result<Value, RuntimeError> {
-    self.binary_arithmetic(rhs, |a, b| Value::Bool(a >= b), ">=")
+  pub fn geq(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
+    self.binary_arithmetic(rhs, |a, b| Value::Bool(a >= b), ">=", vm)
   }
 
-  pub fn not(self, _: &Runtime) -> Result<Value, RuntimeError> {
-    match self {
+  pub fn not(self, vm: &Runtime) -> Result<Value, RuntimeError> {
+    match self.flatten(vm) {
       Value::Bool(b) => Ok(Value::Bool(!b)),
       _ => Err(RuntimeError::new("Invalid input to not")),
     }
   }
 
-  pub fn unary_minus(self, _: &Runtime) -> Result<Value, RuntimeError> {
-    match self {
+  pub fn unary_minus(self, vm: &Runtime) -> Result<Value, RuntimeError> {
+    match self.flatten(vm) {
       Value::Num(x) => Ok(Value::Num(-x)),
       _ => Err(RuntimeError::new("Invalid input to minus")),
     }
   }
 
   pub fn repr(self, vm: &Runtime) -> String {
-    match self {
+    match self.flatten(vm) {
       Value::Num(x) => x.to_string(),
       Value::Obj(o) => {
         format!("{}", *vm.borrow(o))
@@ -151,8 +175,9 @@ impl Value {
     rhs: Value,
     op: F,
     op_name: &str,
+    vm: &Runtime,
   ) -> Result<Value, RuntimeError> {
-    match (self, rhs) {
+    match (self.flatten(vm), rhs.flatten(vm)) {
       (Value::Num(a), Value::Num(b)) => Ok(op(a, b)),
       _ => Err(RuntimeError {
         msg: format!(

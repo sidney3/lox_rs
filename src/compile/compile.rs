@@ -1,5 +1,3 @@
-use nonempty::{NonEmpty, nonempty};
-
 use super::Compilation;
 use super::error::Result;
 use crate::asm::{
@@ -14,16 +12,6 @@ pub struct Compiler<'a, 'vm> {
   compile_stack: FuncStack,
   ast: &'a Ast,
   runtime: &'vm mut Runtime,
-}
-
-trait NonEmptyExt<T> {
-  fn into_last(self) -> T;
-}
-
-impl<T> NonEmptyExt<T> for NonEmpty<T> {
-  fn into_last(mut self) -> T {
-    self.tail.pop().unwrap_or(self.head)
-  }
 }
 
 impl<'a, 'vm> Compiler<'a, 'vm> {
