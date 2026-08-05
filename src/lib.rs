@@ -15,7 +15,7 @@ use thiserror::Error;
 
 use crate::executor::Executor;
 use crate::frontend::{Diagnostic, ToDiagnostic};
-use crate::runtime::{Runtime, RuntimeError};
+use crate::runtime::{Function, Obj, Runtime, RuntimeError};
 
 pub struct Config {
   pub script: PathBuf,
@@ -45,7 +45,7 @@ impl ToDiagnostic for CompileError {
   }
 }
 
-fn compile(program: &str, rt: &mut Runtime) -> Result<compile::Compilation, CompileError> {
+fn compile(program: &str, rt: &mut Runtime) -> Result<Obj<Function>, CompileError> {
   let lexer = frontend::token::LoxLexer::new().expect("Token definition error");
   let parser = frontend::ast::LoxParser::new();
 
@@ -60,19 +60,13 @@ pub fn run(config: Config) -> Result<(), LoxError> {
   let diagnostic_renderer = frontend::diagnostics::DiagnosticRenderer::new(&source_code);
   let mut rt = runtime::Runtime::new();
 
-  let compiled = match compile(source_code.as_str(), &mut rt) {
-    Ok(c) => c,
-    Err(e) => {
-      error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));
-      return Err(LoxError::Compile(e));
-    }
-  };
+  let main = compile(source_code.as_str(), &mut rt).map_err(|e| {
+    error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));
+    LoxError::Compile(e)
+  })?;
 
-  match Executor::new(&mut rt, compiled.main).run() {
-    Ok(()) => Ok(()),
-    Err(e) => {
-      error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));
-      Err(LoxError::Runtime(e))
-    }
-  }
+  Executor::new(&mut rt, main).run().map_err(|e| {
+    error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));
+    LoxError::Runtime(e)
+  })
 }

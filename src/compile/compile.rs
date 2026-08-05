@@ -1,4 +1,3 @@
-use super::Compilation;
 use super::error::Result;
 use crate::asm::{
   FuncStack, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
@@ -6,7 +5,7 @@ use crate::asm::{
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::runtime::{ObjData, Runtime, Symbol, Value};
+use crate::runtime::{Function, Obj, ObjData, Runtime, Symbol, Value};
 
 pub struct Compiler<'a, 'vm> {
   compile_stack: FuncStack,
@@ -24,7 +23,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     }
   }
 
-  pub fn compile(mut self) -> Result<Compilation> {
+  pub fn compile(mut self) -> Result<Obj<Function>> {
     self.ast(self.ast)?;
 
     let main = self
@@ -32,9 +31,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       .pop_last()
       .expect("Finished compilation with excess remaining frames");
 
-    Ok(Compilation {
-      main: self.runtime.alloc_typed(main),
-    })
+    Ok(self.runtime.alloc_typed(main))
   }
 
   pub fn load_ident_sym(&mut self, ident: Ident) -> Symbol {
