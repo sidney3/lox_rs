@@ -1,5 +1,3 @@
-use log::info;
-use std::backtrace::Backtrace;
 use std::cell::Cell;
 use strum::Display;
 
@@ -33,7 +31,7 @@ impl GcHeader {
 
   pub fn end_borrow(&self) {
     let borrow_state_after = match self.borrow_state.get() {
-      BorrowState::Shared(k) if k == 1 => BorrowState::Unborrowed,
+      BorrowState::Shared(1) => BorrowState::Unborrowed,
       BorrowState::Shared(k) if k > 1 => BorrowState::Shared(k - 1),
       _ => panic!("unreachable"),
     };

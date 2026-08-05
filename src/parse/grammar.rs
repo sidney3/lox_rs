@@ -126,15 +126,6 @@ impl<R: Rule> Grammar<R> {
   pub fn productions(&self) -> impl Iterator<Item = &Production<R>> {
     self.productions.iter()
   }
-  pub fn production_ids(&self) -> impl Iterator<Item = ProductionId> {
-    (0..self.productions.len()).map(ProductionId)
-  }
-
-  pub fn trivial_production_ids(&self) -> impl Iterator<Item = ProductionId> {
-    self
-      .production_ids()
-      .filter(|p| self.production(*p).definition.is_empty())
-  }
   pub fn tokens(&self) -> &Vec<R::TokenType> {
     &self.tokens
   }

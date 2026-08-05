@@ -1,15 +1,14 @@
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 use lasso::Key;
-use log::{debug, info};
+use log::debug;
 use nonempty::{NonEmpty, nonempty};
 use smallvec::SmallVec;
 
 use super::call_frame::CallFrame;
 use crate::asm::{Instruction, InstructionKind};
 use crate::runtime::{
-  Closure, Function, Handle, Obj, ObjData, ProtoValue, Runtime, RuntimeError, UpValue,
-  UpValueDescriptor, Value,
+  Closure, Function, Obj, ObjData, Runtime, RuntimeError, UpValue, UpValueDescriptor, Value,
 };
 use either::Either;
 
@@ -69,11 +68,8 @@ impl<'vm> Executor<'vm> {
       .expect("Stack offset out of range")
   }
   fn set_stack(&mut self, offset: usize, set_to: Value) {
-    self
-      .call_stack
-      .last()
-      .set_val(offset, &mut self.vm.value_stack, set_to)
-      .expect("Stack offset out of range");
+    let idx = offset + self.frame().base;
+    self.vm.value_stack[idx] = set_to;
   }
 
   fn push_value(&mut self, val: Value) {
@@ -129,8 +125,7 @@ impl<'vm> Executor<'vm> {
         }
       };
 
-      let mut r = upval.borrow_mut(self.vm);
-      *r = UpValue::Closed(self.vm.value_stack[stack_pos]);
+      *upval.borrow_mut(self.vm) = UpValue::Closed(self.vm.value_stack[stack_pos]);
     }
 
     self.vm.value_stack.drain(until..);
@@ -296,9 +291,6 @@ impl<'vm> Executor<'vm> {
               }
               UpValueDescriptor::Recursive { parent_upvalue_pos } => {
                 let parent = self.call_stack.last();
-
-                info!("Parent upvalues: {:?}", parent.upvalues(self.vm).deref());
-
                 upvalues.push(parent.upvalues(self.vm)[parent_upvalue_pos]);
               }
             }
@@ -316,12 +308,10 @@ impl<'vm> Executor<'vm> {
             _ => return Err(RuntimeError::new("Expected function")),
           };
 
-          let func = match Obj::<Closure>::downcast(handle, self.vm) {
-            Some(func) => func,
-            None => return Err(RuntimeError::new("Call can only be called on a function")),
-          };
+          let closure = Obj::<Closure>::downcast(handle, self.vm)
+            .ok_or_else(|| RuntimeError::new("Call can only be called on a function"))?;
 
-          let true_arity = func.borrow(self.vm).func.borrow(self.vm).arity;
+          let true_arity = closure.func(self.vm).arity;
           if nargs != true_arity {
             return Err(RuntimeError::new(
               format!(
@@ -331,7 +321,9 @@ impl<'vm> Executor<'vm> {
             ));
           }
 
-          self.call_stack.push(CallFrame::new(self.vm, func, f_idx));
+          self
+            .call_stack
+            .push(CallFrame::new(self.vm, closure, f_idx));
         }
         InstructionKind::Return => {
           let returned_frame = match self.call_stack.pop() {
@@ -344,7 +336,7 @@ impl<'vm> Executor<'vm> {
           };
           let ret_val = self.pop();
 
-          let leftover_stack_vals = returned_frame.func(self.vm).arity + 1;
+          let leftover_stack_vals = returned_frame.closure.func(self.vm).arity + 1;
 
           assert!(
             self.vm.value_stack.len() >= returned_frame.base + leftover_stack_vals,
@@ -360,11 +352,9 @@ impl<'vm> Executor<'vm> {
         InstructionKind::LoadUpValue => {
           let val = {
             let idx = next_instruction.operand as usize;
-            let upvalue = &self.frame().upvalues(self.vm)[idx];
-
-            match upvalue.borrow(self.vm).deref() {
-              &UpValue::Open { absolute_stack_pos } => self.vm.value_stack[absolute_stack_pos],
-              &UpValue::Closed(val) => val,
+            match *self.frame().upvalue(self.vm, idx as usize) {
+              UpValue::Open { absolute_stack_pos } => self.vm.value_stack[absolute_stack_pos],
+              UpValue::Closed(val) => val,
             }
           };
 
@@ -375,17 +365,15 @@ impl<'vm> Executor<'vm> {
 
           let pos = {
             let upval = self.frame().upvalues(self.vm)[next_instruction.operand as usize];
-            match upval.borrow(self.vm).deref() {
-              &UpValue::Open { absolute_stack_pos } => Either::Left(absolute_stack_pos),
+            match *upval.borrow(self.vm) {
+              UpValue::Open { absolute_stack_pos } => Either::Left(absolute_stack_pos),
               UpValue::Closed(_) => Either::Right(upval),
             }
           };
 
           match pos {
             Either::Left(stack_pos) => self.vm.value_stack[stack_pos] = set_to,
-            Either::Right(heap_val) => {
-              *heap_val.borrow_mut(self.vm).deref_mut() = UpValue::Closed(set_to)
-            }
+            Either::Right(heap_val) => *heap_val.borrow_mut(self.vm) = UpValue::Closed(set_to),
           }
         }
         InstructionKind::PopUpValue => {

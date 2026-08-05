@@ -3,10 +3,10 @@ use super::error::Result;
 use crate::asm::{
   FuncStack, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
 };
-use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue, Return};
+use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::runtime::{Function, Obj, ObjData, Runtime, Symbol, UpValueDescriptor, Value};
+use crate::runtime::{ObjData, Runtime, Symbol, Value};
 
 pub struct Compiler<'a, 'vm> {
   compile_stack: FuncStack,

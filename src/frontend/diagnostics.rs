@@ -7,7 +7,6 @@ pub use crate::lexer::Span;
 pub struct Diagnostic {
   pub message: String,
   pub labels: Vec<Label>,
-  pub notes: Vec<String>,
 }
 
 impl Diagnostic {
@@ -15,7 +14,6 @@ impl Diagnostic {
     Diagnostic {
       message: format!("{message}"),
       labels: Vec::new(),
-      notes: Vec::new(),
     }
   }
   pub fn from_span(message: impl Into<String>, span: Span) -> Self {
@@ -25,7 +23,6 @@ impl Diagnostic {
         span,
         message: None,
       }],
-      notes: Vec::new(),
     }
   }
 }

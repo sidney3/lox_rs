@@ -1,4 +1,4 @@
-use crate::runtime::{Function, Handle, Obj, Value};
+use crate::runtime::{Function, Obj};
 
 pub struct Compilation {
   pub main: Obj<Function>,

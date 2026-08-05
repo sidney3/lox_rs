@@ -3,7 +3,6 @@ use std::ops::Deref;
 
 use crate::gc::Ref;
 use crate::gc::RefMut;
-use crate::runtime::Value;
 
 use super::Closure;
 use super::Function;
@@ -12,7 +11,6 @@ use super::ProtoValue;
 use super::Runtime;
 use super::RuntimeError;
 use super::UpValue;
-use super::value::Num;
 use std::marker::PhantomData;
 
 type LoxString = String;

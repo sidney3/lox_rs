@@ -13,6 +13,12 @@ impl Closure {
   }
 }
 
+impl Obj<Closure> {
+  pub fn func<'a>(&self, vm: &'a Runtime) -> Ref<'a, Function> {
+    self.borrow(vm).func.borrow(vm)
+  }
+}
+
 impl ObjKind for Closure {
   fn project(obj: &ObjData) -> Option<&Self> {
     match obj {

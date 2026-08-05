@@ -1,5 +1,3 @@
-use smallvec::SmallVec;
-
 use super::Symbol;
 use super::{ObjData, ObjKind};
 use crate::asm::Chunk;

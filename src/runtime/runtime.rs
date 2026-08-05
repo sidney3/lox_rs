@@ -10,7 +10,6 @@ use crate::gc;
 
 pub type Heap = gc::Heap<ObjData>;
 pub type Handle = gc::Handle<ObjData>;
-pub type Root<'a> = gc::Root<'a, ObjData>;
 pub type Symbol = lasso::Spur;
 
 pub struct Runtime {

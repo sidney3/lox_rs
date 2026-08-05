@@ -4,4 +4,4 @@ mod header;
 mod heap;
 
 pub use gc_ref::{Ref, RefMut};
-pub use heap::{Handle, Heap, Root};
+pub use heap::{Handle, Heap};

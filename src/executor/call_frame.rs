@@ -1,6 +1,6 @@
 use crate::asm::Instruction;
 use crate::gc::Ref;
-use crate::runtime::{Closure, Function, Handle, Obj, ObjData, Runtime, UpValue, Value};
+use crate::runtime::{Closure, Obj, Runtime, UpValue, Value};
 
 pub struct CallFrame {
   pub closure: Obj<Closure>,
@@ -25,13 +25,13 @@ impl CallFrame {
   pub fn upvalues<'a>(&self, vm: &'a Runtime) -> Ref<'a, Vec<Obj<UpValue>>> {
     Ref::map(self.closure.borrow(vm), |closure| &closure.upvalues)
   }
+  pub fn upvalue<'a>(&self, vm: &'a Runtime, index: usize) -> Ref<'a, UpValue> {
+    let upvalues = Ref::map(self.closure.borrow(vm), |closure| &closure.upvalues);
 
-  pub fn func<'a>(&self, vm: &'a Runtime) -> Ref<'a, Function> {
-    self.closure.borrow(vm).func.borrow(vm)
+    upvalues[index].borrow(vm)
   }
-
   pub fn pop_instruction(&mut self, vm: &Runtime) -> Option<Instruction> {
-    match self.func(vm).chunk.instructions.get(self.ip) {
+    match self.closure.func(vm).chunk.instructions.get(self.ip) {
       Some(&instruction) => {
         self.ip += 1;
         Some(instruction)
@@ -41,21 +41,12 @@ impl CallFrame {
   }
 
   pub fn jmp(&mut self, vm: &Runtime, to: usize) {
-    assert!(to < self.func(vm).chunk.instructions.len());
+    assert!(to < self.closure.func(vm).chunk.instructions.len());
 
     self.ip = to;
   }
 
-  pub fn load_val(&self, offset: usize, value_stack: &Vec<Value>) -> Option<Value> {
+  pub fn load_val(&self, offset: usize, value_stack: &[Value]) -> Option<Value> {
     value_stack.get(self.base + offset).cloned()
-  }
-  pub fn set_val(&self, offset: usize, value_stack: &mut Vec<Value>, set_to: Value) -> Option<()> {
-    let idx = self.base + offset;
-    if idx < value_stack.len() {
-      value_stack[idx] = set_to;
-      Some(())
-    } else {
-      None
-    }
   }
 }

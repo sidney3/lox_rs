@@ -171,13 +171,11 @@ mod test {
 
   use std::collections::VecDeque;
 
-  use lasso::Rodeo;
   use lox_derive::Ordinal;
-  use nonempty::nonempty;
   use strum::Display;
 
   use super::*;
-  use crate::frontend::token::{LoxLexer, LoxToken, LoxTokenKind};
+  use crate::frontend::token::{LoxLexer, LoxTokenKind};
 
   // Grammar (BNF, start symbol = <Beta>):
   //   <Beta>  ::= <Alpha> <Alpha>
@@ -254,7 +252,7 @@ mod test {
           rule: TestRule::List,
           children,
         }) => match children.as_slice() {
-          [l, args, r] => List {
+          [_l, args, _r] => List {
             args: ListArgs::from_cst(root, args),
           },
           _ => panic!("unreachable"),
