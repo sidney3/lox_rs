@@ -23,7 +23,7 @@ impl Runtime {
   pub fn new() -> Self {
     Self {
       value_stack: Vec::new(),
-      heap: Heap::new(),
+      heap: Heap::new(1024),
       symbols: lasso::Rodeo::new(),
       globals: HashMap::new(),
     }

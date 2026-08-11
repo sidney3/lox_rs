@@ -1,99 +1,98 @@
-use std::fmt;
+use super::header::GcHeader;
 use std::marker::PhantomData;
 use std::ptr::NonNull;
 
 use super::block::GcBlock;
 use super::{Ref, RefMut};
 
-#[derive(Debug)]
-pub struct Root<'a, U> {
-  value: NonNull<GcBlock<U>>,
-  _life: PhantomData<&'a Heap<U>>,
-}
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+struct Index(usize);
 
 #[derive(Debug)]
 pub struct Handle<U> {
-  value: NonNull<GcBlock<U>>,
+  index: Index, // always live
+  _data: PhantomData<U>,
 }
 
 impl<U> Clone for Handle<U> {
   fn clone(&self) -> Self {
-    *self
+    Handle::new(self.index)
   }
 }
+
 impl<U> Copy for Handle<U> {}
 
 impl<U> Handle<U> {
-  fn new(value: NonNull<GcBlock<U>>) -> Self {
-    Self { value }
-  }
-}
-
-impl<'a, U> Root<'a, U> {
-  fn new(value: NonNull<GcBlock<U>>) -> Self {
+  fn new(index: Index) -> Self {
     Self {
-      value,
-      _life: PhantomData,
-    }
-  }
-
-  pub fn borrow(&self) -> Ref<'_, U> {
-    unsafe {
-      let block = &self.value.as_ref();
-      Ref::new(&block.header, NonNull::from_ref(&block.data))
-    }
-  }
-
-  pub fn borrow_mut(&self) -> RefMut<'_, U> {
-    unsafe {
-      let block = &self.value.as_ref();
-      RefMut::new(&block.header, NonNull::from_ref(&block.data))
+      index,
+      _data: PhantomData,
     }
   }
 }
 
 pub struct Heap<U> {
-  // TODO: write a real garbage collector and have
-  // _real_ object storage.
-  storage: Vec<Box<GcBlock<U>>>,
+  storage: Vec<GcBlock<U>>,
+  free_blocks: Vec<Index>,
 }
 
 impl<U> Heap<U> {
-  pub fn new() -> Self {
-    Self {
+  pub fn new(initial_size: usize) -> Self {
+    let mut heap = Self {
       storage: Vec::new(),
-    }
+      free_blocks: Vec::new(),
+    };
+    heap.grow(initial_size);
+    heap
+  }
+
+  fn grow(&mut self, by: usize) {
+    let old_len = self.storage.len();
+    let new_indices = (0..by).map(|i| Index(old_len + i));
+
+    self
+      .storage
+      .resize_with(self.storage.len() + by, GcBlock::<U>::new);
+    self.free_blocks.extend(new_indices);
+  }
+
+  fn capacity(&self) -> usize {
+    self.free_blocks.len()
   }
 
   pub fn alloc(&mut self, insertee: U) -> Handle<U> {
-    let mut block = Box::new(GcBlock::new(insertee));
-    let obj = Handle::new(NonNull::new(&raw mut *block).unwrap());
-    self.storage.push(block);
+    if self.capacity() == 0 {
+      self.grow(self.storage.len());
+    }
 
-    obj
-  }
+    let block = self.free_blocks.pop().expect("Just resized");
 
-  pub fn root(&mut self, gc: Handle<U>) -> Root<'_, U> {
-    Root::new(gc.value)
+    self.storage[block.0].data.write(insertee);
+
+    Handle::<U>::new(block)
   }
 
   pub fn borrow<'a>(&'a self, gc: Handle<U>) -> Ref<'a, U> {
     unsafe {
-      let block = &gc.value.as_ref();
-      Ref::new(&block.header, NonNull::from_ref(&block.data))
+      let block = &self.storage[gc.index.0];
+      Ref::new(
+        &block.header,
+        NonNull::from_ref(block.data.assume_init_ref()),
+      )
     }
   }
 
   pub fn borrow_mut<'a>(&'a self, gc: Handle<U>) -> RefMut<'a, U> {
     unsafe {
-      let block = &gc.value.as_ref();
-      RefMut::new(&block.header, NonNull::from_ref(&block.data))
+      let block = &self.storage[gc.index.0];
+      RefMut::new(
+        &block.header,
+        NonNull::from_ref(block.data.assume_init_ref()),
+      )
     }
   }
-}
 
-impl<'a, U: fmt::Display> fmt::Display for Root<'a, U> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}", *self.borrow())
+  pub(super) fn header_mut(&mut self, index: Index) -> &mut GcHeader {
+    &mut self.storage[index.0].header
   }
 }
