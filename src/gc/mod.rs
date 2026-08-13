@@ -4,7 +4,6 @@ mod header;
 mod heap;
 mod trace;
 
-pub use gc_ref::{Ref, RefMut};
-pub use heap::{Handle, Heap};
+pub use gc_ref::{Ref, RefMut, UncheckedRef};
+pub use heap::{AllocResult, Handle, Heap, HeapConfig};
 pub use trace::{Trace, Tracer};
-

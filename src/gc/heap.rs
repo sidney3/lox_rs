@@ -3,10 +3,11 @@ use super::Tracer;
 use super::header::GcHeader;
 use std::collections::HashSet;
 use std::marker::PhantomData;
+use std::mem::size_of;
 use std::ptr::NonNull;
 
 use super::block::GcBlock;
-use super::{Ref, RefMut};
+use super::{Ref, RefMut, UncheckedRef};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 struct Index(usize);
@@ -34,23 +35,53 @@ impl<U> Handle<U> {
   }
 }
 
+pub struct HeapConfig {
+  pub initial_size: usize,
+  pub gc_growth_factor: usize,
+}
+
 pub struct Heap<U> {
   storage: Vec<GcBlock<U>>,
   live_blocks: HashSet<Index>,
   free_blocks: Vec<Index>,
   cur_generation: usize,
+  config: HeapConfig,
+  next_gc: usize,
 }
 
-impl<U> Heap<U> {
-  pub fn new(initial_size: usize) -> Self {
+pub enum AllocResult<U> {
+  Success(Handle<U>),
+  NeedGc(U),
+}
+
+impl<U> AllocResult<U> {
+  #[cfg(test)]
+  fn as_handle(&self) -> Option<Handle<U>> {
+    match self {
+      &Self::Success(handle) => Some(handle),
+      _ => None,
+    }
+  }
+}
+
+impl<U: Sized> Heap<U> {
+  pub fn new(config: HeapConfig) -> Self {
+    let initial_size = config.initial_size;
+    assert!(config.initial_size > 0);
     let mut heap = Self {
       storage: Vec::new(),
       live_blocks: HashSet::new(),
       free_blocks: Vec::new(),
       cur_generation: 0,
+      next_gc: 2 * initial_size * size_of::<U>(),
+      config,
     };
     heap.grow(initial_size);
     heap
+  }
+
+  fn bytes_allocated(&self) -> usize {
+    self.live_blocks.len() * size_of::<U>()
   }
 
   fn grow(&mut self, by: usize) {
@@ -67,7 +98,11 @@ impl<U> Heap<U> {
     self.free_blocks.len()
   }
 
-  pub fn alloc(&mut self, insertee: U) -> Handle<U> {
+  pub fn alloc(&mut self, insertee: U) -> AllocResult<U> {
+    if self.bytes_allocated() > self.next_gc {
+      return AllocResult::NeedGc(insertee);
+    }
+
     if self.capacity() == 0 {
       self.grow(self.storage.len());
     }
@@ -77,13 +112,18 @@ impl<U> Heap<U> {
     self.storage[block.0].data.write(insertee);
     self.live_blocks.insert(block);
 
-    Handle::<U>::new(block)
+    AllocResult::Success(Handle::<U>::new(block))
   }
 
-  unsafe fn borrow_unchecked(&self, gc: Handle<U>) -> &U {
+  // Access Handle without any sort of borrow checking. Basically reserved
+  // for reads within a garbage collection cycle.
+  pub unsafe fn borrow_unchecked(&self, gc: Handle<U>) -> UncheckedRef<'_, U> {
     unsafe {
       let block = &self.storage[gc.index.0];
-      block.data.assume_init_ref()
+      UncheckedRef::new(
+        &block.header,
+        NonNull::from_ref(block.data.assume_init_ref()),
+      )
     }
   }
 
@@ -115,6 +155,7 @@ impl<U> Heap<U> {
     self.sweep();
 
     self.cur_generation += 1;
+    self.next_gc = self.config.gc_growth_factor * self.bytes_allocated();
   }
 
   fn mark<Root: Trace<U>>(&self, root: &Root)
@@ -126,7 +167,7 @@ impl<U> Heap<U> {
 
     while let Some(next) = tracer.pop() {
       unsafe {
-        self.borrow_unchecked(next).trace(self, &mut tracer);
+        self.borrow_unchecked(next).deref().trace(self, &mut tracer);
       }
     }
   }
@@ -163,7 +204,7 @@ impl<U: Trace<U>> Trace<U> for Handle<U> {
   fn trace(&self, heap: &Heap<U>, t: &mut Tracer<U>) {
     t.mark(*self);
     unsafe {
-      heap.borrow_unchecked(*self).trace(heap, t);
+      heap.borrow_unchecked(*self).deref().trace(heap, t);
     }
   }
 }
@@ -200,16 +241,18 @@ mod test {
 
   #[test]
   fn test_simple() {
-    let mut heap = Heap::new(1);
+    let mut heap = Heap::new(HeapConfig {
+      initial_size: 4,
+      gc_growth_factor: 4,
+    });
 
-    let unreachable = heap.alloc(Obj::new());
-    let unreachable_parent = heap.alloc(Obj::with_children(vec![unreachable]));
+    let unreachable = heap.alloc(Obj::new()).as_handle().unwrap();
+    let _ = heap
+      .alloc(Obj::with_children(vec![unreachable]))
+      .as_handle()
+      .unwrap();
 
-    let reachable = heap.alloc(Obj::new());
-
-    assert!(heap.is_live(unreachable.index));
-    assert!(heap.is_live(unreachable_parent.index));
-    assert!(heap.is_live(reachable.index));
+    let reachable = heap.alloc(Obj::new()).as_handle().unwrap();
 
     heap.collect(&reachable);
 
@@ -220,5 +263,30 @@ mod test {
         assert!(!heap.is_live(i));
       }
     }
+  }
+
+  #[test]
+  fn stress_test() {
+    let mut heap = Heap::new(HeapConfig {
+      initial_size: 4,
+      gc_growth_factor: 4,
+    });
+
+    let root = heap
+      .alloc(Obj::new())
+      .as_handle()
+      .expect("Root allocation failed");
+
+    for _ in 0..10000 {
+      match heap.alloc(Obj::new()) {
+        AllocResult::NeedGc(obj) => {
+          heap.collect(&root);
+          heap.alloc(obj).as_handle().expect("Ran out of space");
+        }
+        _ => {}
+      }
+    }
+
+    assert!(heap.bytes_allocated() == size_of::<Obj>());
   }
 }

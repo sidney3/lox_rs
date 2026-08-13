@@ -1,8 +1,7 @@
 use std::fmt;
 use std::ops::Deref;
 
-use crate::gc::Ref;
-use crate::gc::RefMut;
+use crate::gc::{self, Heap, Ref, RefMut, Trace, Tracer, UncheckedRef};
 
 use super::Closure;
 use super::Function;
@@ -21,6 +20,21 @@ pub enum ObjData {
   Func(Function),
   Closure(Closure),
   UpValue(UpValue),
+}
+
+impl Trace<ObjData> for String {
+  fn trace(&self, _: &Heap<ObjData>, _: &mut Tracer<ObjData>) {}
+}
+
+impl Trace<ObjData> for ObjData {
+  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+    match self {
+      ObjData::String(s) => s.trace(heap, tracer),
+      ObjData::Func(function) => function.trace(heap, tracer),
+      ObjData::Closure(closure) => closure.trace(heap, tracer),
+      ObjData::UpValue(upval) => upval.trace(heap, tracer),
+    }
+  }
 }
 
 impl ObjData {
@@ -113,6 +127,21 @@ impl<T: ObjKind> Obj<T> {
     RefMut::map(vm.borrow_mut(self.raw), |obj| {
       T::project(obj).expect("Objects cannot change type")
     })
+  }
+  pub unsafe fn borrow_unchecked<'a>(&self, heap: &'a Heap<ObjData>) -> UncheckedRef<'a, T> {
+    unsafe {
+      UncheckedRef::map(heap.borrow_unchecked(self.raw), |obj| {
+        T::project(obj).expect("Objects cannot change type")
+      })
+    }
+  }
+}
+
+impl<T: ObjKind + Trace<ObjData>> Trace<ObjData> for Obj<T> {
+  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+    unsafe {
+      self.borrow_unchecked(heap).deref().trace(heap, tracer);
+    }
   }
 }
 

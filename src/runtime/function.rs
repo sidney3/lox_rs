@@ -1,6 +1,7 @@
 use super::Symbol;
 use super::{ObjData, ObjKind};
 use crate::asm::Chunk;
+use crate::gc::{Heap, Trace, Tracer};
 
 // Compile/runtime bridge: this gets thrown on the static
 // function and consumed by the runtime (to resolve the
@@ -18,6 +19,14 @@ pub struct Function {
   pub arity: usize,
   pub name: Symbol,
   pub upvalues: Vec<(Symbol, UpValueDescriptor)>,
+}
+
+impl Trace<ObjData> for Function {
+  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+    for constant in &self.chunk.constants {
+      constant.trace(heap, tracer)
+    }
+  }
 }
 
 impl ObjKind for Function {

@@ -103,3 +103,33 @@ impl<'a, U> Drop for RefMut<'a, U> {
     self.header.end_borrow_mut();
   }
 }
+
+pub struct UncheckedRef<'a, U> {
+  header: &'a GcHeader,
+  value: NonNull<U>,
+  _life: PhantomData<&'a U>,
+}
+
+impl<'a, U> UncheckedRef<'a, U> {
+  pub fn map<T, F: FnOnce(&U) -> &T>(r: Self, f: F) -> UncheckedRef<'a, T> {
+    unsafe {
+      let this = ManuallyDrop::new(r);
+      let next_ref = f(this.value.as_ref());
+      UncheckedRef::new(this.header, NonNull::from_ref(next_ref))
+    }
+  }
+
+  pub unsafe fn new(header: &'a GcHeader, value: NonNull<U>) -> Self {
+    header.start_borrow();
+
+    Self {
+      header,
+      value,
+      _life: PhantomData,
+    }
+  }
+
+  pub unsafe fn deref(&self) -> &U {
+    unsafe { self.value.as_ref() }
+  }
+}

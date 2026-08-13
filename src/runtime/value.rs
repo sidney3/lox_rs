@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use super::RuntimeError;
+use crate::gc::{Heap, Trace, Tracer};
 use crate::runtime::{Handle, ObjData, Runtime, UpValue};
 use log::info;
 
@@ -13,6 +14,14 @@ pub enum Value {
   Obj(Handle),
   Bool(Bool),
   Nil,
+}
+
+impl Trace<ObjData> for Value {
+  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+    if let Value::Obj(handle) = self {
+      handle.trace(heap, tracer);
+    }
+  }
 }
 
 impl TryFrom<&Value> for Bool {

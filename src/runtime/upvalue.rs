@@ -1,3 +1,5 @@
+use crate::gc::{Heap, Trace, Tracer};
+
 use super::ObjData;
 use super::ObjKind;
 use super::Value;
@@ -6,6 +8,15 @@ use super::Value;
 pub enum UpValue {
   Open { absolute_stack_pos: usize },
   Closed(Value),
+}
+
+impl Trace<ObjData> for UpValue {
+  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+    match self {
+      Self::Closed(val) => val.trace(heap, tracer),
+      _ => {}
+    }
+  }
 }
 
 impl ObjKind for UpValue {
