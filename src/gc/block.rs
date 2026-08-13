@@ -8,9 +8,9 @@ pub struct GcBlock<U> {
 }
 
 impl<U> GcBlock<U> {
-  pub fn new() -> Self {
+  pub fn new(valid_until: usize) -> Self {
     Self {
-      header: GcHeader::new(),
+      header: GcHeader::new(valid_until),
       data: MaybeUninit::zeroed(),
     }
   }

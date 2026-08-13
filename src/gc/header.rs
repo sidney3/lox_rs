@@ -8,29 +8,27 @@ pub(super) enum BorrowState {
   BorrowedMut,
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
-pub(super) enum Marking {
-  White,
-  Black,
-}
-
 pub(super) struct GcHeader {
   borrow_state: Cell<BorrowState>,
-  marking: Cell<Marking>,
+  generation: Cell<usize>,
 }
 
 impl GcHeader {
-  pub(super) fn new() -> Self {
+  pub(super) fn new(cur_generation: usize) -> Self {
     Self {
       borrow_state: Cell::new(BorrowState::Unborrowed),
-      marking: Cell::new(Marking::White),
+      generation: Cell::new(cur_generation),
     }
   }
 
-  // Fine to use "proper" `&mut` because this gets mutated during
-  // a collection cycle.
-  pub(super) fn replace_mark(&mut self, next: Marking) -> Marking {
-    self.marking.replace(next)
+  // Mark a node as reachable. Returns if this is the first
+  // time marking it (e.g. it needs to be explored)
+  pub(super) fn mark(&self, collecting_generation: usize) -> bool {
+    return self.generation.replace(collecting_generation + 1) == collecting_generation;
+  }
+
+  pub(super) fn valid_until(&self) -> usize {
+    self.generation.get()
   }
 
   // runtime borrow checker
