@@ -7,6 +7,7 @@ use super::ObjKind;
 use super::value::Value;
 use crate::gc::{self, AllocFailure, Trace, Tracer};
 use crate::runtime::Closure;
+use log::debug;
 
 pub type Heap = gc::Heap<ObjData>;
 pub type Handle = gc::Handle<ObjData>;
@@ -119,8 +120,12 @@ impl Runtime {
       self.collect();
     }
 
+    let typename = obj.typename();
     match self.heap.alloc(obj) {
-      Ok(handle) => handle,
+      Ok(handle) => {
+        debug!("Allocated {} at {:?}", typename, handle);
+        handle
+      }
       Err(AllocFailure::NeedGc(obj)) => {
         self.collect();
         self.alloc(obj)

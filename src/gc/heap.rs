@@ -1,7 +1,10 @@
 use super::Trace;
 use super::Tracer;
 use super::header::GcHeader;
+use log::debug;
 use std::collections::HashSet;
+use std::collections::VecDeque;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem::size_of;
 use std::ptr::NonNull;
@@ -9,6 +12,8 @@ use std::ptr::NonNull;
 use super::block::GcBlock;
 use super::{Ref, RefMut, UncheckedRef};
 
+// TODO: typestate to describe live and ambiguous
+// indices.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 struct Index(usize);
 
@@ -43,7 +48,10 @@ pub struct HeapConfig {
 pub struct Heap<U> {
   storage: Vec<GcBlock<U>>,
   live_blocks: HashSet<Index>,
-  free_blocks: Vec<Index>,
+
+  // TODO: switch this to a Vec. VecDeque makes
+  // UAF easier to detect.
+  free_blocks: VecDeque<Index>,
   cur_generation: usize,
   config: HeapConfig,
   next_gc: usize,
@@ -65,7 +73,7 @@ impl<U: Sized> Heap<U> {
     let mut heap = Self {
       storage: Vec::new(),
       live_blocks: HashSet::new(),
-      free_blocks: Vec::new(),
+      free_blocks: VecDeque::new(),
       cur_generation: 0,
       next_gc: 2 * initial_size * size_of::<U>(),
       config,
@@ -92,7 +100,10 @@ impl<U: Sized> Heap<U> {
     self.free_blocks.len()
   }
 
-  pub fn alloc(&mut self, insertee: U) -> AllocResult<U> {
+  pub fn alloc(&mut self, insertee: U) -> AllocResult<U>
+  where
+    U: Debug,
+  {
     if self.bytes_allocated() > self.next_gc {
       return Err(AllocFailure::NeedGc(insertee));
     }
@@ -101,9 +112,10 @@ impl<U: Sized> Heap<U> {
       self.grow(self.storage.len());
     }
 
-    let block = self.free_blocks.pop().expect("Just resized");
+    let block = self.free_blocks.pop_front().expect("Just resized");
 
     self.storage[block.0].data.write(insertee);
+    self.storage[block.0].header = GcHeader::new(self.cur_generation);
     self.live_blocks.insert(block);
 
     Ok(Handle::<U>::new(block))
@@ -124,6 +136,13 @@ impl<U: Sized> Heap<U> {
   pub fn borrow<'a>(&'a self, gc: Handle<U>) -> Ref<'a, U> {
     unsafe {
       let block = &self.storage[gc.index.0];
+
+      assert!(
+        block.header.valid_until() >= self.cur_generation,
+        "Use after free. Object is only valid until gen {}, but heap is at gen {}",
+        block.header.valid_until(),
+        self.cur_generation,
+      );
       Ref::new(
         &block.header,
         NonNull::from_ref(block.data.assume_init_ref()),
@@ -134,6 +153,12 @@ impl<U: Sized> Heap<U> {
   pub fn borrow_mut<'a>(&'a self, gc: Handle<U>) -> RefMut<'a, U> {
     unsafe {
       let block = &self.storage[gc.index.0];
+      assert!(
+        block.header.valid_until() >= self.cur_generation,
+        "Use after free. Object is only valid until gen {}, but heap is at gen {}",
+        block.header.valid_until(),
+        self.cur_generation,
+      );
       RefMut::new(
         &block.header,
         NonNull::from_ref(block.data.assume_init_ref()),
@@ -143,7 +168,7 @@ impl<U: Sized> Heap<U> {
 
   pub fn collect<Root: Trace<U>>(&mut self, root: &Root)
   where
-    U: Trace<U>,
+    U: Trace<U> + Debug,
   {
     self.mark(root);
     self.sweep();
@@ -165,7 +190,10 @@ impl<U: Sized> Heap<U> {
       }
     }
   }
-  fn sweep(&mut self) {
+  fn sweep(&mut self)
+  where
+    U: Debug,
+  {
     // Ideally we would just use self.block_set, but we want to borrow from
     // self while mutating these...
     let mut next_live_blocks = std::mem::take(&mut self.live_blocks);
@@ -174,7 +202,17 @@ impl<U: Sized> Heap<U> {
     let removed =
       next_live_blocks.extract_if(|i| !self.index_header(*i).valid_until() > self.cur_generation);
 
-    next_free_blocks.extend(removed);
+    for freed_block in removed {
+      unsafe {
+        debug!(
+          "Freeing index {:?}. {:?}",
+          freed_block,
+          self.storage[freed_block.0].data.assume_init_ref()
+        );
+      }
+
+      next_free_blocks.push_back(freed_block);
+    }
 
     self.live_blocks = next_live_blocks;
     self.free_blocks = next_free_blocks;
@@ -194,7 +232,7 @@ impl<U: Sized> Heap<U> {
   }
 }
 
-impl<U: Trace<U>> Trace<U> for Handle<U> {
+impl<U: Trace<U> + Debug> Trace<U> for Handle<U> {
   fn trace(&self, heap: &Heap<U>, t: &mut Tracer<U>) {
     t.mark(*self);
     unsafe {

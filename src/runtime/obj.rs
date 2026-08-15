@@ -61,6 +61,15 @@ impl ObjData {
       ))),
     }
   }
+
+  pub fn typename(&self) -> &'static str {
+    match self {
+      Self::String(_) => "LoxString",
+      Self::Func(_) => "Function",
+      Self::Closure(_) => "Closure",
+      Self::UpValue(_) => "UpValue",
+    }
+  }
 }
 
 impl fmt::Display for ObjData {

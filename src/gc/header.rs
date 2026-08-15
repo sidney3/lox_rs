@@ -24,7 +24,7 @@ impl GcHeader {
   // Mark a node as reachable. Returns if this is the first
   // time marking it (e.g. it needs to be explored)
   pub(super) fn mark(&self, collecting_generation: usize) -> bool {
-    return self.generation.replace(collecting_generation + 1) == collecting_generation;
+    self.generation.replace(collecting_generation + 1) == collecting_generation
   }
 
   pub(super) fn valid_until(&self) -> usize {
