@@ -53,7 +53,7 @@ impl Trace<ObjData> for GcRoot<'_, '_, '_> {
     }
 
     for frame in self.frames {
-      frame.closure.trace(heap, tracer);
+      frame.trace(heap, tracer);
     }
   }
 }

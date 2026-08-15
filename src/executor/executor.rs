@@ -21,6 +21,7 @@ pub struct Executor<'vm> {
 
 impl<'vm> Executor<'vm> {
   pub fn new(vm: &'vm mut Runtime, main: Obj<Function>) -> Self {
+    vm.value_stack.push(main.as_value());
     assert!(
       main.borrow(vm).upvalues.is_empty(),
       "main should not capture any closure references"
@@ -30,7 +31,13 @@ impl<'vm> Executor<'vm> {
       func: main,
       upvalues: Vec::new(),
     });
+    vm.value_stack.pop();
+
+    vm.value_stack.push(main_closure.as_value());
+
     let main_frame = vm.alloc_frame(main_closure, 0);
+
+    vm.value_stack.pop();
 
     Self {
       vm,

@@ -306,6 +306,8 @@ mod test {
       }
     }
 
-    assert!(heap.bytes_allocated() == size_of::<Obj>());
+    heap.collect(&root);
+
+    assert!(heap.bytes_allocated() == size_of::<Obj>(),);
   }
 }

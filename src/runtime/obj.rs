@@ -10,6 +10,7 @@ use super::ProtoValue;
 use super::Runtime;
 use super::RuntimeError;
 use super::UpValue;
+use super::Value;
 use std::marker::PhantomData;
 
 type LoxString = String;
@@ -123,8 +124,12 @@ impl<T: ObjKind> Obj<T> {
     }
   }
 
-  pub fn embed(self) -> Handle {
+  pub fn as_handle(self) -> Handle {
     self.raw
+  }
+
+  pub fn as_value(self) -> Value {
+    Value::Obj(self.as_handle())
   }
 
   pub fn borrow<'a>(&self, vm: &'a Runtime) -> Ref<'a, T> {
