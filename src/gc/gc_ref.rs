@@ -16,7 +16,7 @@ impl<'a, U> Ref<'a, U> {
   pub fn map<T, F: FnOnce(&U) -> &T>(r: Self, f: F) -> Ref<'a, T> {
     unsafe {
       let this = ManuallyDrop::new(r);
-      let next_ref = f(this.value.as_ref());
+      let next_ref = f(this.deref());
       Ref::from_other(this.header, NonNull::from_ref(next_ref))
     }
   }
@@ -28,7 +28,7 @@ impl<'a, U> Ref<'a, U> {
       _life: PhantomData,
     }
   }
-  pub unsafe fn new(header: &'a GcHeader, value: NonNull<U>) -> Self {
+  pub(super) fn new(header: &'a GcHeader, value: NonNull<U>) -> Self {
     header.start_borrow();
 
     Self {
@@ -62,19 +62,19 @@ impl<'a, U> RefMut<'a, U> {
   pub fn map<T, F: FnOnce(&U) -> &T>(r: Self, f: F) -> RefMut<'a, T> {
     unsafe {
       let this = ManuallyDrop::new(r);
-      let next_ref = f(this.value.as_ref());
+      let next_ref = f(this.deref());
       RefMut::from_other(this.header, NonNull::from_ref(next_ref))
     }
   }
 
-  fn from_other(header: &'a GcHeader, value: NonNull<U>) -> Self {
+  unsafe fn from_other(header: &'a GcHeader, value: NonNull<U>) -> Self {
     Self {
       header,
       value,
       _life: PhantomData,
     }
   }
-  pub unsafe fn new(header: &'a GcHeader, value: NonNull<U>) -> Self {
+  pub(super) fn new(header: &'a GcHeader, value: NonNull<U>) -> Self {
     header.start_borrow_mut();
 
     Self {
