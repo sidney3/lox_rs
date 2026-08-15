@@ -5,16 +5,17 @@ use log::debug;
 use nonempty::{NonEmpty, nonempty};
 use smallvec::SmallVec;
 
-use super::call_frame::CallFrame;
 use crate::asm::{Instruction, InstructionKind};
+use crate::gc::Ref;
 use crate::runtime::{
-  Closure, Function, Obj, ObjData, Runtime, RuntimeError, UpValue, UpValueDescriptor, Value,
+  CallFrame, Closure, FrameIndex, Function, Obj, ObjData, Runtime, RuntimeError, UpValue,
+  UpValueDescriptor, Value,
 };
 use either::Either;
 
 pub struct Executor<'vm> {
   vm: &'vm mut Runtime,
-  call_stack: NonEmpty<CallFrame>,
+  call_stack: NonEmpty<FrameIndex>,
   open_upvalues: Vec<Obj<UpValue>>,
 }
 
@@ -24,11 +25,12 @@ impl<'vm> Executor<'vm> {
       main.borrow(vm).upvalues.is_empty(),
       "main should not capture any closure references"
     );
+
     let main_closure = vm.alloc_typed(Closure {
       func: main,
       upvalues: Vec::new(),
     });
-    let main_frame = CallFrame::new(vm, main_closure, 0);
+    let main_frame = vm.alloc_frame(main_closure, 0);
 
     Self {
       vm,
@@ -58,18 +60,47 @@ impl<'vm> Executor<'vm> {
   }
 
   fn frame(&self) -> &CallFrame {
-    self.call_stack.last()
+    self.vm.frame(*self.call_stack.last())
+  }
+  fn frame_mut(&mut self) -> &mut CallFrame {
+    self.vm.frame_mut(*self.call_stack.last())
+  }
+
+  fn load_instruction(&mut self) -> Option<Instruction> {
+    let frame = self.frame();
+    let out = frame
+      .closure
+      .borrow(self.vm)
+      .func
+      .borrow(self.vm)
+      .chunk
+      .instructions
+      .get(frame.ip)
+      .cloned();
+
+    self.frame_mut().ip += 1;
+
+    out
   }
   fn load_stack(&self, offset: usize) -> Value {
-    self
-      .call_stack
-      .last()
-      .load_val(offset, &self.vm.value_stack)
-      .expect("Stack offset out of range")
+    let frame = self.frame();
+
+    self.vm.value_stack[frame.base + offset]
+  }
+  fn load_const(&self, index: usize) -> Value {
+    self.frame().constants[index]
   }
   fn set_stack(&mut self, offset: usize, set_to: Value) {
     let idx = offset + self.frame().base;
     self.vm.value_stack[idx] = set_to;
+  }
+
+  fn active_fn(&self) -> Ref<'_, Closure> {
+    self.frame().closure.borrow(self.vm)
+  }
+
+  fn upval(&self, idx: usize) -> Obj<UpValue> {
+    self.active_fn().upvalues[idx]
   }
 
   fn push_value(&mut self, val: Value) {
@@ -133,17 +164,16 @@ impl<'vm> Executor<'vm> {
 
   pub fn execute(mut self) -> Result<(), RuntimeError> {
     loop {
-      let next_instruction: Instruction =
-        if let Some(inst) = self.call_stack.last_mut().pop_instruction(self.vm) {
-          inst
-        } else {
-          panic!("Walked off the end of frame!")
-        };
+      let next_instruction: Instruction = if let Some(inst) = self.load_instruction() {
+        inst
+      } else {
+        panic!("Walked off the end of frame!")
+      };
       debug!(
         "About to execute: {:?}. Ip = {}, Bp = {}, Sp = {}",
         next_instruction,
-        self.call_stack.last().ip,
-        self.call_stack.last().base,
+        self.frame().ip,
+        self.frame().base,
         self.vm.value_stack.len()
       );
 
@@ -167,7 +197,7 @@ impl<'vm> Executor<'vm> {
           self.push_value(val);
         }
         InstructionKind::Constant => {
-          let val = self.call_stack.last().constants[next_instruction.operand as usize];
+          let val = self.load_const(next_instruction.operand as usize);
           self.push_value(val);
         }
         InstructionKind::Pop => {
@@ -179,33 +209,21 @@ impl<'vm> Executor<'vm> {
         }
         InstructionKind::JumpIfFalse => {
           if !bool::try_from(&self.pop())? {
-            self
-              .call_stack
-              .last_mut()
-              .jmp(self.vm, next_instruction.operand as usize)
+            self.frame_mut().jmp(next_instruction.operand as usize);
           }
         }
         InstructionKind::JumpIfFalsePreserving => {
           if !bool::try_from(self.peek())? {
-            self
-              .call_stack
-              .last_mut()
-              .jmp(self.vm, next_instruction.operand as usize)
+            self.frame_mut().jmp(next_instruction.operand as usize)
           }
         }
         InstructionKind::JumpIfTruePreserving => {
           if bool::try_from(self.peek())? {
-            self
-              .call_stack
-              .last_mut()
-              .jmp(self.vm, next_instruction.operand as usize)
+            self.frame_mut().jmp(next_instruction.operand as usize)
           }
         }
         InstructionKind::Jmp => {
-          self
-            .call_stack
-            .last_mut()
-            .jmp(self.vm, next_instruction.operand as usize);
+          self.frame_mut().jmp(next_instruction.operand as usize);
         }
         InstructionKind::Assert => {
           let operand = match self.pop() {
@@ -268,7 +286,7 @@ impl<'vm> Executor<'vm> {
         }
 
         InstructionKind::MakeClosure => {
-          let func_handle = self.call_stack.last().constants[next_instruction.operand as usize];
+          let func_handle = self.load_const(next_instruction.operand as usize);
 
           let func = match func_handle {
             Value::Obj(handle) => {
@@ -290,8 +308,7 @@ impl<'vm> Executor<'vm> {
                 self.open_upvalues.push(upval);
               }
               UpValueDescriptor::Recursive { parent_upvalue_pos } => {
-                let parent = self.call_stack.last();
-                upvalues.push(parent.upvalues(self.vm)[parent_upvalue_pos]);
+                upvalues.push(self.active_fn().upvalues[parent_upvalue_pos]);
               }
             }
           }
@@ -321,38 +338,36 @@ impl<'vm> Executor<'vm> {
             ));
           }
 
-          self
-            .call_stack
-            .push(CallFrame::new(self.vm, closure, f_idx));
+          self.call_stack.push(self.vm.alloc_frame(closure, f_idx));
         }
         InstructionKind::Return => {
           let returned_frame = match self.call_stack.pop() {
             Some(called) => called,
             None => {
               assert!(self.vm.value_stack.is_empty());
-              assert!(self.call_stack.last().base == 0);
+              assert!(self.frame().base == 0);
               return Ok(());
             }
           };
           let ret_val = self.pop();
 
-          let leftover_stack_vals = returned_frame.closure.func(self.vm).arity + 1;
+          let leftover_stack_vals = self.vm.frame(returned_frame).closure.func(self.vm).arity + 1;
 
           assert!(
-            self.vm.value_stack.len() >= returned_frame.base + leftover_stack_vals,
+            self.vm.value_stack.len() >= self.vm.frame(returned_frame).base + leftover_stack_vals,
             "We got calling conventions wrong. Stack sized {} when at least expecting bp={} + (f,args...)={}.",
             self.vm.value_stack.len(),
-            returned_frame.base,
+            self.vm.frame(returned_frame).base,
             leftover_stack_vals,
           );
 
-          self.drain_stack(returned_frame.base);
+          self.drain_stack(self.vm.frame(returned_frame).base);
           self.push_value(ret_val);
         }
         InstructionKind::LoadUpValue => {
           let val = {
             let idx = next_instruction.operand as usize;
-            match *self.frame().upvalue(self.vm, idx as usize) {
+            match *self.upval(idx as usize).borrow(self.vm) {
               UpValue::Open { absolute_stack_pos } => self.vm.value_stack[absolute_stack_pos],
               UpValue::Closed(val) => val,
             }
@@ -364,7 +379,7 @@ impl<'vm> Executor<'vm> {
           let set_to = self.pop();
 
           let pos = {
-            let upval = self.frame().upvalues(self.vm)[next_instruction.operand as usize];
+            let upval = self.upval(next_instruction.operand as usize);
             match *upval.borrow(self.vm) {
               UpValue::Open { absolute_stack_pos } => Either::Left(absolute_stack_pos),
               UpValue::Closed(_) => Either::Right(upval),
