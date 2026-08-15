@@ -11,6 +11,7 @@ name = "lox_rs"
 version = "0.1.0"
 edition = "2024"
 
+
 [dependencies]
 smallvec = "1"
 itertools = "0.12"
@@ -26,3 +27,6 @@ clap = { version = "4.6.1", features = ["derive"] }
 log = "0.4.33"
 env_logger = "0.11.11"
 annotate-snippets = "0.12.16"
+
+[features]
+stress_test_gc = []

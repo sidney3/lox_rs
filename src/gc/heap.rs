@@ -49,19 +49,13 @@ pub struct Heap<U> {
   next_gc: usize,
 }
 
-pub enum AllocResult<U> {
-  Success(Handle<U>),
-  NeedGc(U),
-}
+pub type AllocResult<U> = std::result::Result<Handle<U>, AllocFailure<U>>;
 
-impl<U> AllocResult<U> {
-  #[cfg(test)]
-  fn as_handle(&self) -> Option<Handle<U>> {
-    match self {
-      &Self::Success(handle) => Some(handle),
-      _ => None,
-    }
-  }
+// When allocation of an object O fails, we return
+// the object back to the caller.
+#[derive(Debug)]
+pub enum AllocFailure<U> {
+  NeedGc(U),
 }
 
 impl<U: Sized> Heap<U> {
@@ -100,7 +94,7 @@ impl<U: Sized> Heap<U> {
 
   pub fn alloc(&mut self, insertee: U) -> AllocResult<U> {
     if self.bytes_allocated() > self.next_gc {
-      return AllocResult::NeedGc(insertee);
+      return Err(AllocFailure::NeedGc(insertee));
     }
 
     if self.capacity() == 0 {
@@ -112,7 +106,7 @@ impl<U: Sized> Heap<U> {
     self.storage[block.0].data.write(insertee);
     self.live_blocks.insert(block);
 
-    AllocResult::Success(Handle::<U>::new(block))
+    Ok(Handle::<U>::new(block))
   }
 
   // Access Handle without any sort of borrow checking. Basically reserved
@@ -213,6 +207,7 @@ impl<U: Trace<U>> Trace<U> for Handle<U> {
 mod test {
   use super::*;
 
+  #[derive(Debug)]
   struct Obj {
     reachable: Vec<Handle<Obj>>,
   }
@@ -246,13 +241,10 @@ mod test {
       gc_growth_factor: 4,
     });
 
-    let unreachable = heap.alloc(Obj::new()).as_handle().unwrap();
-    let _ = heap
-      .alloc(Obj::with_children(vec![unreachable]))
-      .as_handle()
-      .unwrap();
+    let unreachable = heap.alloc(Obj::new()).unwrap();
+    let _ = heap.alloc(Obj::with_children(vec![unreachable])).unwrap();
 
-    let reachable = heap.alloc(Obj::new()).as_handle().unwrap();
+    let reachable = heap.alloc(Obj::new()).unwrap();
 
     heap.collect(&reachable);
 
@@ -272,16 +264,13 @@ mod test {
       gc_growth_factor: 4,
     });
 
-    let root = heap
-      .alloc(Obj::new())
-      .as_handle()
-      .expect("Root allocation failed");
+    let root = heap.alloc(Obj::new()).expect("Root allocation failed");
 
     for _ in 0..10000 {
       match heap.alloc(Obj::new()) {
-        AllocResult::NeedGc(obj) => {
+        Err(AllocFailure::NeedGc(obj)) => {
           heap.collect(&root);
-          heap.alloc(obj).as_handle().expect("Ran out of space");
+          heap.alloc(obj).expect("Ran out of space");
         }
         _ => {}
       }

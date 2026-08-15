@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 
-use lasso::Spur;
-
 use super::Obj;
 use super::ObjData;
 use super::ObjKind;
 use super::value::Value;
-use crate::gc::AllocResult;
-use crate::gc::{self, Trace, Tracer};
+use crate::gc::{self, AllocFailure, Trace, Tracer};
 
 pub type Heap = gc::Heap<ObjData>;
 pub type Handle = gc::Handle<ObjData>;
@@ -36,7 +33,12 @@ impl<'s, 'g> GcRoot<'s, 'g> {
 
 impl<'s, 'g> Trace<ObjData> for GcRoot<'s, 'g> {
   fn trace(&self, heap: &Heap, tracer: &mut Tracer<ObjData>) {
-    todo!();
+    for val in self.stack {
+      val.trace(heap, tracer);
+    }
+    for val in self.globals.values() {
+      val.trace(heap, tracer);
+    }
   }
 }
 
@@ -64,13 +66,21 @@ impl Runtime {
     self.heap.borrow_mut(h)
   }
 
+  fn collect(&mut self) {
+    self
+      .heap
+      .collect(&GcRoot::new(&self.value_stack, &self.globals));
+  }
+
   pub fn alloc(&mut self, obj: ObjData) -> Handle {
+    if cfg!(feature = "stress_test_gc") {
+      self.collect();
+    }
+
     match self.heap.alloc(obj) {
-      AllocResult::Success(handle) => handle,
-      AllocResult::NeedGc(obj) => {
-        self
-          .heap
-          .collect(&GcRoot::new(&self.value_stack, &self.globals));
+      Ok(handle) => handle,
+      Err(AllocFailure::NeedGc(obj)) => {
+        self.collect();
         self.alloc(obj)
       }
     }
