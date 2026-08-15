@@ -3,7 +3,6 @@ use super::Tracer;
 use super::header::GcHeader;
 use log::debug;
 use std::collections::HashSet;
-use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem::size_of;
@@ -20,21 +19,23 @@ struct Index(usize);
 #[derive(Debug)]
 pub struct Handle<U> {
   index: Index, // always live
+  generation: usize,
   _data: PhantomData<U>,
 }
 
 impl<U> Clone for Handle<U> {
   fn clone(&self) -> Self {
-    Handle::new(self.index)
+    Handle::new(self.index, self.generation)
   }
 }
 
 impl<U> Copy for Handle<U> {}
 
 impl<U> Handle<U> {
-  fn new(index: Index) -> Self {
+  fn new(index: Index, generation: usize) -> Self {
     Self {
       index,
+      generation,
       _data: PhantomData,
     }
   }
@@ -49,9 +50,7 @@ pub struct Heap<U> {
   storage: Vec<GcBlock<U>>,
   live_blocks: HashSet<Index>,
 
-  // TODO: switch this to a Vec. VecDeque makes
-  // UAF easier to detect.
-  free_blocks: VecDeque<Index>,
+  free_blocks: Vec<Index>,
   cur_generation: usize,
   config: HeapConfig,
   next_gc: usize,
@@ -73,7 +72,7 @@ impl<U: Sized> Heap<U> {
     let mut heap = Self {
       storage: Vec::new(),
       live_blocks: HashSet::new(),
-      free_blocks: VecDeque::new(),
+      free_blocks: Vec::new(),
       cur_generation: 0,
       next_gc: 2 * initial_size * size_of::<U>(),
       config,
@@ -112,13 +111,13 @@ impl<U: Sized> Heap<U> {
       self.grow(self.storage.len());
     }
 
-    let block = self.free_blocks.pop_front().expect("Just resized");
+    let block = self.free_blocks.pop().expect("Just resized");
 
     self.storage[block.0].data.write(insertee);
     self.storage[block.0].header = GcHeader::new(self.cur_generation);
     self.live_blocks.insert(block);
 
-    Ok(Handle::<U>::new(block))
+    Ok(Handle::<U>::new(block, self.cur_generation))
   }
 
   // Access Handle without any sort of borrow checking. Basically reserved
@@ -138,10 +137,8 @@ impl<U: Sized> Heap<U> {
       let block = &self.storage[gc.index.0];
 
       assert!(
-        block.header.valid_until() >= self.cur_generation,
-        "Use after free. Object is only valid until gen {}, but heap is at gen {}",
-        block.header.valid_until(),
-        self.cur_generation,
+        block.header.generation() == gc.generation,
+        "Use after free."
       );
       Ref::new(
         &block.header,
@@ -153,12 +150,7 @@ impl<U: Sized> Heap<U> {
   pub fn borrow_mut<'a>(&'a self, gc: Handle<U>) -> RefMut<'a, U> {
     unsafe {
       let block = &self.storage[gc.index.0];
-      assert!(
-        block.header.valid_until() >= self.cur_generation,
-        "Use after free. Object is only valid until gen {}, but heap is at gen {}",
-        block.header.valid_until(),
-        self.cur_generation,
-      );
+      assert!(gc.generation == block.header.generation(), "Use after free",);
       RefMut::new(
         &block.header,
         NonNull::from_ref(block.data.assume_init_ref()),
@@ -199,8 +191,7 @@ impl<U: Sized> Heap<U> {
     let mut next_live_blocks = std::mem::take(&mut self.live_blocks);
     let mut next_free_blocks = std::mem::take(&mut self.free_blocks);
 
-    let removed =
-      next_live_blocks.extract_if(|i| !self.index_header(*i).valid_until() > self.cur_generation);
+    let removed = next_live_blocks.extract_if(|i| !self.index_header(*i).is_marked());
 
     for freed_block in removed {
       unsafe {
@@ -211,7 +202,7 @@ impl<U: Sized> Heap<U> {
         );
       }
 
-      next_free_blocks.push_back(freed_block);
+      next_free_blocks.push(freed_block);
     }
 
     self.live_blocks = next_live_blocks;
@@ -228,7 +219,8 @@ impl<U: Sized> Heap<U> {
 
   #[cfg(test)]
   fn is_live(&self, index: Index) -> bool {
-    self.index_header(index).valid_until() == self.cur_generation
+    use itertools::Itertools;
+    self.live_blocks.iter().contains(&index)
   }
 }
 

@@ -21,7 +21,7 @@ impl<'gc, U> Tracer<'gc, U> {
   }
 
   pub fn mark(&mut self, elt: Handle<U>) {
-    if self.heap.header(elt).mark(self.collecting_generation) {
+    if self.heap.header(elt).mark() {
       self.grey.push(elt);
     }
   }

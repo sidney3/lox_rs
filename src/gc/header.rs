@@ -8,27 +8,41 @@ pub(super) enum BorrowState {
   BorrowedMut,
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
+enum Color {
+  White,
+  Black,
+}
+
 pub(super) struct GcHeader {
   borrow_state: Cell<BorrowState>,
-  generation: Cell<usize>,
+
+  // the collection generation when this header was allocated
+  // used to detect use after free
+  generation: usize,
+  marking: Cell<Color>,
 }
 
 impl GcHeader {
   pub(super) fn new(cur_generation: usize) -> Self {
     Self {
       borrow_state: Cell::new(BorrowState::Unborrowed),
-      generation: Cell::new(cur_generation),
+      generation: cur_generation,
+      marking: Cell::new(Color::White),
     }
   }
 
   // Mark a node as reachable. Returns if this is the first
   // time marking it (e.g. it needs to be explored)
-  pub(super) fn mark(&self, collecting_generation: usize) -> bool {
-    self.generation.replace(collecting_generation + 1) == collecting_generation
+  pub(super) fn mark(&self) -> bool {
+    self.marking.replace(Color::Black) == Color::White
+  }
+  pub(super) fn is_marked(&self) -> bool {
+    self.marking.get() == Color::Black
   }
 
-  pub(super) fn valid_until(&self) -> usize {
-    self.generation.get()
+  pub(super) fn generation(&self) -> usize {
+    self.generation
   }
 
   // runtime borrow checker
