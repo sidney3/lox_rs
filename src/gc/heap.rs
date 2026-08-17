@@ -4,6 +4,7 @@ use super::header::GcHeader;
 use log::debug;
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::mem::size_of;
 use std::ptr::NonNull;
@@ -13,7 +14,7 @@ use super::{Ref, RefMut, UncheckedRef};
 
 // TODO: typestate to describe live and ambiguous
 // indices.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, PartialOrd)]
 struct Index(usize);
 
 #[derive(Debug)]
@@ -22,6 +23,26 @@ pub struct Handle<U> {
   generation: usize,
   _data: PhantomData<U>,
 }
+
+impl<U> PartialOrd for Handle<U> {
+  fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    self.index.partial_cmp(&other.index)
+  }
+}
+
+impl<U> Hash for Handle<U> {
+  fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    self.index.hash(state);
+  }
+}
+
+impl<U> PartialEq for Handle<U> {
+  fn eq(&self, other: &Self) -> bool {
+    self.index == other.index
+  }
+}
+
+impl<U> Eq for Handle<U> {}
 
 impl<U> Clone for Handle<U> {
   fn clone(&self) -> Self {
@@ -177,9 +198,8 @@ impl<U: Sized> Heap<U> {
     root.trace(self, &mut tracer);
 
     while let Some(next) = tracer.pop() {
-      unsafe {
-        self.borrow_unchecked(next).deref().trace(self, &mut tracer);
-      }
+      debug!("Marking index {}", next.index.0);
+      next.trace(self, &mut tracer);
     }
   }
   fn sweep(&mut self)
@@ -205,6 +225,10 @@ impl<U: Sized> Heap<U> {
       next_free_blocks.push(freed_block);
     }
 
+    for live_block in &next_live_blocks {
+      self.storage[live_block.0].header.unmark();
+    }
+
     self.live_blocks = next_live_blocks;
     self.free_blocks = next_free_blocks;
   }
@@ -224,7 +248,7 @@ impl<U: Sized> Heap<U> {
   }
 }
 
-impl<U: Trace<U> + Debug> Trace<U> for Handle<U> {
+impl<U: Trace<U>> Trace<U> for Handle<U> {
   fn trace(&self, heap: &Heap<U>, t: &mut Tracer<U>) {
     t.mark(*self);
     unsafe {
@@ -235,6 +259,7 @@ impl<U: Trace<U> + Debug> Trace<U> for Handle<U> {
 
 #[cfg(test)]
 mod test {
+
   use super::*;
 
   #[derive(Debug)]

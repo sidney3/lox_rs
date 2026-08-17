@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 
-use super::CallFrame;
 use super::Obj;
 use super::ObjData;
 use super::ObjKind;
 use super::value::Value;
+use super::{CallFrame, Root};
 use crate::gc::{self, AllocFailure, Trace, Tracer};
 use crate::runtime::Closure;
 use log::debug;
@@ -25,25 +26,35 @@ pub struct Runtime {
   pub heap: Heap,
   pub symbols: lasso::Rodeo,
   pub globals: Globals,
+  // TODO: this can be a linked list, and the
+  // handle can live in the root
+  roots: HashSet<Handle>,
 }
 
-pub struct GcRoot<'a, 'b, 'c> {
+pub struct GcRoot<'a, 'b, 'c, 'd> {
   stack: &'a Stack,
   globals: &'b Globals,
   frames: &'c Vec<CallFrame>,
+  roots: &'d HashSet<Handle>,
 }
 
-impl<'a, 'b, 'c> GcRoot<'a, 'b, 'c> {
-  pub fn new(stack: &'a Stack, globals: &'b Globals, frames: &'c Vec<CallFrame>) -> Self {
+impl<'a, 'b, 'c, 'd> GcRoot<'a, 'b, 'c, 'd> {
+  pub fn new(
+    stack: &'a Stack,
+    globals: &'b Globals,
+    frames: &'c Vec<CallFrame>,
+    roots: &'d HashSet<Handle>,
+  ) -> Self {
     Self {
       stack,
       globals,
       frames,
+      roots,
     }
   }
 }
 
-impl Trace<ObjData> for GcRoot<'_, '_, '_> {
+impl Trace<ObjData> for GcRoot<'_, '_, '_, '_> {
   fn trace(&self, heap: &Heap, tracer: &mut Tracer<ObjData>) {
     for val in self.stack {
       val.trace(heap, tracer);
@@ -54,6 +65,10 @@ impl Trace<ObjData> for GcRoot<'_, '_, '_> {
 
     for frame in self.frames {
       frame.trace(heap, tracer);
+    }
+
+    for root in self.roots {
+      root.trace(heap, tracer);
     }
   }
 }
@@ -67,6 +82,7 @@ impl Runtime {
         initial_size: 4096,
         gc_growth_factor: 2,
       }),
+      roots: HashSet::new(),
       symbols: lasso::Rodeo::new(),
       globals: HashMap::new(),
     }
@@ -112,6 +128,7 @@ impl Runtime {
       &self.value_stack,
       &self.globals,
       &self.call_frames,
+      &self.roots,
     ));
   }
 
@@ -136,6 +153,15 @@ impl Runtime {
   pub fn alloc_typed<T: ObjKind>(&mut self, obj: T) -> Obj<T> {
     Obj::<T>::downcast(self.alloc(obj.embed()), self)
       .expect("We know the type of the object we just allocated")
+  }
+
+  pub fn deroot<T: ObjKind>(&mut self, root: Root<T>) {
+    self.roots.remove(&root.as_obj().as_handle());
+    std::mem::forget(root);
+  }
+  pub fn root<T: ObjKind>(&mut self, obj: Obj<T>) -> Root<T> {
+    self.roots.insert(obj.as_handle());
+    Root::new(obj)
   }
 
   pub fn stack_top(&self) -> usize {

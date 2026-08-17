@@ -15,7 +15,7 @@ use thiserror::Error;
 
 use crate::executor::Executor;
 use crate::frontend::{Diagnostic, ToDiagnostic};
-use crate::runtime::{Function, Obj, Runtime, RuntimeError};
+use crate::runtime::{Function, Root, Runtime, RuntimeError};
 
 pub struct Config {
   pub script: PathBuf,
@@ -45,7 +45,7 @@ impl ToDiagnostic for CompileError {
   }
 }
 
-fn compile(program: &str, rt: &mut Runtime) -> Result<Obj<Function>, CompileError> {
+fn compile(program: &str, rt: &mut Runtime) -> Result<Root<Function>, CompileError> {
   let lexer = frontend::token::LoxLexer::new().expect("Token definition error");
   let parser = frontend::ast::LoxParser::new();
 

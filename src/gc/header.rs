@@ -1,3 +1,4 @@
+use log::debug;
 use std::cell::Cell;
 use strum::Display;
 
@@ -36,6 +37,9 @@ impl GcHeader {
   // time marking it (e.g. it needs to be explored)
   pub(super) fn mark(&self) -> bool {
     self.marking.replace(Color::Black) == Color::White
+  }
+  pub(super) fn unmark(&self) {
+    assert!(self.marking.replace(Color::White) == Color::Black);
   }
   pub(super) fn is_marked(&self) -> bool {
     self.marking.get() == Color::Black

@@ -4,7 +4,7 @@ use super::chunk::Chunk;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
-use crate::runtime::{Function, Symbol, UpValueDescriptor, Value};
+use crate::runtime::{Function, Root, Runtime, Symbol, UpValueDescriptor, Value};
 
 // Expression results are transient on the stack.
 //
@@ -25,15 +25,13 @@ enum VariableLocation {
 }
 
 pub struct FuncState {
-  constants: Vec<Value>,
+  staging: Root<Function>,
   instructions: SymbolicProgram,
   locals: Vec<Local>,
   upvalues: Vec<(Symbol, UpValueDescriptor)>,
   scope_depth: usize,
   // active_loops.back() is the current loop
   active_loops: Vec<Label>,
-  name: Symbol,
-  arity: usize,
 
   parent: Option<Box<Self>>,
 }
@@ -48,40 +46,39 @@ impl FuncStack {
     &mut self.0
   }
 
-  pub fn push(&mut self, name: Symbol, arity: usize) {
-    let prev_head = std::mem::replace(&mut self.0, Box::new(FuncState::new(name, arity, None)));
+  pub fn push(&mut self, rt: &mut Runtime, name: Symbol, arity: usize) {
+    let prev_head = std::mem::replace(&mut self.0, Box::new(FuncState::new(rt, name, arity, None)));
     self.0.set_parent(prev_head);
   }
 
-  pub fn pop(&mut self) -> Option<Function> {
+  pub fn pop(&mut self, rt: &mut Runtime) -> Option<Root<Function>> {
     match self.0.try_pop() {
       Some(prev_head) => {
         let head = std::mem::replace(&mut self.0, prev_head);
-        Some(head.assemble())
+        Some(head.assemble(rt))
       }
       None => None,
     }
   }
 
-  pub fn pop_last(mut self) -> Option<Function> {
+  pub fn pop_last(mut self, rt: &mut Runtime) -> Option<Root<Function>> {
     match self.0.try_pop() {
       Some(_) => None,
-      None => Some(self.0.assemble()),
+      None => Some(self.0.assemble(rt)),
     }
   }
 }
 
 impl FuncState {
-  pub fn new(name: Symbol, arity: usize, parent: Option<Box<Self>>) -> Self {
+  pub fn new(rt: &mut Runtime, name: Symbol, arity: usize, parent: Option<Box<Self>>) -> Self {
+    let staging = rt.alloc_typed(Function::new(name, arity)).as_root(rt);
     Self {
-      constants: Vec::new(),
+      staging,
       instructions: SymbolicProgram::new(),
       locals: Vec::new(),
       upvalues: Vec::new(),
       active_loops: Vec::new(),
       scope_depth: 0,
-      name,
-      arity,
       parent,
     }
   }
@@ -104,9 +101,10 @@ impl FuncState {
     self.emit_symbolic(SymbolicInstruction::Label(label));
   }
 
-  pub fn add_constant(&mut self, constant: Value) -> Result<OperandType> {
-    let index = self.constants.len();
-    self.constants.push(constant);
+  pub fn add_constant(&mut self, rt: &mut Runtime, constant: Value) -> Result<OperandType> {
+    let constants = &mut self.staging.as_obj().borrow_mut(rt).chunk.constants;
+    let index = constants.len();
+    constants.push(constant);
     OperandType::try_from(index).map_err(|_| Error::IndexOutOfRange(index))
   }
 
@@ -125,21 +123,16 @@ impl FuncState {
     self.parent = Some(parent);
   }
 
-  fn assemble(self) -> Function {
-    let chunk = Box::new(Chunk {
-      instructions: self
-        .instructions
-        .parse()
-        .expect("Symbolic resolution failure."),
-      constants: self.constants,
-    });
+  fn assemble(self, rt: &mut Runtime) -> Root<Function> {
+    let mut func = self.staging.as_obj().borrow_mut(rt);
 
-    Function {
-      chunk,
-      upvalues: self.upvalues,
-      arity: self.arity,
-      name: self.name,
-    }
+    func.upvalues = self.upvalues;
+    func.chunk.instructions = self
+      .instructions
+      .parse()
+      .expect("Symbolic resolution failure.");
+
+    self.staging
   }
 
   pub fn at_global_depth(&self) -> bool {
@@ -201,8 +194,8 @@ impl FuncState {
       SymbolicOp::Label(to),
     ));
   }
-  pub fn constant(&mut self, constant: Value) -> Result<()> {
-    let index = self.add_constant(constant)?;
+  pub fn constant(&mut self, rt: &mut Runtime, constant: Value) -> Result<()> {
+    let index = self.add_constant(rt, constant)?;
     self.emit(Instruction {
       kind: InstructionKind::Constant,
       operand: index,
@@ -218,11 +211,6 @@ impl FuncState {
     Ok(())
   }
 
-  pub fn trivial_ret(&mut self) -> Result<()> {
-    self.constant(Value::Nil)?;
-    self.emit(Instruction::new(InstructionKind::Return));
-    Ok(())
-  }
   pub fn ret(&mut self) {
     self.emit(Instruction::new(InstructionKind::Return));
   }
@@ -247,15 +235,6 @@ impl FuncState {
       scope_depth: self.scope_depth,
       symbol: sym,
     });
-  }
-
-  pub fn make_closure(&mut self, func: Value) -> Result<()> {
-    let func_index = self.add_constant(func)?;
-    self.emit(Instruction {
-      kind: InstructionKind::MakeClosure,
-      operand: func_index,
-    });
-    Ok(())
   }
 
   pub fn define_var(&mut self, sym: Symbol) -> Result<()> {

@@ -8,7 +8,7 @@ use smallvec::SmallVec;
 use crate::asm::{Instruction, InstructionKind};
 use crate::gc::Ref;
 use crate::runtime::{
-  CallFrame, Closure, FrameIndex, Function, Obj, ObjData, Runtime, RuntimeError, UpValue,
+  CallFrame, Closure, FrameIndex, Function, Obj, ObjData, Root, Runtime, RuntimeError, UpValue,
   UpValueDescriptor, Value,
 };
 use either::Either;
@@ -20,24 +20,26 @@ pub struct Executor<'vm> {
 }
 
 impl<'vm> Executor<'vm> {
-  pub fn new(vm: &'vm mut Runtime, main: Obj<Function>) -> Self {
-    vm.value_stack.push(main.as_value());
+  pub fn new(vm: &'vm mut Runtime, main: Root<Function>) -> Self {
     assert!(
-      main.borrow(vm).upvalues.is_empty(),
+      main.as_obj().borrow(vm).upvalues.is_empty(),
       "main should not capture any closure references"
     );
 
-    let main_closure = vm.alloc_typed(Closure {
-      func: main,
-      upvalues: Vec::new(),
-    });
-    vm.value_stack.pop();
+    let main_closure = vm
+      .alloc_typed(Closure {
+        func: main.as_obj(),
+        upvalues: Vec::new(),
+      })
+      .as_root(vm);
 
-    vm.value_stack.push(main_closure.as_value());
+    // lifetime extended by main closure
+    main.free(vm);
 
-    let main_frame = vm.alloc_frame(main_closure, 0);
+    let main_frame = vm.alloc_frame(main_closure.as_obj(), 0);
 
-    vm.value_stack.pop();
+    // lifetime extended vm frames
+    main_closure.free(vm);
 
     Self {
       vm,

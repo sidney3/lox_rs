@@ -1,15 +1,5 @@
-{
-	fun inner() {
-		var x = 9;
-
-		fun f(equal_to) {
-			assert x == equal_to;
-		}
-
-		f(9);
-
-		x = 10;
-	}
-
-	inner();
+fun f(arg) {
+	return "Hello " + arg;
 }
+
+assert f("World") == "Hello World";

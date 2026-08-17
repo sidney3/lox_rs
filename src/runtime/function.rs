@@ -21,6 +21,17 @@ pub struct Function {
   pub upvalues: Vec<(Symbol, UpValueDescriptor)>,
 }
 
+impl Function {
+  pub fn new(name: Symbol, arity: usize) -> Self {
+    Self {
+      chunk: Box::new(Chunk::new()),
+      arity,
+      name,
+      upvalues: Vec::new(),
+    }
+  }
+}
+
 impl Trace<ObjData> for Function {
   fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
     for constant in &self.chunk.constants {

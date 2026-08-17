@@ -11,6 +11,15 @@ pub struct Chunk {
   pub constants: Vec<Value>,
 }
 
+impl Chunk {
+  pub fn new() -> Self {
+    Chunk {
+      instructions: Vec::new(),
+      constants: Vec::new(),
+    }
+  }
+}
+
 impl fmt::Display for Chunk {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     writeln!(f, "Instructions: [{}]", self.instructions.iter().join(", "))?;

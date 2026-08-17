@@ -5,33 +5,34 @@ use crate::asm::{
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::runtime::{Function, Obj, ObjData, Runtime, Symbol, Value};
+use crate::runtime::{Function, Obj, ObjData, Root, Runtime, Symbol, Value};
+use log::debug;
 
 pub struct Compiler<'a, 'vm> {
   compile_stack: FuncStack,
   ast: &'a Ast,
-  runtime: &'vm mut Runtime,
+  rt: &'vm mut Runtime,
 }
 
 impl<'a, 'vm> Compiler<'a, 'vm> {
-  pub fn new(ast: &'a Ast, runtime: &'vm mut Runtime) -> Self {
-    let main_sym = runtime.symbols.get_or_intern_static("main");
+  pub fn new(ast: &'a Ast, rt: &'vm mut Runtime) -> Self {
+    let main_sym = rt.symbols.get_or_intern_static("main");
     Self {
-      compile_stack: FuncStack::new(FuncState::new(main_sym, 0, None)),
+      compile_stack: FuncStack::new(FuncState::new(rt, main_sym, 0, None)),
       ast,
-      runtime,
+      rt,
     }
   }
 
-  pub fn compile(mut self) -> Result<Obj<Function>> {
+  pub fn compile(mut self) -> Result<Root<Function>> {
     self.ast(self.ast)?;
 
     let main = self
       .compile_stack
-      .pop_last()
+      .pop_last(self.rt)
       .expect("Finished compilation with excess remaining frames");
 
-    Ok(self.runtime.alloc_typed(main))
+    Ok(main)
   }
 
   pub fn load_ident_sym(&mut self, ident: Ident) -> Symbol {
@@ -39,7 +40,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
   }
 
   pub fn load_str_sym(&mut self, s: &str) -> Symbol {
-    self.runtime.symbols.get_or_intern(s)
+    self.rt.symbols.get_or_intern(s)
   }
 
   fn ident_sym(&self, ident: Ident) -> &'a str {
@@ -62,6 +63,11 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     Ok(())
   }
 
+  fn constant(&mut self, constant: Value) -> Result<()> {
+    self.compile_stack.head_mut().constant(self.rt, constant)?;
+
+    Ok(())
+  }
   fn decl(&mut self, decl: &Declaration) -> Result<()> {
     match decl {
       Declaration::Statement(s) => self.statement(s)?,
@@ -71,10 +77,11 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         self.func_mut().define_var(sym)?;
       }
       Declaration::Fun(f) => {
-        self.compile_stack.push(f.name, f.args.len());
-
         // See docs/calling_convention.md
         let f_name = self.load_ident_sym(f.name);
+
+        debug!("Compiling function {}", self.rt.symbols.resolve(&f_name));
+        self.compile_stack.push(self.rt, f_name, f.args.len());
         self.func_mut().add_local(f_name);
 
         for arg in &f.args {
@@ -84,16 +91,32 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
 
         self.block(&f.body)?;
 
-        self.func_mut().trivial_ret()?;
+        self.constant(Value::Nil)?;
+        self.func_mut().ret();
 
         let func = self
           .compile_stack
-          .pop()
+          .pop(self.rt)
           .expect("Compilation stack too small");
 
-        let func_handle = Value::Obj(self.runtime.alloc(ObjData::Func(func)));
+        let func_index = self
+          .compile_stack
+          .head_mut()
+          .add_constant(self.rt, func.as_obj().as_value())?;
 
-        self.func_mut().make_closure(func_handle)?;
+        // Child is on our constant table, we keep it alive.
+        func.free(self.rt);
+
+        // This will push a closure (materialization of the function
+        // capturing the necessary locals) onto the stack, so we
+        // can safely define_var.
+        //
+        // TODO: this is unclear code, can we make some abstraction
+        // for this?
+        self.func_mut().emit(Instruction {
+          kind: InstructionKind::MakeClosure,
+          operand: func_index,
+        });
         self.func_mut().define_var(f_name)?;
       }
     };
@@ -233,7 +256,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
   fn expr(&mut self, expr: &Expression) -> Result<()> {
     match expr {
       Expression::Nil => {
-        self.func_mut().constant(Value::Nil)?;
+        self.constant(Value::Nil)?;
       }
       Expression::Bin(b) => {
         let instruction_kind = match b.op {
@@ -294,12 +317,12 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
 
   fn lit(&mut self, lit: &Literal) -> Result<()> {
     match lit {
-      &Literal::Num(x) => self.func_mut().constant(Value::Num(x))?,
+      &Literal::Num(x) => self.constant(Value::Num(x))?,
       Literal::String(x) => {
-        let string_val = Value::Obj(self.runtime.alloc(ObjData::String(x.clone())));
-        self.func_mut().constant(string_val)?;
+        let string_val = Value::Obj(self.rt.alloc(ObjData::String(x.clone())));
+        self.constant(string_val)?;
       }
-      &Literal::Bool(x) => self.func_mut().constant(Value::Bool(x))?,
+      &Literal::Bool(x) => self.constant(Value::Bool(x))?,
       Literal::Var(v) => {
         let sym = self.load_ident_sym(*v);
         self.func_mut().load_var(sym)?;

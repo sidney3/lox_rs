@@ -1,4 +1,3 @@
-use log::debug;
 use std::marker::PhantomData;
 use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
@@ -120,8 +119,6 @@ impl<'a, U> UncheckedRef<'a, U> {
   }
 
   pub unsafe fn new(header: &'a GcHeader, value: NonNull<U>) -> Self {
-    header.start_borrow();
-
     Self {
       header,
       value,

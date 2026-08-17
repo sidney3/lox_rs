@@ -2,6 +2,7 @@ use std::fmt;
 use std::ops::Deref;
 
 use crate::gc::{self, Heap, Ref, RefMut, Trace, Tracer, UncheckedRef};
+use crate::runtime::Root;
 
 use super::Closure;
 use super::Function;
@@ -95,7 +96,7 @@ pub trait ObjKind: Sized {
 
 // The underlying storage is just ObjData, but we can brand
 // the ObjData blobs with the type we know they hold.
-#[derive(Debug)]
+#[derive(Debug, Hash, Eq, PartialEq, PartialOrd)]
 pub struct Obj<T: ObjKind> {
   raw: Handle,
   _kind: PhantomData<T>,
@@ -113,6 +114,9 @@ impl<T: ObjKind> Clone for Obj<T> {
 impl<T: ObjKind> Copy for Obj<T> {}
 
 impl<T: ObjKind> Obj<T> {
+  pub fn as_root(self, vm: &mut Runtime) -> Root<T> {
+    vm.root(self)
+  }
   pub fn downcast(raw: Handle, vm: &Runtime) -> Option<Self> {
     if T::project(vm.borrow(raw).deref()).is_some() {
       Some(Self {
@@ -153,6 +157,7 @@ impl<T: ObjKind> Obj<T> {
 
 impl<T: ObjKind + Trace<ObjData>> Trace<ObjData> for Obj<T> {
   fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+    tracer.mark(self.as_handle());
     unsafe {
       self.borrow_unchecked(heap).deref().trace(heap, tracer);
     }
