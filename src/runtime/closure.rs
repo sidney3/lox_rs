@@ -9,10 +9,10 @@ pub struct Closure {
 
 impl Trace<ObjData> for Closure {
   fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
-    self.func.trace(heap, tracer);
+    tracer.mark(self.func.as_handle());
 
     for upval in &self.upvalues {
-      upval.trace(heap, tracer);
+      tracer.mark(upval.as_handle());
     }
   }
 }

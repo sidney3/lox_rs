@@ -304,7 +304,7 @@ impl<'vm> Executor<'vm> {
             _ => panic!("MakeClosure expects a function"),
           };
 
-          let mut upvalues: Vec<Obj<UpValue>> = Vec::new();
+          let mut upvalues: Vec<Root<UpValue>> = Vec::new();
 
           let upvalue_descs = func.borrow(self.vm).upvalues.clone();
 
@@ -312,17 +312,28 @@ impl<'vm> Executor<'vm> {
             match upvalue_desc {
               UpValueDescriptor::Local { parent_stack_pos } => {
                 let absolute_stack_pos = self.frame().base + parent_stack_pos;
-                let upval = self.vm.alloc_typed(UpValue::Open { absolute_stack_pos });
+                let upval = self
+                  .vm
+                  .alloc_typed(UpValue::Open { absolute_stack_pos })
+                  .as_root(self.vm);
+                self.open_upvalues.push(upval.as_obj());
                 upvalues.push(upval);
-                self.open_upvalues.push(upval);
               }
               UpValueDescriptor::Recursive { parent_upvalue_pos } => {
-                upvalues.push(self.active_fn().upvalues[parent_upvalue_pos]);
+                let upval = self.active_fn().upvalues[parent_upvalue_pos];
+                upvalues.push(upval.as_root(self.vm));
               }
             }
           }
 
-          let closure = self.vm.alloc(ObjData::Closure(Closure { func, upvalues }));
+          let closure = self.vm.alloc(ObjData::Closure(Closure {
+            func,
+            upvalues: upvalues.iter().map(|u| u.as_obj()).collect(),
+          }));
+
+          for upval in upvalues {
+            upval.free(self.vm);
+          }
 
           self.push_value(Value::Obj(closure));
         }
