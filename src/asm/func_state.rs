@@ -1,6 +1,5 @@
 use lasso::Key;
 
-use super::chunk::Chunk;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
@@ -102,7 +101,7 @@ impl FuncState {
   }
 
   pub fn add_constant(&mut self, rt: &mut Runtime, constant: Value) -> Result<OperandType> {
-    let constants = &mut self.staging.as_obj().borrow_mut(rt).chunk.constants;
+    let constants = &mut self.staging.as_obj().borrow_mut(rt).constants;
     let index = constants.len();
     constants.push(constant);
     OperandType::try_from(index).map_err(|_| Error::IndexOutOfRange(index))
@@ -127,7 +126,7 @@ impl FuncState {
     let mut func = self.staging.as_obj().borrow_mut(rt);
 
     func.upvalues = self.upvalues;
-    func.chunk.instructions = self
+    func.instructions = self
       .instructions
       .parse()
       .expect("Symbolic resolution failure.");

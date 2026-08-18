@@ -103,13 +103,7 @@ impl Runtime {
   }
 
   pub fn alloc_frame(&mut self, closure: Obj<Closure>, bp: usize) -> FrameIndex {
-    let constants = closure
-      .borrow(self)
-      .func
-      .borrow(self)
-      .chunk
-      .constants
-      .clone();
+    let constants = closure.borrow(self).func.borrow(self).constants.clone();
     self.call_frames.push(CallFrame {
       closure,
       ip: 0,

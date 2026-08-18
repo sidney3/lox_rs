@@ -82,7 +82,6 @@ impl<'vm> Executor<'vm> {
       .borrow(self.vm)
       .func
       .borrow(self.vm)
-      .chunk
       .instructions
       .get(frame.ip)
       .cloned();
