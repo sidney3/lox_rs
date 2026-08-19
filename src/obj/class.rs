@@ -1,6 +1,6 @@
 use super::ObjData;
 use super::ObjKind;
-use crate::gc::{Heap, Trace, Tracer};
+use crate::gc::{Trace, Tracer};
 
 #[derive(Debug)]
 pub struct ClassDef {}

@@ -1,5 +1,5 @@
-use super::ObjData;
-use super::{Obj, ObjKind, Runtime};
+use super::Runtime;
+use crate::obj::{Obj, ObjData, ObjKind};
 
 pub struct Root<U: ObjKind>(Obj<U>);
 

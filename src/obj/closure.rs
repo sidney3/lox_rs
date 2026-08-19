@@ -1,5 +1,6 @@
-use super::{Function, Obj, ObjData, ObjKind, Runtime, UpValue};
+use super::{Function, Obj, ObjData, ObjKind, UpValue};
 use crate::gc::{Ref, Trace, Tracer};
+use crate::runtime::Runtime;
 
 #[derive(Debug)]
 pub struct Closure {

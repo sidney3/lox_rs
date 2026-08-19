@@ -1,8 +1,8 @@
-use crate::gc::{Heap, Trace, Tracer};
+use crate::gc::{Trace, Tracer};
+use crate::runtime::Value;
 
 use super::ObjData;
 use super::ObjKind;
-use super::Value;
 
 #[derive(Debug)]
 pub enum UpValue {

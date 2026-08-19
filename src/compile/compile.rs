@@ -5,7 +5,8 @@ use crate::asm::{
 use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::runtime::{ClassDef, Function, Obj, ObjData, Root, Runtime, Symbol, Value};
+use crate::obj::{ClassDef, Function, ObjData};
+use crate::runtime::{Root, Runtime, Symbol, Value};
 use log::debug;
 
 pub struct Compiler<'a, 'vm> {
@@ -80,7 +81,6 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         let name = self.load_ident_sym(class.ident);
         let class_def = self.rt.alloc_typed(ClassDef::new()).as_value();
         self.constant(class_def)?;
-
         self.func_mut().define_var(name)?;
       }
       Declaration::Fun(f) => {

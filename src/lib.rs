@@ -5,6 +5,7 @@ mod executor;
 mod frontend;
 mod gc;
 mod lexer;
+mod obj;
 mod parse;
 mod runtime;
 
@@ -15,7 +16,8 @@ use thiserror::Error;
 
 use crate::executor::Executor;
 use crate::frontend::{Diagnostic, ToDiagnostic};
-use crate::runtime::{Function, Root, Runtime, RuntimeError};
+use crate::obj::Function;
+use crate::runtime::{Root, Runtime, RuntimeError};
 
 pub struct Config {
   pub script: PathBuf,

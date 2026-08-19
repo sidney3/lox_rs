@@ -1,6 +1,7 @@
-use super::{ObjData, ObjKind, Symbol, Value};
+use super::{ObjData, ObjKind};
 use crate::asm::Instruction;
 use crate::gc::{Heap, Trace, Tracer};
+use crate::runtime::{Symbol, Value};
 
 // Compile/runtime bridge: this gets thrown on the static
 // function and consumed by the runtime (to resolve the

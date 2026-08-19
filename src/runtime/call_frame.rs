@@ -1,7 +1,6 @@
-use super::{Closure, Obj, Runtime, UpValue, Value};
-use crate::asm::Instruction;
-use crate::gc::{Heap, Ref, Trace, Tracer};
-use crate::runtime::ObjData;
+use super::Value;
+use crate::gc::{Trace, Tracer};
+use crate::obj::{Closure, Obj, ObjData};
 
 pub struct CallFrame {
   pub closure: Obj<Closure>,

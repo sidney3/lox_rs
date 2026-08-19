@@ -1,4 +1,3 @@
-
 use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
 
 #[derive(Debug)]

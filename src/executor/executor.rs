@@ -7,10 +7,10 @@ use smallvec::SmallVec;
 
 use crate::asm::{Instruction, InstructionKind};
 use crate::gc::Ref;
-use crate::runtime::{
-  CallFrame, ClassDef, ClassInstance, Closure, FrameIndex, Function, Obj, ObjData, Root, Runtime,
-  RuntimeError, UpValue, UpValueDescriptor, Value,
+use crate::obj::{
+  ClassDef, ClassInstance, Closure, Function, Obj, ObjData, UpValue, UpValueDescriptor,
 };
+use crate::runtime::{CallFrame, FrameIndex, Root, Runtime, RuntimeError, Value};
 use either::Either;
 
 pub struct Executor<'vm> {

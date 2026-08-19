@@ -1,8 +1,8 @@
 use std::ops::Deref;
 
-use super::RuntimeError;
+use super::{Handle, Runtime, RuntimeError};
 use crate::gc::{Heap, Trace, Tracer};
-use crate::runtime::{Handle, ObjData, Runtime, UpValue};
+use crate::obj::{ObjData, UpValue};
 use log::info;
 
 pub type Num = f64;

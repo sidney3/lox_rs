@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use super::Obj;
-use super::ObjData;
-use super::ObjKind;
 use super::value::Value;
 use super::{CallFrame, Root};
 use crate::gc::{self, AllocFailure, Trace, Tracer};
-use crate::runtime::Closure;
+use crate::obj::{Closure, Obj, ObjData, ObjKind};
 use log::debug;
 
 pub type Heap = gc::Heap<ObjData>;
