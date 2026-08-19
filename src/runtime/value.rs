@@ -17,7 +17,7 @@ pub enum Value {
 }
 
 impl Trace<ObjData> for Value {
-  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+  fn trace(&self, tracer: &mut Tracer<ObjData>) {
     if let &Value::Obj(handle) = self {
       tracer.mark(handle);
     }

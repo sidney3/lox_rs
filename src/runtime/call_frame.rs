@@ -11,11 +11,11 @@ pub struct CallFrame {
 }
 
 impl Trace<ObjData> for CallFrame {
-  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+  fn trace(&self, tracer: &mut Tracer<ObjData>) {
     tracer.mark(self.closure.as_handle());
 
     for constant in &self.constants {
-      constant.trace(heap, tracer);
+      constant.trace(tracer);
     }
   }
 }

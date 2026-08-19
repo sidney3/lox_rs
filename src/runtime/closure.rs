@@ -1,5 +1,5 @@
 use super::{Function, Obj, ObjData, ObjKind, Runtime, UpValue};
-use crate::gc::{Heap, Ref, Trace, Tracer};
+use crate::gc::{Ref, Trace, Tracer};
 
 #[derive(Debug)]
 pub struct Closure {
@@ -8,7 +8,7 @@ pub struct Closure {
 }
 
 impl Trace<ObjData> for Closure {
-  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+  fn trace(&self, tracer: &mut Tracer<ObjData>) {
     tracer.mark(self.func.as_handle());
 
     for upval in &self.upvalues {

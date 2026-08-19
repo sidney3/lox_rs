@@ -11,9 +11,9 @@ pub enum UpValue {
 }
 
 impl Trace<ObjData> for UpValue {
-  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+  fn trace(&self, tracer: &mut Tracer<ObjData>) {
     match self {
-      Self::Closed(val) => val.trace(heap, tracer),
+      Self::Closed(val) => val.trace(tracer),
       _ => {}
     }
   }

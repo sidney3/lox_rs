@@ -39,7 +39,7 @@ impl ClassInstance {
 }
 
 impl Trace<ObjData> for ClassDef {
-  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {}
+  fn trace(&self, _: &mut Tracer<ObjData>) {}
 }
 
 impl ObjKind for ClassInstance {
@@ -61,5 +61,5 @@ impl ObjKind for ClassInstance {
 }
 
 impl Trace<ObjData> for ClassInstance {
-  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {}
+  fn trace(&self, _: &mut Tracer<ObjData>) {}
 }

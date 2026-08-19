@@ -29,18 +29,18 @@ pub enum ObjData {
 }
 
 impl Trace<ObjData> for String {
-  fn trace(&self, _: &Heap<ObjData>, _: &mut Tracer<ObjData>) {}
+  fn trace(&self, _: &mut Tracer<ObjData>) {}
 }
 
 impl Trace<ObjData> for ObjData {
-  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+  fn trace(&self, tracer: &mut Tracer<ObjData>) {
     match self {
-      ObjData::String(s) => s.trace(heap, tracer),
-      ObjData::Func(function) => function.trace(heap, tracer),
-      ObjData::Closure(closure) => closure.trace(heap, tracer),
-      ObjData::UpValue(upval) => upval.trace(heap, tracer),
-      ObjData::ClassDef(class) => class.trace(heap, tracer),
-      ObjData::ClassInstance(class) => class.trace(heap, tracer),
+      ObjData::String(s) => s.trace(tracer),
+      ObjData::Func(function) => function.trace(tracer),
+      ObjData::Closure(closure) => closure.trace(tracer),
+      ObjData::UpValue(upval) => upval.trace(tracer),
+      ObjData::ClassDef(class) => class.trace(tracer),
+      ObjData::ClassInstance(class) => class.trace(tracer),
     }
   }
 }
@@ -174,11 +174,8 @@ impl<T: ObjKind> Obj<T> {
 }
 
 impl<T: ObjKind + Trace<ObjData>> Trace<ObjData> for Obj<T> {
-  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+  fn trace(&self, tracer: &mut Tracer<ObjData>) {
     tracer.mark(self.as_handle());
-    unsafe {
-      self.borrow_unchecked(heap).deref().trace(heap, tracer);
-    }
   }
 }
 

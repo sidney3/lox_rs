@@ -34,9 +34,9 @@ impl Function {
 }
 
 impl Trace<ObjData> for Function {
-  fn trace(&self, heap: &Heap<ObjData>, tracer: &mut Tracer<ObjData>) {
+  fn trace(&self, tracer: &mut Tracer<ObjData>) {
     for constant in &self.constants {
-      constant.trace(heap, tracer)
+      constant.trace(tracer)
     }
   }
 }

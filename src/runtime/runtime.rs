@@ -55,20 +55,20 @@ impl<'a, 'b, 'c, 'd> GcRoot<'a, 'b, 'c, 'd> {
 }
 
 impl Trace<ObjData> for GcRoot<'_, '_, '_, '_> {
-  fn trace(&self, heap: &Heap, tracer: &mut Tracer<ObjData>) {
+  fn trace(&self, tracer: &mut Tracer<ObjData>) {
     for val in self.stack {
-      val.trace(heap, tracer);
+      val.trace(tracer);
     }
     for val in self.globals.values() {
-      val.trace(heap, tracer);
+      val.trace(tracer);
     }
 
     for frame in self.frames {
-      frame.trace(heap, tracer);
+      frame.trace(tracer);
     }
 
     for root in self.roots {
-      root.trace(heap, tracer);
+      root.trace(tracer);
     }
   }
 }

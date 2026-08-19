@@ -34,5 +34,5 @@ impl<'gc, U> Tracer<'gc, U> {
 // A type implementing trace should call `t.mark(handle)` for each `handle`
 // directly reachable from self.
 pub trait Trace<U> {
-  fn trace(&self, heap: &Heap<U>, tracer: &mut Tracer<U>);
+  fn trace(&self, tracer: &mut Tracer<U>);
 }

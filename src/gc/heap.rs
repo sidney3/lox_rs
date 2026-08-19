@@ -195,11 +195,15 @@ impl<U: Sized> Heap<U> {
     U: Trace<U>,
   {
     let mut tracer = Tracer::new(self, self.cur_generation);
-    root.trace(self, &mut tracer);
+    root.trace(&mut tracer);
 
     while let Some(next) = tracer.pop() {
       debug!("Marking index {}", next.index.0);
-      next.trace(self, &mut tracer);
+
+      unsafe {
+        let next_obj = self.borrow_unchecked(next);
+        next_obj.deref().trace(&mut tracer);
+      }
     }
   }
   fn sweep(&mut self)
@@ -249,11 +253,8 @@ impl<U: Sized> Heap<U> {
 }
 
 impl<U: Trace<U>> Trace<U> for Handle<U> {
-  fn trace(&self, heap: &Heap<U>, t: &mut Tracer<U>) {
+  fn trace(&self, t: &mut Tracer<U>) {
     t.mark(*self);
-    unsafe {
-      heap.borrow_unchecked(*self).deref().trace(heap, t);
-    }
   }
 }
 
@@ -282,7 +283,7 @@ mod test {
   }
 
   impl Trace<Obj> for Obj {
-    fn trace(&self, _: &Heap<Obj>, t: &mut Tracer<Obj>) {
+    fn trace(&self, t: &mut Tracer<Obj>) {
       for next in self.reachable.iter().cloned() {
         t.mark(next);
       }
