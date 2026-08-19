@@ -4,6 +4,8 @@ use std::ops::Deref;
 use crate::gc::{self, Heap, Ref, RefMut, Trace, Tracer, UncheckedRef};
 use crate::runtime::Root;
 
+use super::ClassDef;
+use super::ClassInstance;
 use super::Closure;
 use super::Function;
 use super::Handle;
@@ -22,6 +24,8 @@ pub enum ObjData {
   Func(Function),
   Closure(Closure),
   UpValue(UpValue),
+  ClassDef(ClassDef),
+  ClassInstance(ClassInstance),
 }
 
 impl Trace<ObjData> for String {
@@ -35,6 +39,8 @@ impl Trace<ObjData> for ObjData {
       ObjData::Func(function) => function.trace(heap, tracer),
       ObjData::Closure(closure) => closure.trace(heap, tracer),
       ObjData::UpValue(upval) => upval.trace(heap, tracer),
+      ObjData::ClassDef(class) => class.trace(heap, tracer),
+      ObjData::ClassInstance(class) => class.trace(heap, tracer),
     }
   }
 }
@@ -70,6 +76,8 @@ impl ObjData {
       Self::Func(_) => "Function",
       Self::Closure(_) => "Closure",
       Self::UpValue(_) => "UpValue",
+      Self::ClassDef(_) => "ClassDef",
+      Self::ClassInstance(_) => "ClassInstance",
     }
   }
 }
@@ -84,6 +92,8 @@ impl fmt::Display for ObjData {
         UpValue::Open { absolute_stack_pos } => write!(f, "Open UpValue --> {absolute_stack_pos}"),
         UpValue::Closed(val) => write!(f, "Closed UpValue --> {:?}", val),
       },
+      ObjData::ClassDef(class) => write!(f, "ClassDef"),
+      ObjData::ClassInstance(class) => write!(f, "ClassInstance"),
     }
   }
 }
@@ -134,6 +144,14 @@ impl<T: ObjKind> Obj<T> {
 
   pub fn as_value(self) -> Value {
     Value::Obj(self.as_handle())
+  }
+
+  pub fn try_from_value(rt: &Runtime, val: Value) -> Option<Self> {
+    if let Value::Obj(handle) = val {
+      Self::downcast(handle, rt)
+    } else {
+      None
+    }
   }
 
   pub fn borrow<'a>(&self, vm: &'a Runtime) -> Ref<'a, T> {

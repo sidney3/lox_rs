@@ -41,3 +41,8 @@ pub fn test_functions() {
 pub fn test_closures() {
   run_test_file("closures.lox");
 }
+
+#[test]
+pub fn test_classes() {
+  run_test_file("class.lox");
+}

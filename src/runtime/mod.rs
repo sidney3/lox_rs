@@ -1,4 +1,5 @@
 mod call_frame;
+mod class;
 mod closure;
 mod function;
 mod obj;
@@ -9,6 +10,7 @@ mod upvalue;
 mod value;
 
 pub use call_frame::CallFrame;
+pub use class::{ClassDef, ClassInstance};
 pub use closure::Closure;
 pub use function::{Function, UpValueDescriptor};
 pub use obj::Obj;

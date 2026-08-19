@@ -8,8 +8,8 @@ use smallvec::SmallVec;
 use crate::asm::{Instruction, InstructionKind};
 use crate::gc::Ref;
 use crate::runtime::{
-  CallFrame, Closure, FrameIndex, Function, Obj, ObjData, Root, Runtime, RuntimeError, UpValue,
-  UpValueDescriptor, Value,
+  CallFrame, ClassDef, ClassInstance, Closure, FrameIndex, Function, Obj, ObjData, Root, Runtime,
+  RuntimeError, UpValue, UpValueDescriptor, Value,
 };
 use either::Either;
 
@@ -412,6 +412,18 @@ impl<'vm> Executor<'vm> {
         }
         InstructionKind::PopUpValue => {
           self.drain_stack(self.vm.value_stack.len() - 1);
+        }
+
+        InstructionKind::InstantiateClass => {
+          let maybe_class_def = self.pop();
+          let class_def =
+            Obj::<ClassDef>::try_from_value(self.vm, maybe_class_def).expect("ClassDef");
+
+          let class_instance = ClassInstance::new(class_def.borrow(self.vm).deref());
+
+          let obj = self.vm.alloc(ObjData::ClassInstance(class_instance));
+
+          self.push_value(Value::Obj(obj));
         }
       }
     }

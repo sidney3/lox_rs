@@ -38,6 +38,7 @@ pub enum LoxRule {
   CallArgs,
   NonemptyCallArgs,
   Return,
+  Class,
 
   LValue,
   Assign,
@@ -214,8 +215,13 @@ pub struct FuncDecl {
 
 #[derive(Debug)]
 pub struct VarDeclaration {
-  pub ident: lasso::Spur,
+  pub ident: Ident,
   pub assign: Expression,
+}
+
+#[derive(Debug)]
+pub struct ClassDeclaration {
+  pub ident: Ident,
 }
 
 #[derive(Debug)]
@@ -223,6 +229,7 @@ pub enum Declaration {
   Statement(Statement),
   Var(VarDeclaration),
   Fun(FuncDecl),
+  Class(ClassDeclaration),
 }
 
 #[derive(Debug)]
@@ -259,7 +266,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Rule(LoxRule::Declaration),
         ],
       },
-      // Declaration := Statement | VarDeclaration | FuncDec;
+      // Declaration := Statement | VarDeclaration | FuncDec | ClassDec;
       P {
         rule: LoxRule::Declaration,
         definition: vec![Symbol::Rule(LoxRule::Statement)],
@@ -271,6 +278,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
       P {
         rule: LoxRule::Declaration,
         definition: vec![Symbol::Rule(LoxRule::VarDecl)],
+      },
+      P {
+        rule: LoxRule::Declaration,
+        definition: vec![Symbol::Rule(LoxRule::Class)],
       },
       // VarDecl := 'var' 'ident' '=' 'expr' ;
       P {
@@ -295,6 +306,17 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::LBracket),
           Symbol::Rule(LoxRule::BlockStatement),
           Symbol::Token(LoxTokenKind::RBracket),
+        ],
+      },
+      P {
+        rule: LoxRule::Class,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Class),
+          Symbol::Token(LoxTokenKind::Ident),
+          Symbol::Token(LoxTokenKind::LBracket),
+          // TODO: function definition
+          Symbol::Token(LoxTokenKind::RBracket),
+          Symbol::Token(LoxTokenKind::Semicolon),
         ],
       },
       // FuncArgs := ε | NonemptyFuncArgs
@@ -1032,6 +1054,29 @@ impl FuncDecl {
   }
 }
 
+impl ClassDeclaration {
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::Class,
+        children,
+      }) => match children.as_slice() {
+        [
+          Node::Leaf(_class),
+          Node::Leaf(ident),
+          Node::Leaf(_lbrace),
+          Node::Leaf(_rbrace),
+          Node::Leaf(_semicolon),
+        ] => ClassDeclaration {
+          ident: ident.lexeme,
+        },
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+}
+
 impl Declaration {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
@@ -1051,6 +1096,12 @@ impl Declaration {
             children: _,
           }),
         ] => Declaration::Fun(FuncDecl::from_cst(ast, &children[0])),
+        [
+          Node::Parent(Parent {
+            rule: LoxRule::Class,
+            children: _,
+          }),
+        ] => Declaration::Class(ClassDeclaration::from_cst(ast, &children[0])),
         [
           Node::Parent(Parent {
             rule: LoxRule::Statement,
