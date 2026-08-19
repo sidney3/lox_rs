@@ -41,10 +41,13 @@ impl ObjData {
     }
   }
 
-  pub fn equals(&self, rhs: &Self) -> Result<bool, RuntimeError> {
+  pub fn equals(&self, rhs: &Self, rt: &Runtime) -> Result<bool, RuntimeError> {
     match (self, rhs) {
       (Self::String(s1), Self::String(s2)) => Ok(s1 == s2),
       (Self::Func(_), Self::Func(_)) => Ok(false),
+      (Self::ClassInstance(lhs_inst), Self::ClassInstance(rhs_inst)) => {
+        Ok(lhs_inst.equals(rt, rhs_inst))
+      }
       _ => Err(RuntimeError::from_str(format!(
         "Equality is not defined on {}{}",
         self, rhs

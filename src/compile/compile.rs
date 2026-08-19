@@ -78,10 +78,34 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         self.func_mut().define_var(sym)?;
       }
       Declaration::Class(class) => {
+        // We put a function called ``class.ident`` onto the
+        // child class.
         let name = self.load_ident_sym(class.ident);
-        let class_def = self.rt.alloc_typed(ClassDef::new()).as_value();
-        self.constant(class_def)?;
+        let class_def = self.rt.alloc_typed(ClassDef::new(name)).as_root(self.rt);
+
+        let mut ctor = FuncState::new(self.rt, name, 0, None);
+
+        ctor.constant(self.rt, class_def.as_obj().as_value())?;
+        ctor.emit(Instruction::new(InstructionKind::InstantiateClass));
+        ctor.ret();
+
+        let func = ctor.assemble(self.rt);
+
+        let func_index = self
+          .compile_stack
+          .head_mut()
+          .add_constant(self.rt, func.as_obj().as_value())?;
+
+        // Child is on our constant table, we keep it alive.
+        func.free(self.rt);
+
+        self.func_mut().emit(Instruction {
+          kind: InstructionKind::MakeClosure,
+          operand: func_index,
+        });
         self.func_mut().define_var(name)?;
+
+        class_def.free(self.rt);
       }
       Declaration::Fun(f) => {
         // See docs/calling_convention.md

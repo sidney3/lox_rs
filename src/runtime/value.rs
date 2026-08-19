@@ -110,12 +110,7 @@ impl Value {
   pub fn equals(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
     let eq = match (self.flatten(vm), rhs.flatten(vm)) {
       (Value::Num(a), Value::Num(b)) => a == b,
-      (Value::Obj(a), Value::Obj(b)) => {
-        let l = vm.borrow(a);
-        let r = vm.borrow(b);
-
-        l.equals(&r)?
-      }
+      (Value::Obj(a), Value::Obj(b)) => vm.borrow(a).equals(&vm.borrow(b), vm)?,
       (Value::Bool(a), Value::Bool(b)) => a == b,
       (Value::Nil, Value::Nil) => true,
       _ => {

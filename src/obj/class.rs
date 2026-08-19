@@ -1,16 +1,23 @@
+use super::Function;
 use super::ObjData;
 use super::ObjKind;
 use crate::gc::{Trace, Tracer};
+use crate::runtime::Runtime;
+use crate::runtime::Symbol;
 
 #[derive(Debug)]
-pub struct ClassDef {}
+pub struct ClassDef {
+  pub ident: Symbol,
+}
 
 #[derive(Debug)]
-pub struct ClassInstance {}
+pub struct ClassInstance {
+  ident: Symbol,
+}
 
 impl ClassDef {
-  pub fn new() -> Self {
-    Self {}
+  pub fn new(ident: Symbol) -> Self {
+    Self { ident }
   }
 }
 
@@ -33,8 +40,12 @@ impl ObjKind for ClassDef {
 }
 
 impl ClassInstance {
-  pub fn new(_: &ClassDef) -> Self {
-    Self {}
+  pub fn new(def: &ClassDef) -> Self {
+    Self { ident: def.ident }
+  }
+
+  pub fn equals(&self, rt: &Runtime, rhs: &ClassInstance) -> bool {
+    rhs.ident == self.ident
   }
 }
 

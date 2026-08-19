@@ -123,7 +123,7 @@ impl FuncState {
     self.parent = Some(parent);
   }
 
-  fn assemble(self, rt: &mut Runtime) -> Root<Function> {
+  pub fn assemble(self, rt: &mut Runtime) -> Root<Function> {
     let mut func = self.staging.as_obj().borrow_mut(rt);
 
     func.upvalues = self.upvalues;
