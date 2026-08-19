@@ -86,7 +86,7 @@ impl<'vm> Executor<'vm> {
       .get(frame.ip)
       .cloned();
 
-    self.frame_mut().ip += 1;
+    self.frame_mut().ip += if out.is_some() { 1 } else { 0 };
 
     out
   }
