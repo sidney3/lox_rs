@@ -1,121 +1,22 @@
 {
-	fun inner() {
-		var x = 9;
-
-		fun f(equal_to) {
-			assert x == equal_to;
-		}
-
-		f(9);
-
-		x = 10;
-
-		f(10);
-		f(10);
-	}
-
-	inner();
-}
-
-
-{
-	var x = 2;
-	var z = 9;
-
-	fun outer() {
-
-		fun inner() {
-			z = z + x;
-			return z;
-		}
-
-		z = 4;
-
-		return inner;
-	}
-
-	var f = outer();
-
-	assert z == 4;
-	assert f() == 6;
-	assert z == 6;
-	assert f() == 8;
-}
-
-
-{
-	fun outer() {
-		var z = 4;
-		fun inner() {
-			z = z + 2;
-			return z;
-		}
-
-		fun middle() {
-			fun even_more_middle() {
-				return inner();
+	fun recurse_many(many) {
+		if many == 1 {
+			fun finally() {
+				return 9;
 			}
 
-			return even_more_middle();
-		}
+			return finally;
+		} else {
 
-		return middle;
-	}
+			fun not_yet() {
+				return recurse_many(many - 1);
+			}
 
-	var f = outer();
-
-	assert f() == 6;
-	assert f() == 8;
-	assert f() == 10;
-	assert f() == 12;
-}
-
-fun make_vector() {
-	var x = 0;
-	var y = 0;
-
-	fun vector_impl(op, arg) {
-
-		if op == "get_x" {
-			return x;
-		} else if op == "get_y" {
-			return y;
-		} else if op == "set_x" {
-			x = arg;
-			return 0;
-		} else if op == "set_y" {
-			y = arg;
-			return 0;
+			return not_yet;
 		}
 	}
 
-	return vector_impl;
-}
+	var f = recurse_many(5);
 
-
-{
-
-	{
-		var vec = make_vector();
-
-		vec("set_x", 9);
-		vec("set_y", 3);
-
-
-		assert vec("get_x", -1) == 9;
-		assert vec("get_y", -1) == 3;
-
-		var z = 0;
-
-		vec("set_x", z);
-
-		while (z < 1000) {
-			z = z + 1;
-			vec("set_y", vec("get_x", -1));
-			vec("set_x", z);
-
-			assert vec("get_y", -1) == z - 1;
-			assert vec("get_x", -1) == z;
-		}
-	}
+	assert f()()()()() == 9;
 }

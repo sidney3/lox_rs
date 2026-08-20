@@ -119,3 +119,18 @@ fun make_vector() {
 		}
 	}
 }
+
+{
+	fun f() {
+		var z = 4;
+
+		fun g() {
+			return z;
+		}
+
+		return g;
+	}
+
+	assert f()() == 4;
+}
+

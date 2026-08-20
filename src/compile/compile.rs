@@ -2,7 +2,7 @@ use super::error::Result;
 use crate::asm::{
   FuncStack, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
 };
-use crate::frontend::ast::{Assign, Block, ElseTail, IfStatement, LValue};
+use crate::frontend::ast::{Assign, Block, Call, ElseTail, IfStatement, LValue};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
 use crate::obj::{ClassDef, Function, ObjData};
@@ -333,8 +333,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       }
       Expression::Call(call) => {
         // See docs/calling_convention.md
-        let f_name = self.load_ident_sym(call.f);
-        self.func_mut().load_var(f_name)?;
+        self.expr(&call.callee)?;
         for arg in &call.args {
           self.expr(arg)?;
         }

@@ -12,7 +12,6 @@ use crate::parse::{Grammar, Node, Parent, Parser, Production, Rule, Symbol, Tree
 
 #[derive(Ordinal, Eq, PartialEq, Hash, Display, Debug, PartialOrd)]
 pub enum LoxRule {
-  Paren,
   Term,
   Product,
   Compare,
@@ -33,7 +32,6 @@ pub enum LoxRule {
   IfStatement,
   ElseTail,
   WhileStatement,
-  Unit,
   Call,
   CallArgs,
   NonemptyCallArgs,
@@ -130,8 +128,22 @@ pub enum Literal {
 
 #[derive(Debug)]
 pub struct Call {
-  pub f: Ident,
+  pub callee: Box<Expression>,
   pub args: Vec<Expression>,
+}
+
+#[derive(Debug)]
+pub struct Member {
+  pub accessee: Box<Expression>,
+  pub property: Ident,
+}
+
+// MemberAccess and CallAccess can chain
+// in any order, and so must be at the
+// same precedence.
+pub enum Access {
+  Call(Call),
+  Member(Member),
 }
 
 #[derive(Debug)]
@@ -664,39 +676,21 @@ fn lox_grammar() -> Grammar<LoxRule> {
       },
       P {
         rule: LoxRule::Unary,
-        definition: vec![Symbol::Rule(LoxRule::Paren)],
-      },
-      // Paren := Unit | '(' Expr ')'
-      P {
-        rule: LoxRule::Paren,
-        definition: vec![Symbol::Rule(LoxRule::Unit)],
-      },
-      P {
-        rule: LoxRule::Paren,
-        definition: vec![
-          Symbol::Token(LoxTokenKind::LParen),
-          Symbol::Rule(LoxRule::Expr),
-          Symbol::Token(LoxTokenKind::RParen),
-        ],
-      },
-      // Unit := Literal | Call
-      P {
-        rule: LoxRule::Unit,
-        definition: vec![Symbol::Rule(LoxRule::Literal)],
-      },
-      P {
-        rule: LoxRule::Unit,
         definition: vec![Symbol::Rule(LoxRule::Call)],
       },
-      // Call := ident '( func_args ')'
+      // Access := ident '( func_args ')'* | Literal
       P {
         rule: LoxRule::Call,
         definition: vec![
-          Symbol::Token(LoxTokenKind::Ident),
+          Symbol::Rule(LoxRule::Call),
           Symbol::Token(LoxTokenKind::LParen),
           Symbol::Rule(LoxRule::CallArgs),
           Symbol::Token(LoxTokenKind::RParen),
         ],
+      },
+      P {
+        rule: LoxRule::Call,
+        definition: vec![Symbol::Rule(LoxRule::Literal)],
       },
       // CallArgs := ε | NonemptyCallArgs
       P {
@@ -720,7 +714,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Rule(LoxRule::Expr),
         ],
       },
-      // Literal := 'Num' | 'Str' | 'True' | 'False' | 'Ident' | 'Nil'
+      // Literal := 'Num' | 'Str' | 'True' | 'False' | 'Ident' | 'Nil' | '(' expr ')'
       P {
         rule: LoxRule::Literal,
         definition: vec![Symbol::Token(LoxTokenKind::Number)],
@@ -744,6 +738,14 @@ fn lox_grammar() -> Grammar<LoxRule> {
       P {
         rule: LoxRule::Literal,
         definition: vec![Symbol::Token(LoxTokenKind::Nil)],
+      },
+      P {
+        rule: LoxRule::Literal,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::LParen),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::RParen),
+        ],
       },
     ],
   )
@@ -1218,21 +1220,6 @@ impl Call {
       _ => panic!("unreachable"),
     }
   }
-  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
-    match node {
-      Node::Parent(Parent {
-        rule: LoxRule::Call,
-        children,
-      }) => match children.as_slice() {
-        [Node::Leaf(f), _lparen, args, _rparen] => Call {
-          f: f.lexeme,
-          args: Self::parse_args(ast, args),
-        },
-        _ => panic!("unreachable"),
-      },
-      _ => panic!("unreachable: {:?}", node),
-    }
-  }
 }
 
 // TODO: write a better parser-generator. The one we have right now
@@ -1240,6 +1227,50 @@ impl Call {
 // at each node). This is fine for the e2e api of this file (you give me
 // tokens, I give you AST), but it's duplicative.
 impl Expression {
+  fn parse_literal(root: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::Literal,
+        children,
+      }) => match children.as_slice() {
+        [Node::Leaf(num)] if num.token_type == LoxTokenKind::Number => Expression::Lit(
+          Literal::Num(root.lexeme_arena.resolve(&num.lexeme).parse().unwrap()),
+        ),
+        [Node::Leaf(num)] if num.token_type == LoxTokenKind::True => {
+          Expression::Lit(Literal::Bool(true))
+        }
+
+        [Node::Leaf(num)] if num.token_type == LoxTokenKind::False => {
+          Expression::Lit(Literal::Bool(false))
+        }
+
+        [Node::Leaf(ident)] if ident.token_type == LoxTokenKind::Ident => {
+          Expression::Lit(Literal::Var(ident.lexeme))
+        }
+        [Node::Leaf(lparen), expr, Node::Leaf(rparen)]
+          if lparen.token_type == LoxTokenKind::LParen
+            && rparen.token_type == LoxTokenKind::RParen =>
+        {
+          Expression::from_cst(root, expr)
+        }
+        [Node::Leaf(ident)] if ident.token_type == LoxTokenKind::Nil => Expression::Nil,
+
+        [Node::Leaf(s)] if s.token_type == LoxTokenKind::String => {
+          let inner = root
+            .lexeme_arena
+            .resolve(&s.lexeme)
+            .strip_prefix("\"")
+            .and_then(|s| s.strip_suffix("\""))
+            .unwrap()
+            .to_string();
+
+          Expression::Lit(Literal::String(inner))
+        }
+        _ => panic!("unreachable literal"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
   fn from_cst(root: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     if let Node::Parent(t) = node {
       match (t.rule, t.children.as_slice()) {
@@ -1257,71 +1288,21 @@ impl Expression {
             rhs: Box::new(Self::from_cst(root, rhs)),
           })
         }
-        (LoxRule::Paren, [Node::Leaf(lparen), expr, Node::Leaf(rparen)])
-          if lparen.token_type == LoxTokenKind::LParen
-            && rparen.token_type == LoxTokenKind::RParen =>
-        {
-          Self::from_cst(root, expr)
-        }
-
         (LoxRule::Unary, [Node::Leaf(op), operand]) => Expression::Unary(Unary {
           operand: Box::new(Self::from_cst(root, operand)),
           op: UnaryOp::from_token(op.token_type)
             .unwrap_or_else(|| panic!("Unexpected unary op: {}", op.token_type)),
         }),
 
-        (
-          LoxRule::Unit,
-          [
-            Node::Parent(Parent {
-              rule: LoxRule::Call,
-              children: _,
-            }),
-          ],
-        ) => Expression::Call(Call::from_cst(root, &t.children[0])),
-        (
-          LoxRule::Unit,
-          [
-            Node::Parent(Parent {
-              rule: LoxRule::Literal,
-              children,
-            }),
-          ],
-        ) => match children.as_slice() {
-          [Node::Leaf(num)] if num.token_type == LoxTokenKind::Number => Expression::Lit(
-            Literal::Num(root.lexeme_arena.resolve(&num.lexeme).parse().unwrap()),
-          ),
-          [Node::Leaf(num)] if num.token_type == LoxTokenKind::True => {
-            Expression::Lit(Literal::Bool(true))
-          }
-
-          [Node::Leaf(num)] if num.token_type == LoxTokenKind::False => {
-            Expression::Lit(Literal::Bool(false))
-          }
-
-          [Node::Leaf(ident)] if ident.token_type == LoxTokenKind::Ident => {
-            Expression::Lit(Literal::Var(ident.lexeme))
-          }
-          [Node::Leaf(ident)] if ident.token_type == LoxTokenKind::Nil => Expression::Nil,
-
-          [Node::Leaf(s)] if s.token_type == LoxTokenKind::String => {
-            let inner = root
-              .lexeme_arena
-              .resolve(&s.lexeme)
-              .strip_prefix("\"")
-              .and_then(|s| s.strip_suffix("\""))
-              .unwrap()
-              .to_string();
-
-            Expression::Lit(Literal::String(inner))
-          }
-          _ => panic!("unreachable literal"),
-        },
+        (LoxRule::Call, [f, _lparen, args, _rparen]) => Expression::Call(Call {
+          callee: Box::new(Self::from_cst(root, f)),
+          args: Call::parse_args(root, args),
+        }),
+        (LoxRule::Call, [literal]) => Self::parse_literal(root, literal),
 
         // passthroughs
         (
-          LoxRule::Paren
-          | LoxRule::Expr
+          LoxRule::Expr
           | LoxRule::Unary
           | LoxRule::Term
           | LoxRule::Product
