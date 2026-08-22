@@ -1,22 +1,5 @@
-{
-	fun recurse_many(many) {
-		if many == 1 {
-			fun finally() {
-				return 9;
-			}
 
-			return finally;
-		} else {
+var x = 1;
+false && (x = 2);
+assert x == 1;
 
-			fun not_yet() {
-				return recurse_many(many - 1);
-			}
-
-			return not_yet;
-		}
-	}
-
-	var f = recurse_many(5);
-
-	assert f()()()()() == 9;
-}

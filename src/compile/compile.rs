@@ -2,7 +2,7 @@ use super::error::Result;
 use crate::asm::{
   FuncStack, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
 };
-use crate::frontend::ast::{Assign, Block, Call, ElseTail, IfStatement, LValue};
+use crate::frontend::ast::{Assign, Binary, Block, Call, ElseTail, IfStatement, LValue, Unary};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
 use crate::obj::{ClassDef, Function, ObjData};
@@ -57,9 +57,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     for decl in &ast.root.declarations {
       self.decl(decl)?;
     }
-    self
-      .func_mut()
-      .emit(Instruction::new(InstructionKind::Return));
+    self.func_mut().ret();
 
     Ok(())
   }
@@ -94,24 +92,11 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       .pop(self.rt)
       .expect("Compilation stack too small");
 
-    let func_index = self
+    self
       .compile_stack
       .head_mut()
-      .add_constant(self.rt, func.as_obj().as_value())?;
-
-    // This will push a closure (materialization of the function
-    // capturing the necessary locals) onto the stack, so we
-    // can safely define_var.
-    //
-    // TODO: this is unclear code, can we make some abstraction
-    // for this?
+      .add_closure_to_scope(self.rt, func.as_obj(), name)?;
     func.free(self.rt);
-    self.func_mut().emit(Instruction {
-      kind: InstructionKind::MakeClosure,
-      operand: func_index,
-    });
-    self.func_mut().define_var(name)?;
-
     Ok(())
   }
 
@@ -129,10 +114,10 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         let name = self.load_ident_sym(class.ident);
         let body = |this: &mut Self| -> Result<()> {
           let class_def = this.rt.alloc_typed(ClassDef::new(name)).as_root(this.rt);
-          this.constant(class_def.as_obj().as_value())?;
           this
-            .func_mut()
-            .emit(Instruction::new(InstructionKind::InstantiateClass));
+            .compile_stack
+            .head_mut()
+            .make_class_instance(this.rt, class_def.as_obj())?;
           this.func_mut().ret();
           class_def.free(this.rt);
 
@@ -159,20 +144,15 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     match statement {
       Statement::Expr(e) => {
         self.expr(&e.expr)?;
-        self.func_mut().emit(Instruction::new(InstructionKind::Pop));
+        self.func_mut().pop();
       }
       Statement::Print(p) => {
         self.expr(&p.operand)?;
-        self.func_mut().emit(Instruction {
-          kind: InstructionKind::Print,
-          operand: 0,
-        });
+        self.func_mut().print();
       }
       Statement::Assert(a) => {
         self.expr(&a.operand)?;
-        self
-          .func_mut()
-          .emit(Instruction::new(InstructionKind::Assert));
+        self.func_mut().assert();
       }
 
       Statement::Block(block) => {
@@ -254,12 +234,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     let after_and = self.func_mut().create_label("after and");
     self.expr(lhs)?;
 
-    self
-      .func_mut()
-      .emit_symbolic(SymbolicInstruction::Instruction(
-        InstructionKind::JumpIfFalsePreserving,
-        SymbolicOp::Label(after_and),
-      ));
+    self.func_mut().jmp_if_false_preserving(after_and);
 
     self.expr(rhs)?;
     self.func_mut().bind_label(after_and);
@@ -271,13 +246,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     // short circuit: if we are true, return immediately. Otherwise, execute and return rhs
     let after_or = self.func_mut().create_label("after or");
     self.expr(lhs)?;
-
-    self
-      .func_mut()
-      .emit_symbolic(SymbolicInstruction::Instruction(
-        InstructionKind::JumpIfTruePreserving,
-        SymbolicOp::Label(after_or),
-      ));
+    self.func_mut().jmp_if_true_preserving(after_or);
 
     self.expr(rhs)?;
     self.func_mut().bind_label(after_or);
@@ -290,10 +259,10 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       Expression::Nil => {
         self.constant(Value::Nil)?;
       }
-      Expression::Bin(b) => {
-        let instruction_kind = match b.op {
-          BinOp::And => return self.and(b.lhs.as_ref(), b.rhs.as_ref()),
-          BinOp::Or => return self.or(b.lhs.as_ref(), b.rhs.as_ref()),
+      Expression::Bin(Binary { op, lhs, rhs }) => {
+        let instruction_kind = match op {
+          BinOp::And => return self.and(lhs.as_ref(), rhs.as_ref()),
+          BinOp::Or => return self.or(lhs.as_ref(), rhs.as_ref()),
 
           BinOp::Times => InstructionKind::Mult,
           BinOp::Minus => InstructionKind::Sub,
@@ -306,17 +275,14 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
           BinOp::Greater => InstructionKind::Greater,
           BinOp::Neq => InstructionKind::Neq,
         };
-        self.expr(b.lhs.as_ref())?;
-        self.expr(b.rhs.as_ref())?;
+        self.expr(lhs.as_ref())?;
+        self.expr(rhs.as_ref())?;
 
-        self.func_mut().emit(Instruction {
-          kind: instruction_kind,
-          operand: 0,
-        });
+        self.func_mut().emit(Instruction::new(instruction_kind));
       }
-      Expression::Unary(u) => {
-        self.expr(u.operand.as_ref())?;
-        let instruction_kind = match u.op {
+      Expression::Unary(Unary { op, operand }) => {
+        self.expr(operand.as_ref())?;
+        let instruction_kind = match op {
           UnaryOp::Not => InstructionKind::Not,
           UnaryOp::Minus => InstructionKind::UnaryMinus,
         };

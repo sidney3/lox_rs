@@ -83,7 +83,7 @@ impl FuncState {
     }
   }
 
-  pub fn emit_symbolic(&mut self, instruction: SymbolicInstruction) {
+  fn emit_symbolic(&mut self, instruction: SymbolicInstruction) {
     self.instructions.add_instruction(instruction);
   }
 
@@ -99,6 +99,32 @@ impl FuncState {
   }
   pub fn bind_label(&mut self, label: Label) {
     self.emit_symbolic(SymbolicInstruction::Label(label));
+  }
+
+  pub fn make_class_instance(&mut self, rt: &mut Runtime, class: Obj<ClassDef>) -> Result<()> {
+    self.constant(rt, class.as_value())?;
+    self.emit(Instruction::new(InstructionKind::InstantiateClass));
+
+    Ok(())
+  }
+  // After these instructions, there will be a new symbol `called` that
+  // refers to a closure instance of func.
+  pub fn add_closure_to_scope(
+    &mut self,
+    rt: &mut Runtime,
+    func: Obj<Function>,
+    called: Symbol,
+  ) -> Result<()> {
+    let index = self.add_constant(rt, func.as_value())?;
+    self.emit(Instruction {
+      kind: InstructionKind::MakeClosure,
+      operand: index,
+    });
+
+    // Acts on the top of the stack
+    self.define_var(called)?;
+
+    Ok(())
   }
 
   pub fn add_constant(&mut self, rt: &mut Runtime, constant: Value) -> Result<OperandType> {
@@ -182,6 +208,18 @@ impl FuncState {
   //////////////////////////
   /// Instructions
   //////////////////////////
+  pub fn pop(&mut self) {
+    self.emit(Instruction::new(InstructionKind::Pop));
+  }
+
+  pub fn print(&mut self) {
+    self.emit(Instruction::new(InstructionKind::Print));
+  }
+
+  pub fn assert(&mut self) {
+    self.emit(Instruction::new(InstructionKind::Assert));
+  }
+
   pub fn jmp(&mut self, to: Label) {
     self.emit_symbolic(SymbolicInstruction::Instruction(
       InstructionKind::Jmp,
@@ -194,6 +232,19 @@ impl FuncState {
       SymbolicOp::Label(to),
     ));
   }
+  pub fn jmp_if_false_preserving(&mut self, to: Label) {
+    self.emit_symbolic(SymbolicInstruction::Instruction(
+      InstructionKind::JumpIfFalsePreserving,
+      SymbolicOp::Label(to),
+    ));
+  }
+  pub fn jmp_if_true_preserving(&mut self, to: Label) {
+    self.emit_symbolic(SymbolicInstruction::Instruction(
+      InstructionKind::JumpIfTruePreserving,
+      SymbolicOp::Label(to),
+    ));
+  }
+
   pub fn constant(&mut self, rt: &mut Runtime, constant: Value) -> Result<()> {
     let index = self.add_constant(rt, constant)?;
     self.emit(Instruction {
