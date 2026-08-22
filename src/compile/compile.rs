@@ -2,12 +2,13 @@ use super::error::Result;
 use crate::asm::{
   FuncStack, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
 };
-use crate::frontend::ast::{Assign, Binary, Block, Call, ElseTail, IfStatement, LValue, Unary};
+use crate::frontend::ast::{
+  Assign, Binary, Block, Call, ElseTail, IfStatement, LValue, Member, Unary,
+};
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
 use crate::obj::{ClassDef, Function, ObjData};
 use crate::runtime::{Root, Runtime, Symbol, Value};
-use log::debug;
 
 pub struct Compiler<'a, 'vm> {
   compile_stack: FuncStack,
@@ -293,10 +294,19 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       }
       Expression::Assign(Assign { assignee, assign }) => {
         self.expr(assign)?;
-        let assignee_sym = match assignee {
-          LValue::Var(v) => self.load_ident_sym(*v),
-        };
-        self.func_mut().set_variable(assignee_sym)?;
+        match assignee {
+          &LValue::Var(v) => {
+            let sym = self.load_ident_sym(v);
+            self.func_mut().set_variable(sym);
+          }
+          LValue::Member(Member { accessee, property }) => {
+            self.expr(accessee)?; //< this had better produce a class!
+            self
+              .compile_stack
+              .head_mut()
+              .set_class_attr(self.rt, *property);
+          }
+        }
       }
       Expression::Call(call) => {
         // See docs/calling_convention.md
@@ -306,6 +316,14 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         }
 
         self.func_mut().callq(call.args.len())?;
+      }
+
+      Expression::Member(Member { accessee, property }) => {
+        self.expr(accessee)?; //< this had better produce a class
+        self
+          .compile_stack
+          .head_mut()
+          .get_class_attr(self.rt, *property);
       }
     }
 

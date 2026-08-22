@@ -138,14 +138,6 @@ pub struct Member {
   pub property: Ident,
 }
 
-// MemberAccess and CallAccess can chain
-// in any order, and so must be at the
-// same precedence.
-pub enum Access {
-  Call(Call),
-  Member(Member),
-}
-
 #[derive(Debug)]
 pub enum Expression {
   Bin(Binary),
@@ -153,6 +145,7 @@ pub enum Expression {
   Lit(Literal),
   Assign(Assign),
   Call(Call),
+  Member(Member),
   Nil,
 }
 
@@ -247,6 +240,7 @@ pub enum Declaration {
 #[derive(Debug)]
 pub enum LValue {
   Var(lasso::Spur),
+  Member(Member),
 }
 
 #[derive(Debug)]
@@ -527,9 +521,18 @@ fn lox_grammar() -> Grammar<LoxRule> {
         rule: LoxRule::Assign,
         definition: vec![Symbol::Rule(LoxRule::Compare)],
       },
+      // LValue := Ident | Call '.' property
       P {
         rule: LoxRule::LValue,
         definition: vec![Symbol::Token(LoxTokenKind::Ident)],
+      },
+      P {
+        rule: LoxRule::LValue,
+        definition: vec![
+          Symbol::Rule(LoxRule::Call),
+          Symbol::Token(LoxTokenKind::Dot),
+          Symbol::Token(LoxTokenKind::Ident),
+        ],
       },
       // Compare :=
       //       | Term '==' Compare
@@ -678,7 +681,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
         rule: LoxRule::Unary,
         definition: vec![Symbol::Rule(LoxRule::Call)],
       },
-      // Access := ident '( func_args ')'* | Literal
+      // Access := call '( func_args ')'* | call '.' attr | Literal
       P {
         rule: LoxRule::Call,
         definition: vec![
@@ -686,6 +689,14 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::LParen),
           Symbol::Rule(LoxRule::CallArgs),
           Symbol::Token(LoxTokenKind::RParen),
+        ],
+      },
+      P {
+        rule: LoxRule::Call,
+        definition: vec![
+          Symbol::Rule(LoxRule::Call),
+          Symbol::Token(LoxTokenKind::Dot),
+          Symbol::Token(LoxTokenKind::Ident),
         ],
       },
       P {
@@ -1146,13 +1157,17 @@ impl Program {
 }
 
 impl LValue {
-  pub fn from_cst(_: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
       Node::Parent(Parent {
         rule: LoxRule::LValue,
         children,
       }) => match children.as_slice() {
         [Node::Leaf(token)] if token.token_type == LoxTokenKind::Ident => LValue::Var(token.lexeme),
+        [got, Node::Leaf(_dot), Node::Leaf(ident)] => LValue::Member(Member {
+          accessee: Box::new(Expression::from_cst(ast, got)),
+          property: ident.lexeme,
+        }),
         _ => panic!("unreachable: {:?}", node),
       },
       Node::Leaf(token) if token.token_type == LoxTokenKind::Ident => LValue::Var(token.lexeme),
@@ -1297,6 +1312,11 @@ impl Expression {
         (LoxRule::Call, [f, _lparen, args, _rparen]) => Expression::Call(Call {
           callee: Box::new(Self::from_cst(root, f)),
           args: Call::parse_args(root, args),
+        }),
+
+        (LoxRule::Call, [f, Node::Leaf(_dot), Node::Leaf(attr)]) => Expression::Member(Member {
+          accessee: Box::new(Self::from_cst(root, f)),
+          property: attr.lexeme,
         }),
         (LoxRule::Call, [literal]) => Self::parse_literal(root, literal),
 

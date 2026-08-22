@@ -2,8 +2,9 @@ use super::Function;
 use super::ObjData;
 use super::ObjKind;
 use crate::gc::{Trace, Tracer};
-use crate::runtime::Runtime;
 use crate::runtime::Symbol;
+use crate::runtime::{Runtime, Value};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct ClassDef {
@@ -13,6 +14,7 @@ pub struct ClassDef {
 #[derive(Debug)]
 pub struct ClassInstance {
   ident: Symbol,
+  properties: HashMap<Symbol, Value>,
 }
 
 impl ClassDef {
@@ -41,11 +43,20 @@ impl ObjKind for ClassDef {
 
 impl ClassInstance {
   pub fn new(def: &ClassDef) -> Self {
-    Self { ident: def.ident }
+    Self {
+      ident: def.ident,
+      properties: HashMap::new(),
+    }
   }
 
   pub fn equals(&self, rt: &Runtime, rhs: &ClassInstance) -> bool {
     rhs.ident == self.ident
+  }
+  pub fn load_attr(&self, sym: Symbol) -> Option<Value> {
+    self.properties.get(&sym).cloned()
+  }
+  pub fn set_attr(&mut self, sym: Symbol, to: Value) {
+    self.properties.insert(sym, to);
   }
 }
 

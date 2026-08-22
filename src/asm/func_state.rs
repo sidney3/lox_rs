@@ -208,6 +208,24 @@ impl FuncState {
   //////////////////////////
   /// Instructions
   //////////////////////////
+  // Stack should look like [ assign_to, receiver ]
+  pub fn set_class_attr(&mut self, rt: &Runtime, attr: Symbol) -> Result<()> {
+    self.emit(Instruction {
+      kind: InstructionKind::SetClassAttribute,
+      operand: index_to_op(attr.into_usize())?,
+    });
+
+    Ok(())
+  }
+  // Stack should look like [  receiver ]
+  pub fn get_class_attr(&mut self, rt: &Runtime, attr: Symbol) -> Result<()> {
+    self.emit(Instruction {
+      kind: InstructionKind::LoadClassAttribute,
+      operand: index_to_op(attr.into_usize())?,
+    });
+
+    Ok(())
+  }
   pub fn pop(&mut self) {
     self.emit(Instruction::new(InstructionKind::Pop));
   }

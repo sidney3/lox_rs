@@ -425,6 +425,22 @@ impl<'vm> Executor<'vm> {
 
           self.push_value(Value::Obj(obj));
         }
+        InstructionKind::LoadClassAttribute => {
+          let maybe_instance = self.pop();
+          let class_instance = Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
+            .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?;
+
+          todo!("load_attr");
+          // let attr = class_instance.borrow(self.vm).load_attr();
+        }
+        InstructionKind::SetClassAttribute => {
+          let maybe_instance = self.pop();
+          let class_instance = Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
+            .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?;
+
+          let assign_to = self.pop();
+          todo!("set_attr");
+        }
       }
     }
   }

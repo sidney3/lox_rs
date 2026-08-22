@@ -18,6 +18,8 @@ pub enum InstructionKind {
   PopUpValue,
 
   InstantiateClass,
+  LoadClassAttribute,
+  SetClassAttribute,
 
   // peeks, doesn't pop
   JumpIfFalsePreserving,
