@@ -69,6 +69,52 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
 
     Ok(())
   }
+
+  fn function(
+    &mut self,
+    name: Symbol,
+    args: &[Symbol],
+    body: impl FnOnce(&mut Self) -> Result<()>,
+  ) -> Result<()> {
+    // See docs/calling_convention.md
+    self.compile_stack.push(self.rt, name, args.len());
+    self.func_mut().add_local(name);
+
+    for arg in args {
+      self.func_mut().add_local(*arg);
+    }
+
+    body(self)?;
+
+    self.constant(Value::Nil)?;
+    self.func_mut().ret();
+
+    let func = self
+      .compile_stack
+      .pop(self.rt)
+      .expect("Compilation stack too small");
+
+    let func_index = self
+      .compile_stack
+      .head_mut()
+      .add_constant(self.rt, func.as_obj().as_value())?;
+
+    // This will push a closure (materialization of the function
+    // capturing the necessary locals) onto the stack, so we
+    // can safely define_var.
+    //
+    // TODO: this is unclear code, can we make some abstraction
+    // for this?
+    func.free(self.rt);
+    self.func_mut().emit(Instruction {
+      kind: InstructionKind::MakeClosure,
+      operand: func_index,
+    });
+    self.func_mut().define_var(name)?;
+
+    Ok(())
+  }
+
   fn decl(&mut self, decl: &Declaration) -> Result<()> {
     match decl {
       Declaration::Statement(s) => self.statement(s)?,
@@ -81,74 +127,29 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         // We put a function called ``class.ident`` onto the
         // child class.
         let name = self.load_ident_sym(class.ident);
-        let class_def = self.rt.alloc_typed(ClassDef::new(name)).as_root(self.rt);
+        let body = |this: &mut Self| -> Result<()> {
+          let class_def = this.rt.alloc_typed(ClassDef::new(name)).as_root(this.rt);
+          this.constant(class_def.as_obj().as_value())?;
+          this
+            .func_mut()
+            .emit(Instruction::new(InstructionKind::InstantiateClass));
+          this.func_mut().ret();
+          class_def.free(this.rt);
 
-        let mut ctor = FuncState::new(self.rt, name, 0, None);
-
-        ctor.constant(self.rt, class_def.as_obj().as_value())?;
-        ctor.emit(Instruction::new(InstructionKind::InstantiateClass));
-        ctor.ret();
-
-        let func = ctor.assemble(self.rt);
-
-        let func_index = self
-          .compile_stack
-          .head_mut()
-          .add_constant(self.rt, func.as_obj().as_value())?;
-
-        // Child is on our constant table, we keep it alive.
-        func.free(self.rt);
-
-        self.func_mut().emit(Instruction {
-          kind: InstructionKind::MakeClosure,
-          operand: func_index,
-        });
-        self.func_mut().define_var(name)?;
-
-        class_def.free(self.rt);
+          Ok(())
+        };
+        self.function(name, &[], body)?;
       }
       Declaration::Fun(f) => {
-        // See docs/calling_convention.md
         let f_name = self.load_ident_sym(f.name);
+        let args: Vec<_> = f
+          .args
+          .iter()
+          .cloned()
+          .map(|i| self.load_ident_sym(i))
+          .collect();
 
-        debug!("Compiling function {}", self.rt.symbols.resolve(&f_name));
-        self.compile_stack.push(self.rt, f_name, f.args.len());
-        self.func_mut().add_local(f_name);
-
-        for arg in &f.args {
-          let arg_name = self.load_ident_sym(*arg);
-          self.func_mut().add_local(arg_name);
-        }
-
-        self.block(&f.body)?;
-
-        self.constant(Value::Nil)?;
-        self.func_mut().ret();
-
-        let func = self
-          .compile_stack
-          .pop(self.rt)
-          .expect("Compilation stack too small");
-
-        let func_index = self
-          .compile_stack
-          .head_mut()
-          .add_constant(self.rt, func.as_obj().as_value())?;
-
-        // Child is on our constant table, we keep it alive.
-        func.free(self.rt);
-
-        // This will push a closure (materialization of the function
-        // capturing the necessary locals) onto the stack, so we
-        // can safely define_var.
-        //
-        // TODO: this is unclear code, can we make some abstraction
-        // for this?
-        self.func_mut().emit(Instruction {
-          kind: InstructionKind::MakeClosure,
-          operand: func_index,
-        });
-        self.func_mut().define_var(f_name)?;
+        self.function(f_name, args.as_slice(), |this| this.block(&f.body))?;
       }
     };
     Ok(())
