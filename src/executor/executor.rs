@@ -10,7 +10,7 @@ use crate::gc::Ref;
 use crate::obj::{
   ClassDef, ClassInstance, Closure, Function, Obj, ObjData, UpValue, UpValueDescriptor,
 };
-use crate::runtime::{CallFrame, FrameIndex, Root, Runtime, RuntimeError, Value};
+use crate::runtime::{CallFrame, FrameIndex, Root, Runtime, RuntimeError, Symbol, Value};
 use either::Either;
 
 pub struct Executor<'vm> {
@@ -427,19 +427,41 @@ impl<'vm> Executor<'vm> {
         }
         InstructionKind::LoadClassAttribute => {
           let maybe_instance = self.pop();
-          let class_instance = Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
-            .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?;
 
-          todo!("load_attr");
-          // let attr = class_instance.borrow(self.vm).load_attr();
+          let attribute = {
+            let class_instance = Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
+              .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?
+              .borrow(self.vm);
+            let symbol = Symbol::try_from_usize(next_instruction.operand as usize)
+              .expect("Bad attribute access");
+            if let Some(val) = class_instance.load_attr(symbol) {
+              val
+            } else {
+              return Err(RuntimeError::new(
+                format!(
+                  "Class {} has no attribute {}",
+                  class_instance.name(self.vm),
+                  self.vm.symbols.resolve(&symbol),
+                )
+                .as_str(),
+              ));
+            }
+          };
+
+          self.push_value(attribute);
         }
         InstructionKind::SetClassAttribute => {
           let maybe_instance = self.pop();
-          let class_instance = Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
-            .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?;
 
-          let assign_to = self.pop();
-          todo!("set_attr");
+          // x = y is an expression which should leave y
+          // on the stack. So we just leave it there...
+          let assign_to = *self.peek();
+          let symbol = Symbol::try_from_usize(next_instruction.operand as usize)
+            .expect("Bad attribute access");
+          Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
+            .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?
+            .borrow_mut(self.vm)
+            .set_attr(symbol, assign_to);
         }
       }
     }

@@ -1,5 +1,5 @@
+class MyClass {};
+var x = MyClass();
 
-var x = 1;
-false && (x = 2);
-assert x == 1;
-
+x.once = MyClass();
+x.once.twice = MyClass();

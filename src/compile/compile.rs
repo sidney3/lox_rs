@@ -297,14 +297,14 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         match assignee {
           &LValue::Var(v) => {
             let sym = self.load_ident_sym(v);
-            self.func_mut().set_variable(sym);
+            self.func_mut().set_variable(sym)?;
           }
           LValue::Member(Member { accessee, property }) => {
             self.expr(accessee)?; //< this had better produce a class!
             self
               .compile_stack
               .head_mut()
-              .set_class_attr(self.rt, *property);
+              .set_class_attr(self.rt, *property)?;
           }
         }
       }
@@ -323,7 +323,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         self
           .compile_stack
           .head_mut()
-          .get_class_attr(self.rt, *property);
+          .get_class_attr(self.rt, *property)?;
       }
     }
 

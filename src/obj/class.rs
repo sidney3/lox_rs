@@ -58,6 +58,9 @@ impl ClassInstance {
   pub fn set_attr(&mut self, sym: Symbol, to: Value) {
     self.properties.insert(sym, to);
   }
+  pub fn name<'a>(&self, rt: &'a Runtime) -> &'a str {
+    rt.symbols.resolve(&self.ident)
+  }
 }
 
 impl Trace<ObjData> for ClassDef {
@@ -83,5 +86,9 @@ impl ObjKind for ClassInstance {
 }
 
 impl Trace<ObjData> for ClassInstance {
-  fn trace(&self, _: &mut Tracer<ObjData>) {}
+  fn trace(&self, tracer: &mut Tracer<ObjData>) {
+    for member in self.properties.values() {
+      member.trace(tracer);
+    }
+  }
 }
