@@ -23,3 +23,7 @@ x.once.twice = MyClass();
 x.once.twice.thrice = MyClass();
 x.once.twice.thrice.a = "b";
 assert x.a == x.once.twice.thrice.a;
+
+x.init = MyClass;
+var y = x.init();
+assert y == MyClass();
