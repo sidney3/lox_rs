@@ -27,3 +27,9 @@ assert x.a == x.once.twice.thrice.a;
 x.init = MyClass;
 var y = x.init();
 assert y == MyClass();
+
+class Dog {
+	fun bark() {
+		print "woof";
+	}
+};

@@ -1,5 +1,5 @@
-class MyClass {};
-var x = MyClass();
-
-x.once = MyClass();
-x.once.twice = MyClass();
+class Dog {
+	fun bark() {
+		print "woof";
+	}
+};

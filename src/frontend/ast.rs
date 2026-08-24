@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::vec;
 
 use lox_derive::Ordinal;
@@ -37,6 +38,7 @@ pub enum LoxRule {
   NonemptyCallArgs,
   Return,
   Class,
+  ClassMethods,
 
   LValue,
   Assign,
@@ -227,6 +229,7 @@ pub struct VarDeclaration {
 #[derive(Debug)]
 pub struct ClassDeclaration {
   pub ident: Ident,
+  pub methods: Vec<FuncDecl>,
 }
 
 #[derive(Debug)]
@@ -314,15 +317,28 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::RBracket),
         ],
       },
+      // Class := 'class' 'Ident' '{' ClassMethods '}' ';'
       P {
         rule: LoxRule::Class,
         definition: vec![
           Symbol::Token(LoxTokenKind::Class),
           Symbol::Token(LoxTokenKind::Ident),
           Symbol::Token(LoxTokenKind::LBracket),
-          // TODO: function definition
+          Symbol::Rule(LoxRule::ClassMethods),
           Symbol::Token(LoxTokenKind::RBracket),
           Symbol::Token(LoxTokenKind::Semicolon),
+        ],
+      },
+      // ClassMethods := ε | ClassMethods FuncDecl
+      P {
+        rule: LoxRule::ClassMethods,
+        definition: vec![],
+      },
+      P {
+        rule: LoxRule::ClassMethods,
+        definition: vec![
+          Symbol::Rule(LoxRule::FuncDecl),
+          Symbol::Rule(LoxRule::ClassMethods),
         ],
       },
       // FuncArgs := ε | NonemptyFuncArgs
@@ -1068,6 +1084,25 @@ impl FuncDecl {
 }
 
 impl ClassDeclaration {
+  pub fn parse_methods(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Vec<FuncDecl> {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::ClassMethods,
+        children,
+      }) => match children.as_slice() {
+        [] => Vec::new(),
+        [method, rest] => {
+          let parsed_method = FuncDecl::from_cst(ast, method);
+          let mut parsed_rest = Self::parse_methods(ast, rest);
+
+          parsed_rest.push(parsed_method);
+          parsed_rest
+        }
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
       Node::Parent(Parent {
@@ -1078,10 +1113,12 @@ impl ClassDeclaration {
           Node::Leaf(_class),
           Node::Leaf(ident),
           Node::Leaf(_lbrace),
+          methods,
           Node::Leaf(_rbrace),
           Node::Leaf(_semicolon),
         ] => ClassDeclaration {
           ident: ident.lexeme,
+          methods: Self::parse_methods(ast, methods),
         },
         _ => panic!("unreachable"),
       },
