@@ -189,6 +189,8 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     // Recall: we have a special BoundMethod object that holds
     // the receiver and the method. It lives at the base of the
     // function stack.
+    let this = self.load_str_sym("this");
+    self.func_mut().bind_this(this);
     self.block(&f.body)?;
     Ok(())
   }

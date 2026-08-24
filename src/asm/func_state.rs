@@ -297,6 +297,11 @@ impl FuncState {
     self.emit(Instruction::new(InstructionKind::Return));
   }
 
+  pub fn bind_this(&mut self, to: Symbol) {
+    self.emit(Instruction::new(InstructionKind::PushThis));
+    self.add_local(to);
+  }
+
   pub fn class(&mut self, rt: &mut Runtime, class: Obj<ClassDef>) -> Result<()> {
     let const_index = self.add_constant(rt, class.as_value())?;
 

@@ -18,6 +18,10 @@ impl BoundMethod {
   pub fn closure(&self) -> Obj<Closure> {
     self.method
   }
+
+  pub fn receiver(&self) -> Obj<ClassInstance> {
+    self.receiver
+  }
 }
 
 impl ObjKind for BoundMethod {

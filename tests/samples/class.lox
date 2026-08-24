@@ -32,6 +32,18 @@ class Dog {
 	fun bark() {
 		return "woof";
 	}
+
+	fun set_name(name) {
+		this.name = name;
+	}
+
+	fun get_name() {
+		return this.name;
+	}
+
+	fun do_set_name(name) {
+		this.set_name(name);
+	}
 };
 
 var dog = Dog();
@@ -39,3 +51,9 @@ assert dog.bark() == "woof";
 
 var bark = dog.bark;
 assert bark() == dog.bark();
+
+dog.set_name("Fido");
+assert dog.get_name() == "Fido";
+
+dog.do_set_name("Maggie");
+assert dog.get_name() == "Maggie";

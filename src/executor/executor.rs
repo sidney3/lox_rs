@@ -494,6 +494,15 @@ impl<'vm> Executor<'vm> {
             .borrow_mut(self.vm)
             .set_attr(self.vm, symbol, assign_to)?;
         }
+        InstructionKind::PushThis => {
+          let receiver = Obj::<BoundMethod>::try_from_value(self.vm, self.load_stack(0))
+            .expect("PushThis should only be called from within a class method")
+            .borrow(self.vm)
+            .receiver()
+            .as_value();
+
+          self.push_value(receiver);
+        }
       }
     }
   }

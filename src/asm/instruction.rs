@@ -20,6 +20,7 @@ pub enum InstructionKind {
   InstantiateClass,
   LoadClassAttribute,
   SetClassAttribute,
+  PushThis,
 
   // peeks, doesn't pop
   JumpIfFalsePreserving,
