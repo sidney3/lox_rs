@@ -3,7 +3,9 @@ use std::collections::HashSet;
 
 use super::value::Value;
 use super::{CallFrame, Root};
+use crate::gc::Ref;
 use crate::gc::{self, AllocFailure, Trace, Tracer};
+use crate::obj::Function;
 use crate::obj::{Closure, Obj, ObjData, ObjKind};
 use log::debug;
 
@@ -112,6 +114,11 @@ impl Runtime {
   }
   pub fn borrow_mut(&self, h: Handle) -> gc::RefMut<'_, ObjData> {
     self.heap.borrow_mut(h)
+  }
+
+  pub fn closure_func(&self, closure: &Obj<Closure>) -> Ref<'_, Function> {
+    let c = closure.borrow(self);
+    c.func.borrow(self)
   }
 
   fn collect(&mut self) {

@@ -3,7 +3,7 @@ use lasso::Key;
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
-use crate::obj::{ClassDef, Function, Obj, UpValueDescriptor};
+use crate::obj::{ClassDef, Closure, Function, Obj, UpValueDescriptor};
 use crate::runtime::{Root, Runtime, Symbol, Value};
 
 // Expression results are transient on the stack.
@@ -101,7 +101,20 @@ impl FuncState {
     self.emit_symbolic(SymbolicInstruction::Label(label));
   }
 
-  pub fn make_class_instance(&mut self, rt: &mut Runtime, class: Obj<ClassDef>) -> Result<()> {
+  // Stack after: [methods..., class_def]
+  pub fn make_class_instance(
+    &mut self,
+    rt: &mut Runtime,
+    class: Obj<ClassDef>,
+    methods: &[Obj<Function>],
+  ) -> Result<()> {
+    for method in methods {
+      let index = self.add_constant(rt, method.as_value())?;
+      self.emit(Instruction {
+        kind: InstructionKind::MakeClosure,
+        operand: index,
+      });
+    }
     self.constant(rt, class.as_value())?;
     self.emit(Instruction::new(InstructionKind::InstantiateClass));
 
