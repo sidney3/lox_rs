@@ -3,11 +3,12 @@ use crate::asm::{
   FuncStack, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
 };
 use crate::frontend::ast::{
-  Assign, Binary, Block, Call, ElseTail, IfStatement, LValue, Member, Unary,
+  Assign, Binary, Block, Call, ClassDeclaration, ElseTail, FuncDecl, IfStatement, LValue, Member,
+  Unary,
 };
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::obj::{ClassDef, Function, ObjData};
+use crate::obj::{ClassDef, Closure, Function, Obj, ObjData};
 use crate::runtime::{Root, Runtime, Symbol, Value};
 
 pub struct Compiler<'a, 'vm> {
@@ -69,12 +70,13 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     Ok(())
   }
 
+  #[must_use]
   fn function(
     &mut self,
     name: Symbol,
     args: &[Symbol],
     body: impl FnOnce(&mut Self) -> Result<()>,
-  ) -> Result<()> {
+  ) -> Result<Root<Function>> {
     // See docs/calling_convention.md
     self.compile_stack.push(self.rt, name, args.len());
     self.func_mut().add_local(name);
@@ -88,17 +90,30 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     self.constant(Value::Nil)?;
     self.func_mut().ret();
 
-    let func = self
-      .compile_stack
-      .pop(self.rt)
-      .expect("Compilation stack too small");
-
+    Ok(
+      self
+        .compile_stack
+        .pop(self.rt)
+        .expect("Compilation stack too small"),
+    )
+  }
+  fn closure(&mut self, func: Root<Function>) -> Result<()> {
+    let name = func.as_obj().borrow(self.rt).name;
     self
       .compile_stack
       .head_mut()
       .add_closure_to_scope(self.rt, func.as_obj(), name)?;
     func.free(self.rt);
+
     Ok(())
+  }
+
+  fn load_symbols(&mut self, idents: &[Ident]) -> Vec<Symbol> {
+    idents
+      .iter()
+      .cloned()
+      .map(|i| self.load_ident_sym(i))
+      .collect()
   }
 
   fn decl(&mut self, decl: &Declaration) -> Result<()> {
@@ -113,31 +128,68 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         // We put a function called ``class.ident`` onto the
         // child class.
         let name = self.load_ident_sym(class.ident);
-        let body = |this: &mut Self| -> Result<()> {
-          let class_def = this.rt.alloc_typed(ClassDef::new(name)).as_root(this.rt);
-          this
-            .compile_stack
-            .head_mut()
-            .make_class_instance(this.rt, class_def.as_obj())?;
-          this.func_mut().ret();
-          class_def.free(this.rt);
-
-          Ok(())
-        };
-        self.function(name, &[], body)?;
+        let func = self.function(name, &[], |this| this.class_body(class))?;
+        self.closure(func)?;
       }
       Declaration::Fun(f) => {
         let f_name = self.load_ident_sym(f.name);
-        let args: Vec<_> = f
-          .args
-          .iter()
-          .cloned()
-          .map(|i| self.load_ident_sym(i))
-          .collect();
-
-        self.function(f_name, args.as_slice(), |this| this.block(&f.body))?;
+        let args = self.load_symbols(f.args.as_slice());
+        let func = self.function(f_name, args.as_slice(), |this| this.block(&f.body))?;
+        self.closure(func)?;
       }
     };
+    Ok(())
+  }
+
+  fn class_body(&mut self, class: &ClassDeclaration) -> Result<()> {
+    let name = self.load_ident_sym(class.ident);
+    let methods = class
+      .methods
+      .iter()
+      .map(|method| -> Result<Root<Function>> {
+        let args = self.load_symbols(method.args.as_slice());
+        self.function(method.name, args.as_slice(), |this| {
+          this.method_body(method)
+        })
+      })
+      .try_fold(
+        Vec::new(),
+        |mut accum, item| -> Result<Vec<Root<Function>>> {
+          accum.push(item?);
+
+          Ok(accum)
+        },
+      )?;
+
+    let method_objs: Vec<Obj<Function>> = methods.iter().map(|r| r.as_obj()).collect();
+
+    let class_def = self
+      .rt
+      .alloc_typed(ClassDef::new(name, method_objs.clone()))
+      .as_root(self.rt);
+
+    self.compile_stack.head_mut().make_class_instance(
+      self.rt,
+      class_def.as_obj(),
+      method_objs.as_slice(),
+    )?;
+    self.func_mut().ret();
+    class_def.free(self.rt);
+    for method in methods {
+      method.free(self.rt);
+    }
+
+    Ok(())
+  }
+
+  fn method_body(&mut self, f: &FuncDecl) -> Result<()> {
+    // TODO: shenanagins to bind this/super. im thinking we make
+    // special instructions PUSH_THIS and PUSH_SUPER for the VM,
+    // and then we can just invoke these and bind the names.
+    // Recall: we have a special BoundMethod object that holds
+    // the receiver and the method. It lives at the base of the
+    // function stack.
+    self.block(&f.body)?;
     Ok(())
   }
 

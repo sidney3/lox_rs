@@ -30,6 +30,9 @@ assert y == MyClass();
 
 class Dog {
 	fun bark() {
-		print "woof";
+		return "woof";
 	}
 };
+
+var dog = Dog();
+assert dog.bark() == "woof";

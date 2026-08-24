@@ -1,4 +1,4 @@
-use super::{ClassDef, ClassInstance, Closure, Function, LoxString, UpValue};
+use super::{BoundMethod, ClassDef, ClassInstance, Closure, Function, LoxString, UpValue};
 use std::fmt;
 
 use crate::gc::{Trace, Tracer};
@@ -12,6 +12,7 @@ pub enum ObjData {
   UpValue(UpValue),
   ClassDef(ClassDef),
   ClassInstance(ClassInstance),
+  BoundMethod(BoundMethod),
 }
 
 impl Trace<ObjData> for ObjData {
@@ -23,6 +24,7 @@ impl Trace<ObjData> for ObjData {
       ObjData::UpValue(upval) => upval.trace(tracer),
       ObjData::ClassDef(class) => class.trace(tracer),
       ObjData::ClassInstance(class) => class.trace(tracer),
+      ObjData::BoundMethod(method) => method.trace(tracer),
     }
   }
 }
@@ -63,6 +65,7 @@ impl ObjData {
       Self::UpValue(_) => "UpValue",
       Self::ClassDef(_) => "ClassDef",
       Self::ClassInstance(_) => "ClassInstance",
+      Self::BoundMethod(_) => "BoundMethod",
     }
   }
 }
@@ -79,6 +82,7 @@ impl fmt::Display for ObjData {
       },
       ObjData::ClassDef(_) => write!(f, "ClassDef"),
       ObjData::ClassInstance(_) => write!(f, "ClassInstance"),
+      ObjData::BoundMethod(_) => write!(f, "BoundMethod"),
     }
   }
 }

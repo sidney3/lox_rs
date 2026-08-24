@@ -8,7 +8,7 @@ use smallvec::SmallVec;
 use crate::asm::{Instruction, InstructionKind};
 use crate::gc::Ref;
 use crate::obj::{
-  ClassDef, ClassInstance, Closure, Function, Obj, ObjData, UpValue, UpValueDescriptor,
+  BoundMethod, ClassDef, ClassInstance, Closure, Function, Obj, ObjData, UpValue, UpValueDescriptor,
 };
 use crate::runtime::{CallFrame, FrameIndex, Root, Runtime, RuntimeError, Symbol, Value};
 use either::Either;
@@ -339,15 +339,20 @@ impl<'vm> Executor<'vm> {
         InstructionKind::Callq => {
           let nargs = next_instruction.operand as usize;
           let f_idx = self.vm.stack_top() - nargs - 1;
-          let handle = match self.vm.value_stack[f_idx] {
-            Value::Obj(obj) => obj,
-            _ => return Err(RuntimeError::new("Expected function")),
-          };
 
-          let closure = Obj::<Closure>::downcast(handle, self.vm)
-            .ok_or_else(|| RuntimeError::new("Call can only be called on a function"))?;
+          let closure: Obj<Closure> = {
+            let val = self.vm.value_stack[f_idx];
 
-          let true_arity = closure.func(self.vm).arity;
+            if let Some(closure) = Obj::<Closure>::try_from_value(self.vm, val) {
+              Ok(closure)
+            } else if let Some(bound_method) = Obj::<BoundMethod>::try_from_value(self.vm, val) {
+              Ok(bound_method.borrow(self.vm).closure())
+            } else {
+              Err(RuntimeError::new("Call can only be called on a function"))
+            }
+          }?;
+
+          let true_arity = self.vm.closure_func(&closure).arity;
           if nargs != true_arity {
             return Err(RuntimeError::new(
               format!(
@@ -415,18 +420,43 @@ impl<'vm> Executor<'vm> {
         }
 
         InstructionKind::InstantiateClass => {
-          let maybe_class_def = self.pop();
-          let class_def =
-            Obj::<ClassDef>::try_from_value(self.vm, maybe_class_def).expect("ClassDef");
+          let (class_instance, num_methods) = {
+            let maybe_def = self.pop();
+            let class_def = Obj::<ClassDef>::try_from_value(self.vm, maybe_def)
+              .expect("ClassDef")
+              .borrow(self.vm);
 
-          let class_instance = ClassInstance::new(class_def.borrow(self.vm).deref());
+            let num_methods = class_def.methods().len();
+            let class_instance = ClassInstance::new(class_def.deref());
 
-          let obj = self.vm.alloc(ObjData::ClassInstance(class_instance));
+            (class_instance, num_methods)
+          };
+          let obj = self.vm.alloc_typed(class_instance);
 
-          self.push_value(Value::Obj(obj));
+          let r = self.vm.root(obj);
+
+          // The runtime could certainly derive the methods to create from
+          // ClassDef, but the name binding is rather complicated so
+          // I want this logic in the compiler.
+          for _ in 0..num_methods {
+            let maybe_method = self.pop();
+
+            let method = Obj::<Closure>::try_from_value(self.vm, maybe_method)
+              .expect("Need to push methods onto stack");
+
+            let method_root = self.vm.root(method);
+
+            let bound_method = self.vm.alloc_typed(BoundMethod::new(obj, method));
+
+            obj.borrow_mut(self.vm).add_method(bound_method);
+            method_root.free(self.vm);
+          }
+
+          self.push_value(obj.as_value());
+          r.free(self.vm);
         }
         InstructionKind::LoadClassAttribute => {
-          let maybe_instance = self.pop();
+          let maybe_instance = *self.peek();
 
           let attribute = {
             let class_instance = Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
@@ -434,7 +464,7 @@ impl<'vm> Executor<'vm> {
               .borrow(self.vm);
             let symbol = Symbol::try_from_usize(next_instruction.operand as usize)
               .expect("Bad attribute access");
-            if let Some(val) = class_instance.load_attr(symbol) {
+            if let Some(val) = class_instance.load_attr(self.vm, symbol) {
               val
             } else {
               return Err(RuntimeError::new(
@@ -448,6 +478,7 @@ impl<'vm> Executor<'vm> {
             }
           };
 
+          self.pop();
           self.push_value(attribute);
         }
         InstructionKind::SetClassAttribute => {
@@ -461,7 +492,7 @@ impl<'vm> Executor<'vm> {
           Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
             .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?
             .borrow_mut(self.vm)
-            .set_attr(symbol, assign_to);
+            .set_attr(self.vm, symbol, assign_to)?;
         }
       }
     }

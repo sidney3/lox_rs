@@ -1,3 +1,4 @@
+mod bound_method;
 mod class;
 mod closure;
 mod function;
@@ -7,6 +8,7 @@ mod obj_kind;
 mod string;
 mod upvalue;
 
+pub use bound_method::BoundMethod;
 pub use class::{ClassDef, ClassInstance};
 pub use closure::Closure;
 pub use function::{Function, UpValueDescriptor};

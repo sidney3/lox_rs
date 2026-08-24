@@ -3,3 +3,6 @@ class Dog {
 		print "woof";
 	}
 };
+
+var dog = Dog();
+dog.bark();
