@@ -191,7 +191,7 @@ impl<'vm> Executor<'vm> {
         InstructionKind::Sub => self.execute_binary(Value::sub)?,
         InstructionKind::Geq => self.execute_binary(Value::geq)?,
         InstructionKind::Leq => self.execute_binary(Value::leq)?,
-        InstructionKind::Equals => self.execute_binary(Value::equals)?,
+        InstructionKind::Equals => self.execute_binary(Value::equals_value)?,
         InstructionKind::Neq => self.execute_binary(Value::neq)?,
         InstructionKind::Greater => self.execute_binary(Value::greater)?,
         InstructionKind::Less => self.execute_binary(Value::less)?,

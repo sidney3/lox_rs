@@ -55,5 +55,12 @@ assert bark() == dog.bark();
 dog.set_name("Fido");
 assert dog.get_name() == "Fido";
 
+var fido = Dog();
+fido.set_name("Fido");
+
+assert fido == dog;
+
 dog.do_set_name("Maggie");
+
 assert dog.get_name() == "Maggie";
+assert fido != dog;

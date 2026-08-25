@@ -9,6 +9,7 @@ use crate::runtime::RuntimeError;
 use crate::runtime::Symbol;
 use crate::runtime::{Runtime, Value};
 use std::collections::HashMap;
+use std::collections::hash_map::Keys;
 
 #[derive(Debug)]
 pub struct ClassDef {
@@ -71,9 +72,37 @@ impl ClassInstance {
     self.methods.push(method);
   }
 
-  pub fn equals(&self, _: &Runtime, rhs: &ClassInstance) -> bool {
-    rhs.ident == self.ident
+  pub fn equals(
+    &self,
+    rt: &Runtime,
+    rhs: &ClassInstance,
+  ) -> std::result::Result<bool, RuntimeError> {
+    if self.ident != rhs.ident {
+      let msg = format!(
+        "TypeError: comparison {}=={} is not defined",
+        rt.symbols.resolve(&self.ident),
+        rt.symbols.resolve(&rhs.ident)
+      );
+      Err(RuntimeError::new(msg.as_str()))
+    } else {
+      self
+        .properties
+        .iter()
+        .try_fold(
+          true,
+          |accum, (k, v)| -> std::result::Result<bool, RuntimeError> {
+            rhs
+              .properties
+              .get(k)
+              .map(|v_| v.equals(*v_, rt))
+              .unwrap_or(Ok(false))
+              .map(|next| next && accum)
+          },
+        )
+        .map(|b| b && self.properties.len() == rhs.properties.len())
+    }
   }
+
   pub fn load_attr(&self, rt: &Runtime, sym: Symbol) -> Option<Value> {
     // TODO: this changes to be much faster once we have a vtable
     self.properties.get(&sym).cloned().or_else(|| {

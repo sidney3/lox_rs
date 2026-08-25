@@ -111,7 +111,7 @@ impl Value {
     }
   }
 
-  pub fn equals(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
+  pub fn equals(self, rhs: Value, vm: &Runtime) -> Result<bool, RuntimeError> {
     let eq = match (self.flatten(vm), rhs.flatten(vm)) {
       (Value::Num(a), Value::Num(b)) => a == b,
       (Value::Obj(a), Value::Obj(b)) => vm.borrow(a).equals(&vm.borrow(b), vm)?,
@@ -123,13 +123,16 @@ impl Value {
         });
       }
     };
-    Ok(Value::Bool(eq))
+    Ok(eq)
+  }
+  pub fn equals_value(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
+    let x = self.equals(rhs, vm)?;
+    Ok(Value::Bool(x))
   }
   pub fn neq(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
-    match self.equals(rhs, vm)? {
-      Value::Bool(b) => Ok(Value::Bool(!b)),
-      _ => panic!("unreachable. equals() should always return Value::Bool"),
-    }
+    let x = self.equals(rhs, vm)?;
+
+    Ok(Value::Bool(!x))
   }
   pub fn mult(self, rhs: Value, vm: &Runtime) -> Result<Value, RuntimeError> {
     self.binary_arithmetic(rhs, |a, b| Value::Num(a * b), "*", vm)
