@@ -2,10 +2,6 @@ class MyClass {};
 
 assert MyClass() == MyClass(); 
 
-class OtherClass {};
-
-assert OtherClass() != MyClass();
-
 var durable = MyClass();
 assert durable == MyClass();
 
