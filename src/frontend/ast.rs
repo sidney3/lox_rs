@@ -39,6 +39,7 @@ pub enum LoxRule {
   Return,
   Class,
   ClassMethods,
+  Constructor,
 
   LValue,
   Assign,
@@ -227,8 +228,15 @@ pub struct VarDeclaration {
 }
 
 #[derive(Debug)]
+pub struct Constructor {
+  pub args: Vec<Ident>,
+  pub body: Block,
+}
+
+#[derive(Debug)]
 pub struct ClassDeclaration {
   pub ident: Ident,
+  pub constructor: Constructor,
   pub methods: Vec<FuncDecl>,
 }
 
@@ -317,16 +325,32 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::RBracket),
         ],
       },
-      // Class := 'class' 'Ident' '{' ClassMethods '}' ';'
+      // Class := 'class' 'Ident' '{' Constructor ClassMethods '}' ';'
       P {
         rule: LoxRule::Class,
         definition: vec![
           Symbol::Token(LoxTokenKind::Class),
           Symbol::Token(LoxTokenKind::Ident),
           Symbol::Token(LoxTokenKind::LBracket),
+          Symbol::Rule(LoxRule::Constructor),
           Symbol::Rule(LoxRule::ClassMethods),
           Symbol::Token(LoxTokenKind::RBracket),
           Symbol::Token(LoxTokenKind::Semicolon),
+        ],
+      },
+      // Constructor := ε | 'init' '(' ')' Block
+      P {
+        rule: LoxRule::Constructor,
+        definition: vec![],
+      },
+      P {
+        rule: LoxRule::Constructor,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Init),
+          Symbol::Token(LoxTokenKind::LParen),
+          Symbol::Rule(LoxRule::FuncArgs),
+          Symbol::Token(LoxTokenKind::RParen),
+          Symbol::Rule(LoxRule::BlockStatement),
         ],
       },
       // ClassMethods := ε | ClassMethods FuncDecl
@@ -1083,6 +1107,37 @@ impl FuncDecl {
   }
 }
 
+impl Constructor {
+  pub fn new() -> Self {
+    Self {
+      args: Vec::new(),
+      body: Block::new(),
+    }
+  }
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Constructor {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::Constructor,
+        children,
+      }) => match children.as_slice() {
+        [] => Self::new(),
+        [
+          Node::Leaf(_init),
+          Node::Leaf(_lparen),
+          args,
+          Node::Leaf(_rparen),
+          body,
+        ] => Self {
+          args: FuncDecl::parse_args(ast, args),
+          body: Block::from_cst(ast, body),
+        },
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
+}
+
 impl ClassDeclaration {
   pub fn parse_methods(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Vec<FuncDecl> {
     match node {
@@ -1113,11 +1168,13 @@ impl ClassDeclaration {
           Node::Leaf(_class),
           Node::Leaf(ident),
           Node::Leaf(_lbrace),
+          constructor,
           methods,
           Node::Leaf(_rbrace),
           Node::Leaf(_semicolon),
         ] => ClassDeclaration {
           ident: ident.lexeme,
+          constructor: Constructor::from_cst(ast, constructor),
           methods: Self::parse_methods(ast, methods),
         },
         _ => panic!("unreachable"),

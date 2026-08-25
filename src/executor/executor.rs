@@ -348,7 +348,11 @@ impl<'vm> Executor<'vm> {
             } else if let Some(bound_method) = Obj::<BoundMethod>::try_from_value(self.vm, val) {
               Ok(bound_method.borrow(self.vm).closure())
             } else {
-              Err(RuntimeError::new("Call can only be called on a function"))
+              let msg = format!(
+                "Call can only be called on a function. Called on: {:?}",
+                val
+              );
+              Err(RuntimeError::new(msg.as_str()))
             }
           }?;
 
@@ -469,9 +473,14 @@ impl<'vm> Executor<'vm> {
             } else {
               return Err(RuntimeError::new(
                 format!(
-                  "Class {} has no attribute {}",
+                  "Instance {} has no attribute {}",
                   class_instance.name(self.vm),
-                  self.vm.symbols.resolve(&symbol),
+                  self
+                    .vm
+                    .symbols
+                    .try_resolve(&symbol)
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| format!("[Unknown Symbol: {}]", symbol.into_usize())),
                 )
                 .as_str(),
               ));

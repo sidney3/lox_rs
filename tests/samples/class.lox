@@ -1,4 +1,6 @@
-class MyClass {};
+class MyClass {
+	fun sentinel() {}
+};
 
 assert MyClass() == MyClass(); 
 
@@ -20,11 +22,15 @@ x.once.twice.thrice = MyClass();
 x.once.twice.thrice.a = "b";
 assert x.a == x.once.twice.thrice.a;
 
-x.init = MyClass;
-var y = x.init();
+x.ctor = MyClass;
+var y = x.ctor();
 assert y == MyClass();
 
 class Dog {
+	init(name) {
+		this.name = name;
+	}
+
 	fun bark() {
 		return "woof";
 	}
@@ -42,7 +48,7 @@ class Dog {
 	}
 };
 
-var dog = Dog();
+var dog = Dog("fido");
 assert dog.bark() == "woof";
 
 var bark = dog.bark;
@@ -51,8 +57,7 @@ assert bark() == dog.bark();
 dog.set_name("Fido");
 assert dog.get_name() == "Fido";
 
-var fido = Dog();
-fido.set_name("Fido");
+var fido = Dog("Fido");
 
 assert fido == dog;
 
