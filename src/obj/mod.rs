@@ -12,7 +12,7 @@ pub use bound_method::BoundMethod;
 pub use class::{ClassDef, ClassInstance};
 pub use closure::Closure;
 pub use function::{Function, UpValueDescriptor};
-pub use obj::Obj;
+pub use obj::{Obj, TryAsObjExt};
 pub use obj_data::ObjData;
 pub use obj_kind::ObjKind;
 pub use string::LoxString;

@@ -1,5 +1,6 @@
 use super::Runtime;
 use crate::obj::{Obj, ObjData, ObjKind};
+use crate::runtime::Value;
 
 pub struct Root<U: ObjKind>(Obj<U>);
 
@@ -19,6 +20,10 @@ impl<U: ObjKind> Root<U> {
 
   pub fn as_obj(&self) -> Obj<U> {
     self.0
+  }
+
+  pub fn as_value(&self) -> Value {
+    self.as_obj().as_value()
   }
 
   pub fn free(self, rt: &mut Runtime) {

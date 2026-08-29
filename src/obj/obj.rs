@@ -23,6 +23,16 @@ impl<T: ObjKind> Clone for Obj<T> {
   }
 }
 
+pub trait TryAsObjExt<T: ObjKind> {
+  fn try_as_obj(self, rt: &Runtime) -> Option<Obj<T>>;
+}
+
+impl<T: ObjKind> TryAsObjExt<T> for Value {
+  fn try_as_obj(self, rt: &Runtime) -> Option<Obj<T>> {
+    Obj::<T>::try_from_value(rt, self)
+  }
+}
+
 impl<T: ObjKind> Copy for Obj<T> {}
 
 impl<T: ObjKind> Obj<T> {

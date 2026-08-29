@@ -8,7 +8,8 @@ use smallvec::SmallVec;
 use crate::asm::{Instruction, InstructionKind};
 use crate::gc::Ref;
 use crate::obj::{
-  BoundMethod, ClassDef, ClassInstance, Closure, Function, Obj, ObjData, UpValue, UpValueDescriptor,
+  BoundMethod, ClassDef, ClassInstance, Closure, Function, Obj, ObjData, TryAsObjExt, UpValue,
+  UpValueDescriptor,
 };
 use crate::runtime::{CallFrame, FrameIndex, Root, Runtime, RuntimeError, Symbol, Value};
 use either::Either;
@@ -170,6 +171,41 @@ impl<'vm> Executor<'vm> {
     self.vm.value_stack.drain(until..);
   }
 
+  fn make_closure(&mut self, f: Obj<Function>) -> Obj<Closure> {
+    let mut upvalues: Vec<Root<UpValue>> = Vec::new();
+
+    let upvalue_descs = f.borrow(self.vm).upvalues.clone();
+
+    for (_, upvalue_desc) in upvalue_descs {
+      match upvalue_desc {
+        UpValueDescriptor::Local { parent_stack_pos } => {
+          let absolute_stack_pos = self.frame().base + parent_stack_pos;
+          let upval = self
+            .vm
+            .alloc_typed(UpValue::Open { absolute_stack_pos })
+            .as_root(self.vm);
+          self.open_upvalues.push(upval.as_obj());
+          upvalues.push(upval);
+        }
+        UpValueDescriptor::Recursive { parent_upvalue_pos } => {
+          let upval = self.active_fn().upvalues[parent_upvalue_pos];
+          upvalues.push(upval.as_root(self.vm));
+        }
+      }
+    }
+
+    let closure = self.vm.alloc_typed(Closure {
+      func: f,
+      upvalues: upvalues.iter().map(|u| u.as_obj()).collect(),
+    });
+
+    for upval in upvalues {
+      upval.free(self.vm);
+    }
+
+    closure
+  }
+
   pub fn execute(mut self) -> Result<(), RuntimeError> {
     loop {
       let next_instruction: Instruction = if let Some(inst) = self.load_instruction() {
@@ -294,47 +330,13 @@ impl<'vm> Executor<'vm> {
         }
 
         InstructionKind::MakeClosure => {
-          let func_handle = self.load_const(next_instruction.operand as usize);
+          let func = self
+            .load_const(next_instruction.operand as usize)
+            .try_as_obj(self.vm)
+            .expect("MakeClosure expects a function");
 
-          let func = match func_handle {
-            Value::Obj(handle) => {
-              Obj::<Function>::downcast(handle, self.vm).expect("MakeClosure expects a function")
-            }
-            _ => panic!("MakeClosure expects a function"),
-          };
-
-          let mut upvalues: Vec<Root<UpValue>> = Vec::new();
-
-          let upvalue_descs = func.borrow(self.vm).upvalues.clone();
-
-          for (_, upvalue_desc) in upvalue_descs {
-            match upvalue_desc {
-              UpValueDescriptor::Local { parent_stack_pos } => {
-                let absolute_stack_pos = self.frame().base + parent_stack_pos;
-                let upval = self
-                  .vm
-                  .alloc_typed(UpValue::Open { absolute_stack_pos })
-                  .as_root(self.vm);
-                self.open_upvalues.push(upval.as_obj());
-                upvalues.push(upval);
-              }
-              UpValueDescriptor::Recursive { parent_upvalue_pos } => {
-                let upval = self.active_fn().upvalues[parent_upvalue_pos];
-                upvalues.push(upval.as_root(self.vm));
-              }
-            }
-          }
-
-          let closure = self.vm.alloc(ObjData::Closure(Closure {
-            func,
-            upvalues: upvalues.iter().map(|u| u.as_obj()).collect(),
-          }));
-
-          for upval in upvalues {
-            upval.free(self.vm);
-          }
-
-          self.push_value(Value::Obj(closure));
+          let closure = self.make_closure(func);
+          self.push_value(closure.as_value());
         }
         InstructionKind::Callq => {
           let nargs = next_instruction.operand as usize;
@@ -425,8 +427,9 @@ impl<'vm> Executor<'vm> {
 
         InstructionKind::InstantiateClass => {
           let (class_instance, num_methods) = {
-            let maybe_def = self.pop();
-            let class_def = Obj::<ClassDef>::try_from_value(self.vm, maybe_def)
+            let class_def: Ref<'_, ClassDef> = self
+              .pop()
+              .try_as_obj(self.vm)
               .expect("ClassDef")
               .borrow(self.vm);
 
@@ -443,9 +446,9 @@ impl<'vm> Executor<'vm> {
           // ClassDef, but the name binding is rather complicated so
           // I want this logic in the compiler.
           for _ in 0..num_methods {
-            let maybe_method = self.pop();
-
-            let method = Obj::<Closure>::try_from_value(self.vm, maybe_method)
+            let method: Obj<Closure> = self
+              .pop()
+              .try_as_obj(self.vm)
               .expect("Need to push methods onto stack");
 
             let method_root = self.vm.root(method);
