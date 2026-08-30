@@ -223,16 +223,11 @@ impl<'vm> Executor<'vm> {
     let instance = self.vm.alloc_typed(Instance::new(name)).as_root(self.vm);
 
     for f in methods {
-      let closure = self.make_closure(f);
-      let bound_method = self
-        .vm
-        .alloc_typed(BoundMethod::new(instance.as_obj(), closure.as_obj()));
+      let bound_method = self.vm.alloc_typed(BoundMethod::new(instance.as_obj(), f));
       instance
         .as_obj()
         .borrow_mut(self.vm)
         .add_method(bound_method);
-
-      closure.free(self.vm);
     }
 
     instance
@@ -506,9 +501,26 @@ impl<'vm> Executor<'vm> {
           let method: Obj<Function> = self.pop().try_as_obj(self.vm).expect("AddMethod");
           let class: Obj<Class> = self.pop().try_as_obj(self.vm).expect("AddMethod");
 
-          class.borrow_mut(self.vm).add_method(method);
+          let f = self.make_closure(method);
+          class.borrow_mut(self.vm).add_method(self.vm, f.as_obj());
+          f.free(self.vm);
           self.push_value(class.as_value());
         }
+
+        // [..., Superclass, Subclass ]
+        InstructionKind::Inherit => {
+          let subclass: Obj<Class> = self.pop().try_as_obj(self.vm).expect("Subclass");
+          let superclass: Obj<Class> = self
+            .peek()
+            .try_as_obj(self.vm)
+            .ok_or_else(|| RuntimeError::new("SuperClass must be a class"))?;
+
+          // copy-down inheritance
+          for f in superclass.borrow(self.vm).methods().iter().copied() {
+            subclass.borrow_mut(self.vm).add_method(self.vm, f);
+          }
+        }
+
         InstructionKind::LoadClassAttribute => {
           let maybe_instance = *self.peek();
 
@@ -555,6 +567,29 @@ impl<'vm> Executor<'vm> {
               .expect("PushThis should only be called from within a class method")
               .as_value(),
           );
+        }
+        InstructionKind::LoadSuperMethod => {
+          let super_: Obj<Class> = self.pop().try_as_obj(self.vm).expect("LoadSuperMethod");
+          let this: Obj<Instance> = self.pop().try_as_obj(self.vm).expect("LoadSuperMethod");
+          let property =
+            Symbol::try_from_usize(next_instruction.operand as usize).expect("LoadSuperMethod");
+
+          let method = match super_.borrow(self.vm).load_method(self.vm, property) {
+            Some(x) => x,
+            None => {
+              return Err(RuntimeError::new(
+                format!(
+                  "Class {} has no method {}",
+                  super_.borrow(self.vm).symbol().as_str(self.vm),
+                  property.as_str(self.vm)
+                )
+                .as_str(),
+              ));
+            }
+          };
+
+          let bound = self.vm.alloc_typed(BoundMethod::new(this, method));
+          self.push_value(bound.as_value());
         }
       }
     }

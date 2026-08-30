@@ -19,10 +19,12 @@ pub enum InstructionKind {
 
   MakeClass,
   AddMethod,
+  Inherit,
 
   LoadClassAttribute,
   SetClassAttribute,
   PushThis,
+  LoadSuperMethod,
 
   // peeks, doesn't pop
   JumpIfFalsePreserving,

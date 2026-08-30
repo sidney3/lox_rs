@@ -46,3 +46,8 @@ pub fn test_closures() {
 pub fn test_classes() {
   run_test_file("class.lox");
 }
+
+#[test]
+pub fn test_inheritance() {
+  run_test_file("inheritance.lox");
+}

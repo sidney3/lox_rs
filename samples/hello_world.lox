@@ -1,5 +1,15 @@
-class Dog {
-	fun hi() {
-
+class Base {
+	fun foo() {
+		print "Hello from base";
 	}
 };
+
+class Derived < Base {
+	fun foo() {
+		super.foo();
+		print "Hello from derived";
+	}
+};
+
+var derived = Derived();
+derived.foo();

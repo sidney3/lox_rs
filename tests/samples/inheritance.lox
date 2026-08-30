@@ -1,0 +1,32 @@
+class Base {
+	fun foo() {
+		return "base_foo";
+	}
+	fun bar() {
+		return "base_bar";
+	}
+};
+
+class Derived < Base {
+	fun foo() {
+		return "derived_foo";
+	}
+};
+
+var derived = Derived();
+assert derived.foo() == "derived_foo";
+assert derived.bar() == "base_bar";
+
+class A {
+	fun method() { return "A_method"; }
+};
+
+class B < A {
+	fun method() { return "B_method"; }
+
+	fun test() { return super.method(); }
+};
+
+class C < B {};
+
+assert C().test() == "A_method";

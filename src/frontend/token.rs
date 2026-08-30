@@ -51,6 +51,7 @@ pub enum LoxTokenKind {
   While,
   Break,
   Init,
+  Super,
 
   // TODO: get rid of these and represent
   // them as native functions
@@ -139,6 +140,7 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
   (LoxTokenKind::Break, "break"),
   (LoxTokenKind::Print, "print"),   // TODO: remove this token
   (LoxTokenKind::Assert, "assert"), // TODO: remove this token
+  (LoxTokenKind::Super, "super"),
   (LoxTokenKind::Init, "init"),
   (LoxTokenKind::Number, "[1-9][0-9]*"),
   (LoxTokenKind::Number, "[0-9]"),

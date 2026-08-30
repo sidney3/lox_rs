@@ -24,6 +24,10 @@ impl Symbol {
   pub fn into_usize(&self) -> usize {
     self.0.into_usize()
   }
+
+  pub fn as_str<'a>(self, rt: &'a Runtime) -> &'a str {
+    rt.resolve_sym(self)
+  }
 }
 
 type Stack = Vec<Value>;

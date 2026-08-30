@@ -126,8 +126,6 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       }
       Declaration::Class(class) => {
         self.make_class(class)?;
-        let sym = self.load_ident_sym(class.ident);
-        self.func_mut().define_var(sym)?;
       }
       Declaration::Fun(f) => {
         let f_name = self.load_ident_sym(f.name);
@@ -142,6 +140,26 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
   fn make_class(&mut self, class: &ClassDeclaration) -> Result<()> {
     let name = self.load_ident_sym(class.ident);
     self.func_mut().make_class(name)?;
+    self.func_mut().define_var(name)?;
+
+    if let Some(superclass) = class.inherits.map(|i| self.load_ident_sym(i)) {
+      // Invoke InstructionKind::Inherit and bind super
+      self.func_mut().begin_scope(); // Begin super scope
+
+      // This superclass gets used as an argument to OP_INHERIT,
+      // which leaves it intact on the stack, AND to bind `super`.
+      // The runtime does not access this superclass directly.
+      // Instead, the `super.<method>` keyword gets compiled
+      // into a special instruction LoadSuperMethod.
+      self.func_mut().load_var(superclass)?;
+
+      let super_sym = self.load_str_sym("super");
+      self.func_mut().add_local(super_sym);
+      self.func_mut().load_var(name)?;
+      self.func_mut().inherit();
+    }
+
+    self.func_mut().load_var(name)?;
 
     for method in &class.methods {
       let name = self.load_ident_sym(method.name);
@@ -165,6 +183,12 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       .head_mut()
       .add_method(self.rt, ctor.as_obj())?;
     ctor.free(self.rt);
+
+    self.func_mut().pop(); // pop this
+
+    if class.inherits.is_some() {
+      self.func_mut().end_scope(); // End super scope
+    }
 
     Ok(())
   }
@@ -367,6 +391,15 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
           .compile_stack
           .head_mut()
           .get_class_attr(self.rt, property_name)?;
+      }
+      &Expression::SuperMember(member) => {
+        let property_name = self.load_ident_sym(member);
+        let this_sym = self.load_str_sym("this");
+        let super_sym = self.load_str_sym("super");
+
+        self
+          .func_mut()
+          .load_super_method(this_sym, super_sym, property_name)?;
       }
     }
 

@@ -93,6 +93,8 @@ impl FuncState {
       .add_instruction(SymbolicInstruction::from_instruction(instruction));
   }
 
+  // Stack before: [...]
+  // Stack after: [..., Class]
   pub fn make_class(&mut self, name: Symbol) -> Result<()> {
     self.emit(Instruction {
       kind: InstructionKind::MakeClass,
@@ -102,6 +104,14 @@ impl FuncState {
     Ok(())
   }
 
+  // Stack before: [..., Superclass, Subclass]
+  // Stack after: [..., Superclass]
+  pub fn inherit(&mut self) {
+    self.emit(Instruction::new(InstructionKind::Inherit));
+  }
+
+  // Stack before: [..., Class]
+  // Stack after: [..., Class]
   pub fn add_method(&mut self, rt: &mut Runtime, method: Obj<Function>) -> Result<()> {
     self.constant(rt, method.as_value())?;
     self.emit(Instruction::new(InstructionKind::AddMethod));
@@ -236,6 +246,24 @@ impl FuncState {
 
     Ok(())
   }
+  pub fn load_super_method(
+    &mut self,
+    this_sym: Symbol,
+    super_sym: Symbol,
+    method: Symbol,
+  ) -> Result<()> {
+    // TODO: should have a special `reserved_symbols` area of the runtime
+    // and have this method just take in `&Runtime`
+    self.load_var(this_sym)?;
+    self.load_var(super_sym)?;
+    self.emit(Instruction {
+      kind: InstructionKind::LoadSuperMethod,
+      operand: index_to_op(method.into_usize())?,
+    });
+
+    Ok(())
+  }
+
   pub fn pop(&mut self) {
     self.emit(Instruction::new(InstructionKind::Pop));
   }

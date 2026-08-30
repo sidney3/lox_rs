@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use super::Function;
 use super::ObjData;
 use super::ObjKind;
@@ -14,7 +16,7 @@ use std::collections::hash_map::Keys;
 #[derive(Debug)]
 pub struct Class {
   name: Symbol,
-  methods: Vec<Obj<Function>>,
+  methods: Vec<Obj<Closure>>,
 }
 
 #[derive(Debug)]
@@ -32,8 +34,26 @@ impl Class {
     }
   }
 
-  pub fn add_method(&mut self, method: Obj<Function>) {
+  pub fn add_method(&mut self, rt: &Runtime, method: Obj<Closure>) {
+    let name = method.borrow(rt).borrow_func(rt).name;
+
+    if let Some(i) = self
+      .methods
+      .iter()
+      .position(|m| m.borrow(rt).borrow_func(rt).name == name)
+    {
+      self.methods.swap_remove(i);
+    }
+
     self.methods.push(method);
+  }
+
+  pub fn load_method(&self, rt: &Runtime, method_name: Symbol) -> Option<Obj<Closure>> {
+    self
+      .methods()
+      .iter()
+      .find(|f| f.borrow(rt).borrow_func(rt).name == method_name)
+      .cloned()
   }
 
   pub fn symbol(&self) -> Symbol {
@@ -44,7 +64,7 @@ impl Class {
   // as `this` and `super` are unbound. Instance methods
   // are NOT a copy of these methods. They are closures
   // with these attributes properly bound.
-  pub fn methods(&self) -> &Vec<Obj<Function>> {
+  pub fn methods(&self) -> &Vec<Obj<Closure>> {
     &self.methods
   }
 }

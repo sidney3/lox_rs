@@ -39,6 +39,7 @@ pub enum LoxRule {
   Return,
   Class,
   ClassMethods,
+  ClassInherits,
   Constructor,
 
   LValue,
@@ -141,6 +142,9 @@ pub struct Member {
   pub property: Ident,
 }
 
+// NOTE: these don't all take the same precedence. Once I
+// compile in the semantic actions and add codegen for
+// nodes should be much better.
 #[derive(Debug)]
 pub enum Expression {
   Bin(Binary),
@@ -148,6 +152,7 @@ pub enum Expression {
   Lit(Literal),
   Assign(Assign),
   Call(Call),
+  SuperMember(Ident),
   Member(Member),
   Nil,
 }
@@ -238,6 +243,7 @@ pub struct ClassDeclaration {
   pub ident: Ident,
   pub constructor: Constructor,
   pub methods: Vec<FuncDecl>,
+  pub inherits: Option<Ident>,
 }
 
 #[derive(Debug)]
@@ -325,12 +331,13 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::RBracket),
         ],
       },
-      // Class := 'class' 'Ident' '{' Constructor ClassMethods '}' ';'
+      // Class := 'class' 'Ident' ClassInherits '{' Constructor ClassMethods '}' ';'
       P {
         rule: LoxRule::Class,
         definition: vec![
           Symbol::Token(LoxTokenKind::Class),
           Symbol::Token(LoxTokenKind::Ident),
+          Symbol::Rule(LoxRule::ClassInherits),
           Symbol::Token(LoxTokenKind::LBracket),
           Symbol::Rule(LoxRule::Constructor),
           Symbol::Rule(LoxRule::ClassMethods),
@@ -363,6 +370,18 @@ fn lox_grammar() -> Grammar<LoxRule> {
         definition: vec![
           Symbol::Rule(LoxRule::FuncDecl),
           Symbol::Rule(LoxRule::ClassMethods),
+        ],
+      },
+      // ClassInherits := ε | '<' Ident
+      P {
+        rule: LoxRule::ClassInherits,
+        definition: vec![],
+      },
+      P {
+        rule: LoxRule::ClassInherits,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Less),
+          Symbol::Token(LoxTokenKind::Ident),
         ],
       },
       // FuncArgs := ε | NonemptyFuncArgs
@@ -721,7 +740,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
         rule: LoxRule::Unary,
         definition: vec![Symbol::Rule(LoxRule::Call)],
       },
-      // Access := call '( func_args ')'* | call '.' attr | Literal
+      // Access := call '( func_args ')'* | call '.' attr | Super '.' Ident | Literal
       P {
         rule: LoxRule::Call,
         definition: vec![
@@ -735,6 +754,14 @@ fn lox_grammar() -> Grammar<LoxRule> {
         rule: LoxRule::Call,
         definition: vec![
           Symbol::Rule(LoxRule::Call),
+          Symbol::Token(LoxTokenKind::Dot),
+          Symbol::Token(LoxTokenKind::Ident),
+        ],
+      },
+      P {
+        rule: LoxRule::Call,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Super),
           Symbol::Token(LoxTokenKind::Dot),
           Symbol::Token(LoxTokenKind::Ident),
         ],
@@ -1139,6 +1166,24 @@ impl Constructor {
 }
 
 impl ClassDeclaration {
+  pub fn parse_inherits(_: &Tree<LoxRule>, node: &Node<LoxRule>) -> Option<Ident> {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::ClassInherits,
+        children,
+      }) => match children.as_slice() {
+        [] => None,
+        [Node::Leaf(less), Node::Leaf(superclass)]
+          if less.token_type == LoxTokenKind::Less
+            && superclass.token_type == LoxTokenKind::Ident =>
+        {
+          Some(superclass.lexeme)
+        }
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable"),
+    }
+  }
   pub fn parse_methods(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Vec<FuncDecl> {
     match node {
       Node::Parent(Parent {
@@ -1167,6 +1212,7 @@ impl ClassDeclaration {
         [
           Node::Leaf(_class),
           Node::Leaf(ident),
+          inherits,
           Node::Leaf(_lbrace),
           constructor,
           methods,
@@ -1174,10 +1220,11 @@ impl ClassDeclaration {
           Node::Leaf(_semicolon),
         ] => ClassDeclaration {
           ident: ident.lexeme,
+          inherits: Self::parse_inherits(ast, inherits),
           constructor: Constructor::from_cst(ast, constructor),
           methods: Self::parse_methods(ast, methods),
         },
-        _ => panic!("unreachable"),
+        _ => panic!("unreachable: {:?}", children),
       },
       _ => panic!("unreachable"),
     }
@@ -1403,11 +1450,21 @@ impl Expression {
             .unwrap_or_else(|| panic!("Unexpected unary op: {}", op.token_type)),
         }),
 
-        (LoxRule::Call, [f, _lparen, args, _rparen]) => Expression::Call(Call {
-          callee: Box::new(Self::from_cst(root, f)),
-          args: Call::parse_args(root, args),
-        }),
+        (LoxRule::Call, [f, Node::Leaf(lparen), args, Node::Leaf(rparen)])
+          if lparen.token_type == LoxTokenKind::LParen
+            && rparen.token_type == LoxTokenKind::RParen =>
+        {
+          Expression::Call(Call {
+            callee: Box::new(Self::from_cst(root, f)),
+            args: Call::parse_args(root, args),
+          })
+        }
 
+        (LoxRule::Call, [Node::Leaf(super_), Node::Leaf(_dot), Node::Leaf(attr)])
+          if super_.token_type == LoxTokenKind::Super =>
+        {
+          Expression::SuperMember(attr.lexeme)
+        }
         (LoxRule::Call, [f, Node::Leaf(_dot), Node::Leaf(attr)]) => Expression::Member(Member {
           accessee: Box::new(Self::from_cst(root, f)),
           property: attr.lexeme,
@@ -1427,7 +1484,7 @@ impl Expression {
         _ => panic!("unreachable: {:?}", node),
       }
     } else {
-      panic!("unreachable")
+      panic!("unreachable: {:?}", node)
     }
   }
 }
