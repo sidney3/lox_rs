@@ -18,15 +18,25 @@ assert derived.foo() == "derived_foo";
 assert derived.bar() == "base_bar";
 
 class A {
-	method() { return "A_method"; }
+	f_init() {
+		this.name = "A";
+	}
+	method() { return this.name + "_method"; }
 }
 
 class B < A {
+	f_init() {
+		super.f_init();
+	}
 	method() { return "B_method"; }
 
 	test() { return super.method(); }
 }
 
-class C < B {}
+class C < B {
+	init() {
+		super.f_init();
+	}
+}
 
 assert C().test() == "A_method";
