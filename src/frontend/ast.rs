@@ -296,7 +296,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
       },
       P {
         rule: LoxRule::Declaration,
-        definition: vec![Symbol::Rule(LoxRule::FuncDecl)],
+        definition: vec![
+          Symbol::Token(LoxTokenKind::Fun),
+          Symbol::Rule(LoxRule::FuncDecl),
+        ],
       },
       P {
         rule: LoxRule::Declaration,
@@ -317,11 +320,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::Semicolon),
         ],
       },
-      // FuncDecl := 'fun' 'Ident' '(' func_args ')' '{' block '}'
+      // FuncDecl := 'Ident' '(' func_args ')' '{' block '}'
       P {
         rule: LoxRule::FuncDecl,
         definition: vec![
-          Symbol::Token(LoxTokenKind::Fun),
           Symbol::Token(LoxTokenKind::Ident),
           Symbol::Token(LoxTokenKind::LParen),
           Symbol::Rule(LoxRule::FuncArgs),
@@ -368,6 +370,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
       P {
         rule: LoxRule::ClassMethods,
         definition: vec![
+          Symbol::Token(LoxTokenKind::Fun),
           Symbol::Rule(LoxRule::FuncDecl),
           Symbol::Rule(LoxRule::ClassMethods),
         ],
@@ -1114,7 +1117,6 @@ impl FuncDecl {
         children,
       }) => match children.as_slice() {
         [
-          Node::Leaf(_fun),
           Node::Leaf(name),
           _lparen,
           args,
@@ -1127,9 +1129,9 @@ impl FuncDecl {
           body: Block::from_cst(ast, body),
           args: Self::parse_args(ast, args),
         },
-        _ => panic!("unreachable"),
+        _ => panic!("unreachable: {:?}", node),
       },
-      _ => panic!("unreachable"),
+      _ => panic!("unreachable: {:?}", node),
     }
   }
 }
@@ -1191,7 +1193,7 @@ impl ClassDeclaration {
         children,
       }) => match children.as_slice() {
         [] => Vec::new(),
-        [method, rest] => {
+        [_, method, rest] => {
           let parsed_method = FuncDecl::from_cst(ast, method);
           let mut parsed_rest = Self::parse_methods(ast, rest);
 
@@ -1245,11 +1247,12 @@ impl Declaration {
           }),
         ] => Declaration::Var(VarDeclaration::from_cst(ast, &children[0])),
         [
+          Node::Leaf(_fun),
           Node::Parent(Parent {
             rule: LoxRule::FuncDecl,
             children: _,
           }),
-        ] => Declaration::Fun(FuncDecl::from_cst(ast, &children[0])),
+        ] => Declaration::Fun(FuncDecl::from_cst(ast, &children[1])),
         [
           Node::Parent(Parent {
             rule: LoxRule::Class,
@@ -1262,7 +1265,7 @@ impl Declaration {
             children: _,
           }),
         ] => Declaration::Statement(Statement::from_cst(ast, &children[0])),
-        _ => panic!("unreachable"),
+        _ => panic!("unreachable: {:?}", node),
       },
       _ => panic!("unreachable: {:?}", node),
     }
