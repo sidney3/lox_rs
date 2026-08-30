@@ -8,7 +8,7 @@ use smallvec::SmallVec;
 use crate::asm::{Instruction, InstructionKind};
 use crate::gc::Ref;
 use crate::obj::{
-  BoundMethod, ClassDef, ClassInstance, Closure, Function, Obj, ObjData, TryAsObjExt, UpValue,
+  BoundMethod, Class, Closure, Function, Instance, Obj, ObjData, TryAsObjExt, UpValue,
   UpValueDescriptor,
 };
 use crate::runtime::{CallFrame, Callee, FrameIndex, Root, Runtime, RuntimeError, Symbol, Value};
@@ -53,7 +53,7 @@ impl<'vm> Executor<'vm> {
     self.execute()
   }
 
-  fn try_load_this(&self) -> Option<Obj<ClassInstance>> {
+  fn try_load_this(&self) -> Option<Obj<Instance>> {
     Obj::<BoundMethod>::try_from_value(self.vm, self.load_stack(0))
       .map(|bound| bound.borrow(self.vm).receiver())
   }
@@ -213,7 +213,7 @@ impl<'vm> Executor<'vm> {
   }
 
   // Doesn't call the constructor - caller needs to take care of this.
-  fn make_instance(&mut self, class: Obj<ClassDef>) -> Root<ClassInstance> {
+  fn make_instance(&mut self, class: Obj<Class>) -> Root<Instance> {
     let (name, mut methods, ctor) = {
       let x = class.borrow(self.vm);
 
@@ -221,10 +221,7 @@ impl<'vm> Executor<'vm> {
     };
 
     methods.push(ctor);
-    let instance = self
-      .vm
-      .alloc_typed(ClassInstance::new(name))
-      .as_root(self.vm);
+    let instance = self.vm.alloc_typed(Instance::new(name)).as_root(self.vm);
 
     for f in methods {
       let closure = self.make_closure(f);
@@ -384,7 +381,7 @@ impl<'vm> Executor<'vm> {
               Ok(Callee::Func(closure))
             } else if let Some(bound_method) = Obj::<BoundMethod>::try_from_value(self.vm, val) {
               Ok(Callee::Method(bound_method))
-            } else if let Some(class_def) = Obj::<ClassDef>::try_from_value(self.vm, val) {
+            } else if let Some(class_def) = Obj::<Class>::try_from_value(self.vm, val) {
               let instance = self.make_instance(class_def);
               let constructor: Obj<BoundMethod> = instance
                 .as_obj()
@@ -492,14 +489,14 @@ impl<'vm> Executor<'vm> {
 
         InstructionKind::InstantiateClass => {
           let (class_instance, num_methods) = {
-            let class_def: Ref<'_, ClassDef> = self
+            let class_def: Ref<'_, Class> = self
               .pop()
               .try_as_obj(self.vm)
-              .expect("ClassDef")
+              .expect("Class")
               .borrow(self.vm);
 
             let num_methods = class_def.methods().len();
-            let class_instance = ClassInstance::new(class_def.deref().symbol());
+            let class_instance = Instance::new(class_def.deref().symbol());
 
             (class_instance, num_methods)
           };
@@ -508,7 +505,7 @@ impl<'vm> Executor<'vm> {
           let r = self.vm.root(obj);
 
           // The runtime could certainly derive the methods to create from
-          // ClassDef, but the name binding is rather complicated so
+          // Class, but the name binding is rather complicated so
           // I want .as_value()this logic in the compiler.
           for _ in 0..num_methods {
             let method: Obj<Closure> = self
@@ -531,7 +528,7 @@ impl<'vm> Executor<'vm> {
           let maybe_instance = *self.peek();
 
           let attribute = {
-            let class_instance = Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
+            let class_instance = Obj::<Instance>::try_from_value(self.vm, maybe_instance)
               .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?
               .borrow(self.vm);
             let symbol = Symbol::try_from_usize(next_instruction.operand as usize)
@@ -561,7 +558,7 @@ impl<'vm> Executor<'vm> {
           let assign_to = *self.peek();
           let symbol = Symbol::try_from_usize(next_instruction.operand as usize)
             .expect("Bad attribute access");
-          Obj::<ClassInstance>::try_from_value(self.vm, maybe_instance)
+          Obj::<Instance>::try_from_value(self.vm, maybe_instance)
             .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?
             .borrow_mut(self.vm)
             .set_attr(self.vm, symbol, assign_to)?;

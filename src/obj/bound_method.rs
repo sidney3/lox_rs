@@ -1,5 +1,5 @@
-use super::ClassInstance;
 use super::Closure;
+use super::Instance;
 use super::Obj;
 use super::ObjData;
 use super::ObjKind;
@@ -7,19 +7,19 @@ use crate::gc::{Trace, Tracer};
 
 #[derive(Debug)]
 pub struct BoundMethod {
-  receiver: Obj<ClassInstance>,
+  receiver: Obj<Instance>,
   method: Obj<Closure>,
 }
 
 impl BoundMethod {
-  pub fn new(receiver: Obj<ClassInstance>, method: Obj<Closure>) -> Self {
+  pub fn new(receiver: Obj<Instance>, method: Obj<Closure>) -> Self {
     Self { receiver, method }
   }
   pub fn closure(&self) -> Obj<Closure> {
     self.method
   }
 
-  pub fn receiver(&self) -> Obj<ClassInstance> {
+  pub fn receiver(&self) -> Obj<Instance> {
     self.receiver
   }
 }

@@ -1,4 +1,4 @@
-use super::{BoundMethod, ClassDef, ClassInstance, Closure, Function, LoxString, UpValue};
+use super::{BoundMethod, Class, Closure, Function, Instance, LoxString, UpValue};
 use std::fmt;
 
 use crate::gc::{Trace, Tracer};
@@ -10,8 +10,8 @@ pub enum ObjData {
   Func(Function),
   Closure(Closure),
   UpValue(UpValue),
-  ClassDef(ClassDef),
-  ClassInstance(ClassInstance),
+  Class(Class),
+  Instance(Instance),
   BoundMethod(BoundMethod),
 }
 
@@ -22,8 +22,8 @@ impl Trace<ObjData> for ObjData {
       ObjData::Func(function) => function.trace(tracer),
       ObjData::Closure(closure) => closure.trace(tracer),
       ObjData::UpValue(upval) => upval.trace(tracer),
-      ObjData::ClassDef(class) => class.trace(tracer),
-      ObjData::ClassInstance(class) => class.trace(tracer),
+      ObjData::Class(class) => class.trace(tracer),
+      ObjData::Instance(class) => class.trace(tracer),
       ObjData::BoundMethod(method) => method.trace(tracer),
     }
   }
@@ -47,9 +47,7 @@ impl ObjData {
     match (self, rhs) {
       (Self::String(s1), Self::String(s2)) => Ok(s1 == s2),
       (Self::Func(_), Self::Func(_)) => Ok(false),
-      (Self::ClassInstance(lhs_inst), Self::ClassInstance(rhs_inst)) => {
-        lhs_inst.equals(rt, rhs_inst)
-      }
+      (Self::Instance(lhs_inst), Self::Instance(rhs_inst)) => lhs_inst.equals(rt, rhs_inst),
       _ => Err(RuntimeError::from_str(format!(
         "TypeError: {} == {} is not defined",
         self, rhs
@@ -63,8 +61,8 @@ impl ObjData {
       Self::Func(_) => "Function",
       Self::Closure(_) => "Closure",
       Self::UpValue(_) => "UpValue",
-      Self::ClassDef(_) => "ClassDef",
-      Self::ClassInstance(_) => "ClassInstance",
+      Self::Class(_) => "Class",
+      Self::Instance(_) => "Instance",
       Self::BoundMethod(_) => "BoundMethod",
     }
   }
@@ -80,8 +78,8 @@ impl fmt::Display for ObjData {
         UpValue::Open { absolute_stack_pos } => write!(f, "Open UpValue --> {absolute_stack_pos}"),
         UpValue::Closed(val) => write!(f, "Closed UpValue --> {:?}", val),
       },
-      ObjData::ClassDef(_) => write!(f, "ClassDef"),
-      ObjData::ClassInstance(_) => write!(f, "ClassInstance"),
+      ObjData::Class(_) => write!(f, "Class"),
+      ObjData::Instance(_) => write!(f, "Instance"),
       ObjData::BoundMethod(_) => write!(f, "BoundMethod"),
     }
   }

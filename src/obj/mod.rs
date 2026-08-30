@@ -9,7 +9,7 @@ mod string;
 mod upvalue;
 
 pub use bound_method::BoundMethod;
-pub use class::{ClassDef, ClassInstance};
+pub use class::{Class, Instance};
 pub use closure::Closure;
 pub use function::{Function, UpValueDescriptor};
 pub use obj::{Obj, TryAsObjExt};

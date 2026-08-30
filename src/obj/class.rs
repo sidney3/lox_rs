@@ -12,20 +12,20 @@ use std::collections::HashMap;
 use std::collections::hash_map::Keys;
 
 #[derive(Debug)]
-pub struct ClassDef {
+pub struct Class {
   name: Symbol,
   methods: Vec<Obj<Function>>,
   constructor: Obj<Function>,
 }
 
 #[derive(Debug)]
-pub struct ClassInstance {
+pub struct Instance {
   ident: Symbol,
   properties: HashMap<Symbol, Value>,
   methods: Vec<Obj<BoundMethod>>,
 }
 
-impl ClassDef {
+impl Class {
   pub fn new(name: Symbol, constructor: Obj<Function>, methods: Vec<Obj<Function>>) -> Self {
     Self {
       name,
@@ -51,25 +51,25 @@ impl ClassDef {
   }
 }
 
-impl ObjKind for ClassDef {
+impl ObjKind for Class {
   fn embed(self) -> ObjData {
-    ObjData::ClassDef(self)
+    ObjData::Class(self)
   }
   fn project(obj: &ObjData) -> Option<&Self> {
     match obj {
-      ObjData::ClassDef(class) => Some(class),
+      ObjData::Class(class) => Some(class),
       _ => None,
     }
   }
   fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
     match obj {
-      ObjData::ClassDef(class) => Some(class),
+      ObjData::Class(class) => Some(class),
       _ => None,
     }
   }
 }
 
-impl ClassInstance {
+impl Instance {
   pub fn new(name: Symbol) -> Self {
     Self {
       ident: name,
@@ -85,11 +85,7 @@ impl ClassInstance {
     self.methods.push(method);
   }
 
-  pub fn equals(
-    &self,
-    rt: &Runtime,
-    rhs: &ClassInstance,
-  ) -> std::result::Result<bool, RuntimeError> {
+  pub fn equals(&self, rt: &Runtime, rhs: &Instance) -> std::result::Result<bool, RuntimeError> {
     if self.ident != rhs.ident {
       let msg = format!(
         "TypeError: comparison {}=={} is not defined",
@@ -151,7 +147,7 @@ impl ClassInstance {
   }
 }
 
-impl Trace<ObjData> for ClassDef {
+impl Trace<ObjData> for Class {
   fn trace(&self, tracer: &mut Tracer<ObjData>) {
     for method in &self.methods {
       method.trace(tracer);
@@ -160,25 +156,25 @@ impl Trace<ObjData> for ClassDef {
   }
 }
 
-impl ObjKind for ClassInstance {
+impl ObjKind for Instance {
   fn embed(self) -> ObjData {
-    ObjData::ClassInstance(self)
+    ObjData::Instance(self)
   }
   fn project(obj: &ObjData) -> Option<&Self> {
     match obj {
-      ObjData::ClassInstance(class) => Some(class),
+      ObjData::Instance(class) => Some(class),
       _ => None,
     }
   }
   fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
     match obj {
-      ObjData::ClassInstance(class) => Some(class),
+      ObjData::Instance(class) => Some(class),
       _ => None,
     }
   }
 }
 
-impl Trace<ObjData> for ClassInstance {
+impl Trace<ObjData> for Instance {
   fn trace(&self, tracer: &mut Tracer<ObjData>) {
     for member in self.properties.values() {
       member.trace(tracer);

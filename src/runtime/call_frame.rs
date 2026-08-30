@@ -1,6 +1,6 @@
 use super::Value;
 use crate::gc::{Ref, Trace, Tracer};
-use crate::obj::{BoundMethod, ClassDef, Closure, Function, Obj, ObjData};
+use crate::obj::{BoundMethod, Closure, Function, Obj, ObjData};
 use crate::runtime::Runtime;
 
 pub enum Callee {

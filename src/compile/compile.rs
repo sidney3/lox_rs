@@ -8,7 +8,7 @@ use crate::frontend::ast::{
 };
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::obj::{ClassDef, Closure, Function, Obj, ObjData};
+use crate::obj::{Class, Closure, Function, Obj, ObjData};
 use crate::runtime::{Root, Runtime, Symbol, Value};
 use log::info;
 
@@ -146,7 +146,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     Ok(())
   }
 
-  fn make_class_def(&mut self, class: &ClassDeclaration) -> Result<Root<ClassDef>> {
+  fn make_class_def(&mut self, class: &ClassDeclaration) -> Result<Root<Class>> {
     let mut methods = Vec::new();
 
     for method in &class.methods {
@@ -165,7 +165,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     let res = Ok(
       self
         .rt
-        .alloc_typed(ClassDef::new(
+        .alloc_typed(Class::new(
           name,
           ctor.as_obj(),
           methods.iter().map(|i| i.as_obj()).collect(),
