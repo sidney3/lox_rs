@@ -370,7 +370,6 @@ fn lox_grammar() -> Grammar<LoxRule> {
       P {
         rule: LoxRule::ClassMethods,
         definition: vec![
-          Symbol::Token(LoxTokenKind::Fun),
           Symbol::Rule(LoxRule::FuncDecl),
           Symbol::Rule(LoxRule::ClassMethods),
         ],
@@ -1193,7 +1192,7 @@ impl ClassDeclaration {
         children,
       }) => match children.as_slice() {
         [] => Vec::new(),
-        [_, method, rest] => {
+        [method, rest] => {
           let parsed_method = FuncDecl::from_cst(ast, method);
           let mut parsed_rest = Self::parse_methods(ast, rest);
 
