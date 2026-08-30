@@ -28,6 +28,10 @@ impl<R: Rule> Production<R> {
   pub fn len(&self) -> usize {
     self.definition.len()
   }
+
+  pub fn is_epsilon(&self) -> bool {
+    self.definition.is_empty()
+  }
 }
 
 impl<R: Rule> Display for Symbol<R> {

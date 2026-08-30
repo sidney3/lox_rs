@@ -1,6 +1,4 @@
-class MyClass {
-	fun sentinel() {}
-};
+class MyClass {};
 
 assert MyClass() == MyClass(); 
 
@@ -65,3 +63,9 @@ dog.do_set_name("Maggie");
 
 assert dog.get_name() == "Maggie";
 assert fido != dog;
+
+class OnlyCtor {
+	init() {}
+};
+
+assert(OnlyCtor() == OnlyCtor());

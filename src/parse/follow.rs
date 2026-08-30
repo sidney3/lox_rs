@@ -38,13 +38,39 @@ pub(super) fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>
           follow_table[rule.ord()].insert(token);
         }
       };
-      for (s1, s2) in production.definition.iter().tuple_windows() {
-        if let Symbol::Rule(r) = s1 {
-          match s2 {
-            &Symbol::Token(t) => add_follow(r, t),
+
+      let def = &production.definition;
+
+      // Handling here with epsilon productions is tricky.
+      //
+      // We would like to find all rules A and tokens 'T' such that
+      // there exists a partial expansion of this production containing
+      // A'T'.
+      //
+      // A naive approach would be to walk through all pairs of symbols (a,b)
+      // and add FIRST(b) to FOLLOW(a). This fails when b can be EPSILON - we
+      // should then add FIRST(c) (where c follows b). And if c is EPSILON...
+      let rule_contains_epsilon = |r| {
+        grammar
+          .productions_for_rule(r)
+          .iter()
+          .any(|&p| grammar.production(p).is_epsilon())
+      };
+      for (i, sym) in def.iter().enumerate() {
+        let Symbol::Rule(r) = sym else { continue };
+        for following in def[i + 1..].iter().cloned() {
+          match following {
+            Symbol::Token(t) => {
+              add_follow(r, t);
+              break;
+            }
             Symbol::Rule(r2) => {
               for f in &first_table[r2.ord()] {
                 add_follow(r, *f);
+              }
+
+              if !rule_contains_epsilon(r2) {
+                break;
               }
             }
           }
@@ -65,7 +91,6 @@ pub(super) fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>
       //
       // Then B should contain FOLLOW(A)
       if let Some(Symbol::Rule(r)) = production.definition.last() {
-        let _base = production.rule;
         for t in follows {
           add_follow(r, t);
         }
