@@ -101,25 +101,6 @@ impl FuncState {
     self.emit_symbolic(SymbolicInstruction::Label(label));
   }
 
-  // Stack after: [methods..., class_def]
-  pub fn make_class_instance(
-    &mut self,
-    rt: &mut Runtime,
-    class: Obj<Class>,
-    methods: &[Obj<Function>],
-  ) -> Result<()> {
-    for method in methods {
-      let index = self.add_constant(rt, method.as_value())?;
-      self.emit(Instruction {
-        kind: InstructionKind::MakeClosure,
-        operand: index,
-      });
-    }
-    self.constant(rt, class.as_value())?;
-    self.emit(Instruction::new(InstructionKind::InstantiateClass));
-
-    Ok(())
-  }
   // After these instructions, there will be a new symbol `called` that
   // refers to a closure instance of func.
   pub fn add_closure_to_scope(
@@ -300,17 +281,6 @@ impl FuncState {
   pub fn bind_this(&mut self, to: Symbol) {
     self.emit(Instruction::new(InstructionKind::PushThis));
     self.add_local(to);
-  }
-
-  pub fn class(&mut self, rt: &mut Runtime, class: Obj<Class>) -> Result<()> {
-    let const_index = self.add_constant(rt, class.as_value())?;
-
-    self.emit(Instruction {
-      kind: InstructionKind::InstantiateClass,
-      operand: const_index,
-    });
-
-    Ok(())
   }
 
   pub fn loop_break(&mut self) -> Result<()> {

@@ -487,43 +487,6 @@ impl<'vm> Executor<'vm> {
           self.drain_stack(self.vm.value_stack.len() - 1);
         }
 
-        InstructionKind::InstantiateClass => {
-          let (class_instance, num_methods) = {
-            let class_def: Ref<'_, Class> = self
-              .pop()
-              .try_as_obj(self.vm)
-              .expect("Class")
-              .borrow(self.vm);
-
-            let num_methods = class_def.methods().len();
-            let class_instance = Instance::new(class_def.deref().symbol());
-
-            (class_instance, num_methods)
-          };
-          let obj = self.vm.alloc_typed(class_instance);
-
-          let r = self.vm.root(obj);
-
-          // The runtime could certainly derive the methods to create from
-          // Class, but the name binding is rather complicated so
-          // I want .as_value()this logic in the compiler.
-          for _ in 0..num_methods {
-            let method: Obj<Closure> = self
-              .pop()
-              .try_as_obj(self.vm)
-              .expect("Need to push methods onto stack");
-
-            let method_root = self.vm.root(method);
-
-            let bound_method = self.vm.alloc_typed(BoundMethod::new(obj, method));
-
-            obj.borrow_mut(self.vm).add_method(bound_method);
-            method_root.free(self.vm);
-          }
-
-          self.push_value(obj.as_value());
-          r.free(self.vm);
-        }
         InstructionKind::LoadClassAttribute => {
           let maybe_instance = *self.peek();
 
