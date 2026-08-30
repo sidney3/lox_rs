@@ -1,4 +1,4 @@
-class MyClass {};
+class MyClass {}
 
 assert MyClass() == MyClass(); 
 
@@ -44,7 +44,7 @@ class Dog {
 	do_set_name(name) {
 		this.set_name(name);
 	}
-};
+}
 
 var dog = Dog("fido");
 assert dog.bark() == "woof";
@@ -66,6 +66,6 @@ assert fido != dog;
 
 class OnlyCtor {
 	init() {}
-};
+}
 
 assert(OnlyCtor() == OnlyCtor());

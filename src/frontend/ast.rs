@@ -333,7 +333,7 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::RBracket),
         ],
       },
-      // Class := 'class' 'Ident' ClassInherits '{' Constructor ClassMethods '}' ';'
+      // Class := 'class' 'Ident' ClassInherits '{' Constructor ClassMethods '}'
       P {
         rule: LoxRule::Class,
         definition: vec![
@@ -344,7 +344,6 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Rule(LoxRule::Constructor),
           Symbol::Rule(LoxRule::ClassMethods),
           Symbol::Token(LoxTokenKind::RBracket),
-          Symbol::Token(LoxTokenKind::Semicolon),
         ],
       },
       // Constructor := ε | 'init' '(' ')' Block
@@ -1218,7 +1217,6 @@ impl ClassDeclaration {
           constructor,
           methods,
           Node::Leaf(_rbrace),
-          Node::Leaf(_semicolon),
         ] => ClassDeclaration {
           ident: ident.lexeme,
           inherits: Self::parse_inherits(ast, inherits),

@@ -5,13 +5,13 @@ class Base {
 	bar() {
 		return "base_bar";
 	}
-};
+}
 
 class Derived < Base {
 	foo() {
 		return "derived_foo";
 	}
-};
+}
 
 var derived = Derived();
 assert derived.foo() == "derived_foo";
@@ -19,14 +19,14 @@ assert derived.bar() == "base_bar";
 
 class A {
 	method() { return "A_method"; }
-};
+}
 
 class B < A {
 	method() { return "B_method"; }
 
 	test() { return super.method(); }
-};
+}
 
-class C < B {};
+class C < B {}
 
 assert C().test() == "A_method";
