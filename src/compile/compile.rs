@@ -125,16 +125,9 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         self.func_mut().define_var(sym)?;
       }
       Declaration::Class(class) => {
-        let class = self.make_class_def(class)?;
-        self
-          .compile_stack
-          .head_mut()
-          .constant(self.rt, class.as_value())?;
-
-        let name = class.as_obj().borrow(self.rt).symbol();
-        self.func_mut().define_var(name)?;
-
-        class.free(self.rt);
+        self.make_class(class)?;
+        let sym = self.load_ident_sym(class.ident);
+        self.func_mut().define_var(sym)?;
       }
       Declaration::Fun(f) => {
         let f_name = self.load_ident_sym(f.name);
@@ -146,39 +139,34 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     Ok(())
   }
 
-  fn make_class_def(&mut self, class: &ClassDeclaration) -> Result<Root<Class>> {
-    let mut methods = Vec::new();
+  fn make_class(&mut self, class: &ClassDeclaration) -> Result<()> {
+    let name = self.load_ident_sym(class.ident);
+    self.func_mut().make_class(name)?;
 
     for method in &class.methods {
       let name = self.load_ident_sym(method.name);
       let args = self.load_symbols(&method.args);
 
-      methods.push(self.function(name, &args, |this| this.method_body(&method.body))?);
+      let method = self.function(name, &args, |this| this.method_body(&method.body))?;
+
+      self
+        .compile_stack
+        .head_mut()
+        .add_method(self.rt, method.as_obj())?;
+      method.free(self.rt);
     }
 
     let ctor_args = self.load_symbols(&class.constructor.args);
     let ctor = self.function(self.rt.init_sym(), &ctor_args, |this| {
       this.method_body(&class.constructor.body)
     })?;
-
-    let name = self.load_ident_sym(class.ident);
-    let res = Ok(
-      self
-        .rt
-        .alloc_typed(Class::new(
-          name,
-          ctor.as_obj(),
-          methods.iter().map(|i| i.as_obj()).collect(),
-        ))
-        .as_root(self.rt),
-    );
-
-    for m in methods {
-      m.free(self.rt);
-    }
+    self
+      .compile_stack
+      .head_mut()
+      .add_method(self.rt, ctor.as_obj())?;
     ctor.free(self.rt);
 
-    res
+    Ok(())
   }
 
   fn method_body(&mut self, body: &Block) -> Result<()> {

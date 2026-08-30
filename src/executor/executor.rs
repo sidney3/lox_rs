@@ -214,13 +214,12 @@ impl<'vm> Executor<'vm> {
 
   // Doesn't call the constructor - caller needs to take care of this.
   fn make_instance(&mut self, class: Obj<Class>) -> Root<Instance> {
-    let (name, mut methods, ctor) = {
+    let (name, methods) = {
       let x = class.borrow(self.vm);
 
-      (x.symbol(), x.methods().clone(), x.constructor())
+      (x.symbol(), x.methods().clone())
     };
 
-    methods.push(ctor);
     let instance = self.vm.alloc_typed(Instance::new(name)).as_root(self.vm);
 
     for f in methods {
@@ -423,6 +422,14 @@ impl<'vm> Executor<'vm> {
           let returned_frame = match self.call_stack.pop() {
             Some(called) => called,
             None => {
+              for val in &self.vm.value_stack {
+                if let &Value::Obj(o) = val {
+                  warn!(
+                    "Extra object left on stack: {:?}",
+                    self.vm.borrow(o).deref()
+                  )
+                }
+              }
               assert!(self.vm.value_stack.is_empty());
               assert!(self.frame().base == 0);
               return Ok(());
@@ -487,6 +494,21 @@ impl<'vm> Executor<'vm> {
           self.drain_stack(self.vm.value_stack.len() - 1);
         }
 
+        InstructionKind::MakeClass => {
+          let name = Symbol::try_from_usize(next_instruction.operand as usize)
+            .expect("Bad attribute access");
+          let class = self.vm.alloc_typed(Class::new(name));
+          self.push_value(class.as_value());
+        }
+
+        // [..., Class, Closure]
+        InstructionKind::AddMethod => {
+          let method: Obj<Function> = self.pop().try_as_obj(self.vm).expect("AddMethod");
+          let class: Obj<Class> = self.pop().try_as_obj(self.vm).expect("AddMethod");
+
+          class.borrow_mut(self.vm).add_method(method);
+          self.push_value(class.as_value());
+        }
         InstructionKind::LoadClassAttribute => {
           let maybe_instance = *self.peek();
 

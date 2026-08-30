@@ -15,7 +15,6 @@ use std::collections::hash_map::Keys;
 pub struct Class {
   name: Symbol,
   methods: Vec<Obj<Function>>,
-  constructor: Obj<Function>,
 }
 
 #[derive(Debug)]
@@ -26,12 +25,15 @@ pub struct Instance {
 }
 
 impl Class {
-  pub fn new(name: Symbol, constructor: Obj<Function>, methods: Vec<Obj<Function>>) -> Self {
+  pub fn new(name: Symbol) -> Self {
     Self {
       name,
-      methods,
-      constructor,
+      methods: Vec::new(),
     }
+  }
+
+  pub fn add_method(&mut self, method: Obj<Function>) {
+    self.methods.push(method);
   }
 
   pub fn symbol(&self) -> Symbol {
@@ -44,10 +46,6 @@ impl Class {
   // with these attributes properly bound.
   pub fn methods(&self) -> &Vec<Obj<Function>> {
     &self.methods
-  }
-
-  pub fn constructor(&self) -> Obj<Function> {
-    self.constructor
   }
 }
 
@@ -152,7 +150,6 @@ impl Trace<ObjData> for Class {
     for method in &self.methods {
       method.trace(tracer);
     }
-    self.constructor().trace(tracer);
   }
 }
 

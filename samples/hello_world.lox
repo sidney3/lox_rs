@@ -1,2 +1,5 @@
 class Dog {
+	fun hi() {
+
+	}
 };

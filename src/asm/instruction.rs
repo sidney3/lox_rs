@@ -17,6 +17,9 @@ pub enum InstructionKind {
   SetUpValue,
   PopUpValue,
 
+  MakeClass,
+  AddMethod,
+
   LoadClassAttribute,
   SetClassAttribute,
   PushThis,

@@ -93,6 +93,22 @@ impl FuncState {
       .add_instruction(SymbolicInstruction::from_instruction(instruction));
   }
 
+  pub fn make_class(&mut self, name: Symbol) -> Result<()> {
+    self.emit(Instruction {
+      kind: InstructionKind::MakeClass,
+      operand: index_to_op(name.into_usize())?,
+    });
+
+    Ok(())
+  }
+
+  pub fn add_method(&mut self, rt: &mut Runtime, method: Obj<Function>) -> Result<()> {
+    self.constant(rt, method.as_value())?;
+    self.emit(Instruction::new(InstructionKind::AddMethod));
+
+    Ok(())
+  }
+
   // label_name is just for debugging, they don't have to be unique
   pub fn create_label(&mut self, label_name: &'static str) -> Label {
     self.instructions.create_label(label_name)
