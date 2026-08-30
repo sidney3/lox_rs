@@ -20,7 +20,7 @@ pub struct Compiler<'a, 'vm> {
 
 impl<'a, 'vm> Compiler<'a, 'vm> {
   pub fn new(ast: &'a Ast, rt: &'vm mut Runtime) -> Self {
-    let main_sym = rt.symbols.get_or_intern_static("main");
+    let main_sym = rt.get_or_intern_sym_str("main");
     Self {
       compile_stack: FuncStack::new(FuncState::new(rt, main_sym, 0, None)),
       ast,
@@ -44,7 +44,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
   }
 
   pub fn load_str_sym(&mut self, s: &str) -> Symbol {
-    self.rt.symbols.get_or_intern(s)
+    self.rt.get_or_intern_sym_str(s)
   }
 
   fn ident_sym(&self, ident: Ident) -> &'a str {

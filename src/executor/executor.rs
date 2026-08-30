@@ -318,21 +318,17 @@ impl<'vm> Executor<'vm> {
         InstructionKind::AddGlobal => {
           let assign = self.pop();
           let global_idx =
-            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
+            Symbol::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
 
           self.vm.globals.insert(global_idx, assign);
         }
         InstructionKind::LoadGlobal => {
           let global_idx =
-            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
+            Symbol::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
 
           let global = self.vm.globals.get(&global_idx).ok_or_else(|| {
             RuntimeError::new(
-              format!(
-                "Unrecognized ident: {}",
-                self.vm.symbols.resolve(&global_idx)
-              )
-              .as_str(),
+              format!("Unrecognized ident: {}", self.vm.resolve_sym(global_idx)).as_str(),
             )
           })?;
 
@@ -351,18 +347,20 @@ impl<'vm> Executor<'vm> {
         InstructionKind::SetGlobal => {
           let assign: Value = self.pop();
           let global_idx =
-            lasso::Spur::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
+            Symbol::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
 
-          let global: &mut Value = self.vm.globals.get_mut(&global_idx).ok_or_else(|| {
-            RuntimeError::new(
-              format!(
-                "Unrecognized ident: {}",
-                self.vm.symbols.resolve(&global_idx)
-              )
-              .as_str(),
-            )
-          })?;
-          *global = assign;
+          match self.vm.globals.get_mut(&global_idx) {
+            Some(global) => {
+              *global = assign;
+            }
+            None => {
+              let ident = self.vm.resolve_sym(global_idx);
+
+              return Err(RuntimeError::new(
+                format!("Unrecognized ident: {}", ident).as_str(),
+              ));
+            }
+          }
         }
 
         InstructionKind::MakeClosure => {
@@ -545,12 +543,7 @@ impl<'vm> Executor<'vm> {
                 format!(
                   "Instance {} has no attribute {}",
                   class_instance.name(self.vm),
-                  self
-                    .vm
-                    .symbols
-                    .try_resolve(&symbol)
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| format!("[Unknown Symbol: {}]", symbol.into_usize())),
+                  self.vm.resolve_sym(symbol)
                 )
                 .as_str(),
               ));

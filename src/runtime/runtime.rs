@@ -8,11 +8,23 @@ use crate::gc::{self, AllocFailure, Trace, Tracer};
 use crate::obj::Function;
 use crate::obj::{Closure, Obj, ObjData, ObjKind};
 use crate::runtime::Callee;
+use lasso::Key;
 use log::debug;
 
 pub type Heap = gc::Heap<ObjData>;
 pub type Handle = gc::Handle<ObjData>;
-pub type Symbol = lasso::Spur;
+
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Hash, Eq)]
+pub struct Symbol(lasso::Spur);
+
+impl Symbol {
+  pub fn try_from_usize(x: usize) -> Option<Self> {
+    lasso::Spur::try_from_usize(x).map(|s| Symbol(s))
+  }
+  pub fn into_usize(&self) -> usize {
+    self.0.into_usize()
+  }
+}
 
 type Stack = Vec<Value>;
 type Globals = HashMap<Symbol, Value>;
@@ -24,7 +36,7 @@ pub struct Runtime {
   pub value_stack: Stack,
   pub call_frames: Vec<CallFrame>,
   pub heap: Heap,
-  pub symbols: lasso::Rodeo,
+  symbols: lasso::Rodeo,
   pub globals: Globals,
   // TODO: this can be a linked list, and the
   // handle can live in the root
@@ -77,7 +89,7 @@ impl Trace<ObjData> for GcRoot<'_, '_, '_, '_> {
 impl Runtime {
   pub fn new() -> Self {
     let mut symbols = lasso::Rodeo::new();
-    let init_sym = symbols.get_or_intern_static("init");
+    let init_sym = Symbol(symbols.get_or_intern_static("init"));
     Self {
       value_stack: Vec::new(),
       call_frames: Vec::new(),
@@ -97,6 +109,14 @@ impl Runtime {
   }
   pub fn borrow(&self, h: Handle) -> gc::Ref<'_, ObjData> {
     self.heap.borrow(h)
+  }
+
+  pub fn resolve_sym(&self, sym: Symbol) -> &'_ str {
+    self.symbols.resolve(&sym.0)
+  }
+
+  pub fn get_or_intern_sym_str(&mut self, sym_str: &str) -> Symbol {
+    Symbol(self.symbols.get_or_intern(sym_str))
   }
 
   pub fn frame(&self, idx: FrameIndex) -> &CallFrame {

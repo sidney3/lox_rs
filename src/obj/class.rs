@@ -93,8 +93,8 @@ impl ClassInstance {
     if self.ident != rhs.ident {
       let msg = format!(
         "TypeError: comparison {}=={} is not defined",
-        rt.symbols.resolve(&self.ident),
-        rt.symbols.resolve(&rhs.ident)
+        rt.resolve_sym(self.ident),
+        rt.resolve_sym(rhs.ident)
       );
       Err(RuntimeError::new(msg.as_str()))
     } else {
@@ -139,7 +139,7 @@ impl ClassInstance {
       .any(|m| rt.closure_func(&m.borrow(rt).closure()).name == sym)
     {
       return Err(RuntimeError::new(format!("Attempt to set attribute {} of class that already belongs to a method. Lox does not support rebinding of methods names",
-      rt.symbols.resolve(&sym),
+      rt.resolve_sym(sym),
       ).as_str()));
     }
     self.properties.insert(sym, to);
@@ -147,13 +147,13 @@ impl ClassInstance {
     Ok(())
   }
   pub fn name<'a>(&self, rt: &'a Runtime) -> &'a str {
-    rt.symbols.resolve(&self.ident)
+    rt.resolve_sym(self.ident)
   }
 }
 
 impl Trace<ObjData> for ClassDef {
   fn trace(&self, tracer: &mut Tracer<ObjData>) {
-    for method in self.methods() {
+    for method in &self.methods {
       method.trace(tracer);
     }
     self.constructor().trace(tracer);
