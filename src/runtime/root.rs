@@ -11,7 +11,11 @@ impl<U: ObjKind> Drop for Root<U> {
     // We need to remove the Root from the rootset
     // (and lifetimes are too painful if we allow
     // back pointers).
-    warn!("Cannot drop root. Should manually free")
+    if std::thread::panicking() {
+      warn!("Cannot drop root. Should manually free");
+    } else {
+      panic!("Cannot drop root. Should manually free");
+    }
   }
 }
 
