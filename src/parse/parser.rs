@@ -89,7 +89,11 @@ impl<R: Rule> Parser<R> {
       let next_node: Node<R> = match action {
         Action::Shift => match iter.next() {
           Some(token) => {
-            debug!("shift {:?}", &token);
+            debug!(
+              "shift token {:?} with lexeme \"{}\"",
+              token.token_type,
+              tokens.lexeme_arena.resolve(&token.lexeme)
+            );
             Node::Leaf(*token)
           }
           None => return Err(Error::ExpectedToken(next_token.span)),
