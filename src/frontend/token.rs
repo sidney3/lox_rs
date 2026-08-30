@@ -50,7 +50,6 @@ pub enum LoxTokenKind {
   Var,
   While,
   Break,
-  Init,
   Super,
 
   // TODO: get rid of these and represent
@@ -141,7 +140,6 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
   (LoxTokenKind::Print, "print"),   // TODO: remove this token
   (LoxTokenKind::Assert, "assert"), // TODO: remove this token
   (LoxTokenKind::Super, "super"),
-  (LoxTokenKind::Init, "init"),
   (LoxTokenKind::Number, "[1-9][0-9]*"),
   (LoxTokenKind::Number, "[0-9]"),
   (LoxTokenKind::String, "\"[\u{20}-\u{21}\u{23}-\u{7E}]*\""),

@@ -97,6 +97,9 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         .expect("Compilation stack too small"),
     )
   }
+  fn trivial_function(&mut self, name: Symbol) -> Result<Root<Function>> {
+    self.function(name, &[], |_| Ok(()))
+  }
   fn closure(&mut self, func: Root<Function>) -> Result<()> {
     let name = func.as_obj().borrow(self.rt).name;
     self
@@ -174,15 +177,21 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       method.free(self.rt);
     }
 
-    let ctor_args = self.load_symbols(&class.constructor.args);
-    let ctor = self.function(self.rt.init_sym(), &ctor_args, |this| {
-      this.method_body(&class.constructor.body)
-    })?;
-    self
-      .compile_stack
-      .head_mut()
-      .add_method(self.rt, ctor.as_obj())?;
-    ctor.free(self.rt);
+    // For simplicity, every class gets a constructor. A wiser man might
+    // choose to strongly type this.
+    let init_sym = self.rt.init_sym();
+    if !class
+      .methods
+      .iter()
+      .any(|m| self.load_ident_sym(m.name) == init_sym)
+    {
+      let ctor = self.trivial_function(init_sym)?;
+      self
+        .compile_stack
+        .head_mut()
+        .add_method(self.rt, ctor.as_obj())?;
+      ctor.free(self.rt);
+    }
 
     self.func_mut().pop(); // pop this
 
