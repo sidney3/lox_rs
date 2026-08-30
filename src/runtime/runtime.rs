@@ -7,6 +7,7 @@ use crate::gc::Ref;
 use crate::gc::{self, AllocFailure, Trace, Tracer};
 use crate::obj::Function;
 use crate::obj::{Closure, Obj, ObjData, ObjKind};
+use crate::runtime::Callee;
 use log::debug;
 
 pub type Heap = gc::Heap<ObjData>;
@@ -28,6 +29,7 @@ pub struct Runtime {
   // TODO: this can be a linked list, and the
   // handle can live in the root
   roots: HashSet<Handle>,
+  init_sym: Symbol,
 }
 
 pub struct GcRoot<'a, 'b, 'c, 'd> {
@@ -74,6 +76,8 @@ impl Trace<ObjData> for GcRoot<'_, '_, '_, '_> {
 
 impl Runtime {
   pub fn new() -> Self {
+    let mut symbols = lasso::Rodeo::new();
+    let init_sym = symbols.get_or_intern_static("init");
     Self {
       value_stack: Vec::new(),
       call_frames: Vec::new(),
@@ -82,7 +86,8 @@ impl Runtime {
         gc_growth_factor: 2,
       }),
       roots: HashSet::new(),
-      symbols: lasso::Rodeo::new(),
+      symbols,
+      init_sym,
       globals: HashMap::new(),
     }
   }
@@ -101,10 +106,14 @@ impl Runtime {
     &mut self.call_frames[idx.0]
   }
 
-  pub fn alloc_frame(&mut self, closure: Obj<Closure>, bp: usize) -> FrameIndex {
-    let constants = closure.borrow(self).func.borrow(self).constants.clone();
+  pub fn init_sym(&self) -> Symbol {
+    self.init_sym
+  }
+
+  pub fn alloc_frame(&mut self, callee: Callee, bp: usize) -> FrameIndex {
+    let constants = callee.as_func(self).constants.clone();
     self.call_frames.push(CallFrame {
-      closure,
+      callee,
       ip: 0,
       base: bp,
       constants,

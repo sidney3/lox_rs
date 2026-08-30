@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use lasso::Key;
-use log::debug;
+use log::{debug, info, warn};
 use nonempty::{NonEmpty, nonempty};
 use smallvec::SmallVec;
 
@@ -11,7 +11,7 @@ use crate::obj::{
   BoundMethod, ClassDef, ClassInstance, Closure, Function, Obj, ObjData, TryAsObjExt, UpValue,
   UpValueDescriptor,
 };
-use crate::runtime::{CallFrame, FrameIndex, Root, Runtime, RuntimeError, Symbol, Value};
+use crate::runtime::{CallFrame, Callee, FrameIndex, Root, Runtime, RuntimeError, Symbol, Value};
 use either::Either;
 
 pub struct Executor<'vm> {
@@ -37,7 +37,7 @@ impl<'vm> Executor<'vm> {
     // lifetime extended by main closure
     main.free(vm);
 
-    let main_frame = vm.alloc_frame(main_closure.as_obj(), 0);
+    let main_frame = vm.alloc_frame(Callee::Func(main_closure.as_obj()), 0);
 
     // lifetime extended vm frames
     main_closure.free(vm);
@@ -51,6 +51,11 @@ impl<'vm> Executor<'vm> {
 
   pub fn run(self) -> Result<(), RuntimeError> {
     self.execute()
+  }
+
+  fn try_load_this(&self) -> Option<Obj<ClassInstance>> {
+    Obj::<BoundMethod>::try_from_value(self.vm, self.load_stack(0))
+      .map(|bound| bound.borrow(self.vm).receiver())
   }
 
   fn pop(&mut self) -> Value {
@@ -79,10 +84,8 @@ impl<'vm> Executor<'vm> {
   fn load_instruction(&mut self) -> Option<Instruction> {
     let frame = self.frame();
     let out = frame
-      .closure
-      .borrow(self.vm)
-      .func
-      .borrow(self.vm)
+      .callee
+      .as_func(self.vm)
       .instructions
       .get(frame.ip)
       .cloned();
@@ -105,7 +108,7 @@ impl<'vm> Executor<'vm> {
   }
 
   fn active_fn(&self) -> Ref<'_, Closure> {
-    self.frame().closure.borrow(self.vm)
+    self.frame().callee.as_closure(self.vm)
   }
 
   fn upval(&self, idx: usize) -> Obj<UpValue> {
@@ -171,7 +174,7 @@ impl<'vm> Executor<'vm> {
     self.vm.value_stack.drain(until..);
   }
 
-  fn make_closure(&mut self, f: Obj<Function>) -> Obj<Closure> {
+  fn make_closure(&mut self, f: Obj<Function>) -> Root<Closure> {
     let mut upvalues: Vec<Root<UpValue>> = Vec::new();
 
     let upvalue_descs = f.borrow(self.vm).upvalues.clone();
@@ -194,16 +197,49 @@ impl<'vm> Executor<'vm> {
       }
     }
 
-    let closure = self.vm.alloc_typed(Closure {
-      func: f,
-      upvalues: upvalues.iter().map(|u| u.as_obj()).collect(),
-    });
+    let closure = self
+      .vm
+      .alloc_typed(Closure {
+        func: f,
+        upvalues: upvalues.iter().map(|u| u.as_obj()).collect(),
+      })
+      .as_root(self.vm);
 
     for upval in upvalues {
       upval.free(self.vm);
     }
 
     closure
+  }
+
+  // Doesn't call the constructor - caller needs to take care of this.
+  fn make_instance(&mut self, class: Obj<ClassDef>) -> Root<ClassInstance> {
+    let (name, mut methods, ctor) = {
+      let x = class.borrow(self.vm);
+
+      (x.symbol(), x.methods().clone(), x.constructor())
+    };
+
+    methods.push(ctor);
+    let instance = self
+      .vm
+      .alloc_typed(ClassInstance::new(name))
+      .as_root(self.vm);
+
+    for f in methods {
+      let closure = self.make_closure(f);
+      let bound_method = self
+        .vm
+        .alloc_typed(BoundMethod::new(instance.as_obj(), closure.as_obj()));
+      instance
+        .as_obj()
+        .borrow_mut(self.vm)
+        .add_method(bound_method);
+
+      closure.free(self.vm);
+    }
+
+    instance
   }
 
   pub fn execute(mut self) -> Result<(), RuntimeError> {
@@ -337,18 +373,36 @@ impl<'vm> Executor<'vm> {
 
           let closure = self.make_closure(func);
           self.push_value(closure.as_value());
+          closure.free(self.vm);
         }
         InstructionKind::Callq => {
           let nargs = next_instruction.operand as usize;
           let f_idx = self.vm.stack_top() - nargs - 1;
 
-          let closure: Obj<Closure> = {
+          let callee = {
             let val = self.vm.value_stack[f_idx];
 
             if let Some(closure) = Obj::<Closure>::try_from_value(self.vm, val) {
-              Ok(closure)
+              Ok(Callee::Func(closure))
             } else if let Some(bound_method) = Obj::<BoundMethod>::try_from_value(self.vm, val) {
-              Ok(bound_method.borrow(self.vm).closure())
+              Ok(Callee::Method(bound_method))
+            } else if let Some(class_def) = Obj::<ClassDef>::try_from_value(self.vm, val) {
+              let instance = self.make_instance(class_def);
+              let constructor: Obj<BoundMethod> = instance
+                .as_obj()
+                .borrow(self.vm)
+                .load_attr(self.vm, self.vm.init_sym())
+                .expect("All classes must have constructors")
+                .try_as_obj(self.vm)
+                .expect("All constructors must be BoundMethods");
+
+              // Kind of evil? We want to decide to invoke a DIFFERENT callable
+              // (the constructor) inside the runtime. Python for handles this by
+              // allowing recursive calls. We just lie and overwrite the called object
+              // with what we want called (the constructor).
+              self.vm.value_stack[f_idx] = constructor.as_value();
+              instance.free(self.vm);
+              Ok(Callee::Class(constructor))
             } else {
               let msg = format!(
                 "Call can only be called on a function. Called on: {:?}",
@@ -358,7 +412,7 @@ impl<'vm> Executor<'vm> {
             }
           }?;
 
-          let true_arity = self.vm.closure_func(&closure).arity;
+          let true_arity = callee.as_func(self.vm).arity;
           if nargs != true_arity {
             return Err(RuntimeError::new(
               format!(
@@ -368,7 +422,7 @@ impl<'vm> Executor<'vm> {
             ));
           }
 
-          self.call_stack.push(self.vm.alloc_frame(closure, f_idx));
+          self.call_stack.push(self.vm.alloc_frame(callee, f_idx));
         }
         InstructionKind::Return => {
           let returned_frame = match self.call_stack.pop() {
@@ -381,7 +435,7 @@ impl<'vm> Executor<'vm> {
           };
           let ret_val = self.pop();
 
-          let leftover_stack_vals = self.vm.frame(returned_frame).closure.func(self.vm).arity + 1;
+          let leftover_stack_vals = self.vm.frame(returned_frame).callee.as_func(self.vm).arity + 1;
 
           assert!(
             self.vm.value_stack.len() >= self.vm.frame(returned_frame).base + leftover_stack_vals,
@@ -392,7 +446,20 @@ impl<'vm> Executor<'vm> {
           );
 
           self.drain_stack(self.vm.frame(returned_frame).base);
-          self.push_value(ret_val);
+
+          match self.vm.frame(returned_frame).callee {
+            Callee::Class(init) => {
+              if ret_val != Value::Nil {
+                return Err(RuntimeError::new("Constructor returned non-Nil"));
+              }
+
+              let instance = init.borrow(self.vm).receiver().as_value();
+              self.push_value(instance);
+            }
+            _ => {
+              self.push_value(ret_val);
+            }
+          }
         }
         InstructionKind::LoadUpValue => {
           let val = {
@@ -434,7 +501,7 @@ impl<'vm> Executor<'vm> {
               .borrow(self.vm);
 
             let num_methods = class_def.methods().len();
-            let class_instance = ClassInstance::new(class_def.deref());
+            let class_instance = ClassInstance::new(class_def.deref().symbol());
 
             (class_instance, num_methods)
           };
@@ -444,7 +511,7 @@ impl<'vm> Executor<'vm> {
 
           // The runtime could certainly derive the methods to create from
           // ClassDef, but the name binding is rather complicated so
-          // I want this logic in the compiler.
+          // I want .as_value()this logic in the compiler.
           for _ in 0..num_methods {
             let method: Obj<Closure> = self
               .pop()
@@ -507,13 +574,12 @@ impl<'vm> Executor<'vm> {
             .set_attr(self.vm, symbol, assign_to)?;
         }
         InstructionKind::PushThis => {
-          let receiver = Obj::<BoundMethod>::try_from_value(self.vm, self.load_stack(0))
-            .expect("PushThis should only be called from within a class method")
-            .borrow(self.vm)
-            .receiver()
-            .as_value();
-
-          self.push_value(receiver);
+          self.push_value(
+            self
+              .try_load_this()
+              .expect("PushThis should only be called from within a class method")
+              .as_value(),
+          );
         }
       }
     }

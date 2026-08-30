@@ -125,15 +125,16 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         self.func_mut().define_var(sym)?;
       }
       Declaration::Class(class) => {
-        let name = self.load_ident_sym(class.ident);
-        let args = self.load_symbols(&class.constructor.args);
+        let class = self.make_class_def(class)?;
+        self
+          .compile_stack
+          .head_mut()
+          .constant(self.rt, class.as_value())?;
 
-        let init = self.function(name, &args, |this| {
-          this.class_new(class)?; // preamble to push an empty class onto the stack
-          this.class_init(class) // thin wrapper around the users provided constructor.
-        })?;
+        let name = class.as_obj().borrow(self.rt).symbol();
+        self.func_mut().define_var(name)?;
 
-        self.closure(init)?;
+        class.free(self.rt);
       }
       Declaration::Fun(f) => {
         let f_name = self.load_ident_sym(f.name);
@@ -145,62 +146,39 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     Ok(())
   }
 
-  fn class_new(&mut self, class: &ClassDeclaration) -> Result<()> {
-    let name = self.load_ident_sym(class.ident);
-    let methods = class
-      .methods
-      .iter()
-      .map(|method| -> Result<Root<Function>> {
-        let args = self.load_symbols(method.args.as_slice());
-        self.function(method.name, args.as_slice(), |this| {
-          this.method_body(&method.body)
-        })
-      })
-      .try_fold(
-        Vec::new(),
-        |mut accum, item| -> Result<Vec<Root<Function>>> {
-          accum.push(item?);
+  fn make_class_def(&mut self, class: &ClassDeclaration) -> Result<Root<ClassDef>> {
+    let mut methods = Vec::new();
 
-          Ok(accum)
-        },
-      )?;
+    for method in &class.methods {
+      let name = self.load_ident_sym(method.name);
+      let args = self.load_symbols(&method.args);
 
-    let method_objs: Vec<Obj<Function>> = methods.iter().map(|r| r.as_obj()).collect();
-
-    let class_def = self
-      .rt
-      .alloc_typed(ClassDef::new(name, method_objs.clone()))
-      .as_root(self.rt);
-
-    self.compile_stack.head_mut().make_class_instance(
-      self.rt,
-      class_def.as_obj(),
-      method_objs.as_slice(),
-    )?;
-
-    class_def.free(self.rt);
-    for method in methods {
-      method.free(self.rt);
+      methods.push(self.function(name, &args, |this| this.method_body(&method.body))?);
     }
 
-    Ok(())
-  }
+    let ctor_args = self.load_symbols(&class.constructor.args);
+    let ctor = self.function(self.rt.init_sym(), &ctor_args, |this| {
+      this.method_body(&class.constructor.body)
+    })?;
 
-  fn class_init(&mut self, class: &ClassDeclaration) -> Result<()> {
-    // Cursed stuff. We fool the runtime into thinking it's in a class
-    // method (even though its not) by lying and pointing `this` to
-    // the top of the stack (which __new__ just pushed there).
-    //
-    // I think the "right" way to do this is with desugaring of
-    // the constructor.
-    let this = self.load_str_sym("this");
-    self.func_mut().define_var(this)?;
-    self.block(&class.constructor.body)?;
+    let name = self.load_ident_sym(class.ident);
+    let res = Ok(
+      self
+        .rt
+        .alloc_typed(ClassDef::new(
+          name,
+          ctor.as_obj(),
+          methods.iter().map(|i| i.as_obj()).collect(),
+        ))
+        .as_root(self.rt),
+    );
 
-    self.func_mut().load_var(this)?;
-    self.func_mut().ret();
+    for m in methods {
+      m.free(self.rt);
+    }
+    ctor.free(self.rt);
 
-    Ok(())
+    res
   }
 
   fn method_body(&mut self, body: &Block) -> Result<()> {
@@ -376,10 +354,11 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
           }
           LValue::Member(Member { accessee, property }) => {
             self.expr(accessee)?; //< this had better produce a class!
+            let property_name = self.load_ident_sym(*property);
             self
               .compile_stack
               .head_mut()
-              .set_class_attr(self.rt, *property)?;
+              .set_class_attr(self.rt, property_name)?;
           }
         }
       }
@@ -395,10 +374,11 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
 
       Expression::Member(Member { accessee, property }) => {
         self.expr(accessee)?; //< this had better produce a class
+        let property_name = self.load_ident_sym(*property);
         self
           .compile_stack
           .head_mut()
-          .get_class_attr(self.rt, *property)?;
+          .get_class_attr(self.rt, property_name)?;
       }
     }
 

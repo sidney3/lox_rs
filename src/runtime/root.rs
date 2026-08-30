@@ -1,3 +1,5 @@
+use log::warn;
+
 use super::Runtime;
 use crate::obj::{Obj, ObjData, ObjKind};
 use crate::runtime::Value;
@@ -9,7 +11,7 @@ impl<U: ObjKind> Drop for Root<U> {
     // We need to remove the Root from the rootset
     // (and lifetimes are too painful if we allow
     // back pointers).
-    panic!("Cannot drop root. Should manually free")
+    warn!("Cannot drop root. Should manually free")
   }
 }
 

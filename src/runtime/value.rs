@@ -8,7 +8,7 @@ use log::info;
 pub type Num = f64;
 pub type Bool = bool;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum Value {
   Num(Num),
   Obj(Handle),

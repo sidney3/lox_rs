@@ -1,11 +1,10 @@
 class Dog {
 	init(name) {
-		print("Hello from constructor. Assigning: " + name);
+		print "Hi from ctor. assigning name=" + name;
 		this.name = name;
 	}
 
 	fun bark() {
-		print("Hello from bark.");
 		return "woof";
 	}
 
@@ -22,5 +21,26 @@ class Dog {
 	}
 };
 
+print "1";
+var dog = Dog("fido");
+print "2";
+assert dog.bark() == "woof";
+
+print "3";
+var bark = dog.bark;
+print "4";
+assert bark() == dog.bark();
+
+dog.set_name("Fido");
+assert dog.get_name() == "Fido";
+
+print "5";
 var fido = Dog("Fido");
-print(fido.bark());
+
+assert fido == dog;
+
+dog.do_set_name("Maggie");
+print "6";
+
+assert dog.get_name() == "Maggie";
+assert fido != dog;

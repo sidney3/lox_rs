@@ -13,8 +13,9 @@ use std::collections::hash_map::Keys;
 
 #[derive(Debug)]
 pub struct ClassDef {
-  pub ident: Symbol,
+  name: Symbol,
   methods: Vec<Obj<Function>>,
+  constructor: Obj<Function>,
 }
 
 #[derive(Debug)]
@@ -25,8 +26,16 @@ pub struct ClassInstance {
 }
 
 impl ClassDef {
-  pub fn new(ident: Symbol, methods: Vec<Obj<Function>>) -> Self {
-    Self { ident, methods }
+  pub fn new(name: Symbol, constructor: Obj<Function>, methods: Vec<Obj<Function>>) -> Self {
+    Self {
+      name,
+      methods,
+      constructor,
+    }
+  }
+
+  pub fn symbol(&self) -> Symbol {
+    self.name
   }
 
   // NB: these functions are unsafe to call directly
@@ -35,6 +44,10 @@ impl ClassDef {
   // with these attributes properly bound.
   pub fn methods(&self) -> &Vec<Obj<Function>> {
     &self.methods
+  }
+
+  pub fn constructor(&self) -> Obj<Function> {
+    self.constructor
   }
 }
 
@@ -57,9 +70,9 @@ impl ObjKind for ClassDef {
 }
 
 impl ClassInstance {
-  pub fn new(def: &ClassDef) -> Self {
+  pub fn new(name: Symbol) -> Self {
     Self {
-      ident: def.ident,
+      ident: name,
       properties: HashMap::new(),
       methods: Vec::new(),
     }
@@ -140,9 +153,10 @@ impl ClassInstance {
 
 impl Trace<ObjData> for ClassDef {
   fn trace(&self, tracer: &mut Tracer<ObjData>) {
-    for method in &self.methods {
+    for method in self.methods() {
       method.trace(tracer);
     }
+    self.constructor().trace(tracer);
   }
 }
 

@@ -329,6 +329,7 @@ impl FuncState {
   // This is obviously pretty low level, and if you can avoid using it
   // you should.
   pub fn add_local(&mut self, sym: Symbol) {
+    // assert!(!self.at_global_depth());
     self.locals.push(Local {
       scope_depth: self.scope_depth,
       symbol: sym,
