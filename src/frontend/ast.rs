@@ -20,8 +20,6 @@ pub enum LoxRule {
   Literal,
   Unary,
   Program,
-  Print,
-  Assert,
   Declaration,
   FuncDecl,
   FuncArgs,
@@ -163,16 +161,6 @@ pub struct ExprStatement {
 }
 
 #[derive(Debug)]
-pub struct PrintStatement {
-  pub operand: Expression,
-}
-
-#[derive(Debug)]
-pub struct AssertStatement {
-  pub operand: Expression,
-}
-
-#[derive(Debug)]
 pub struct WhileStatement {
   pub cond: Expression,
   pub body: Box<Block>,
@@ -218,8 +206,6 @@ pub struct Return {
 #[derive(Debug)]
 pub enum Statement {
   Expr(ExprStatement),
-  Print(PrintStatement),
-  Assert(AssertStatement),
   Block(Block),
   If(IfStatement),
   While(WhileStatement),
@@ -397,22 +383,12 @@ fn lox_grammar() -> Grammar<LoxRule> {
         ],
       },
       // Statement :=
-      // AssertStatement
-      // | PrintStatement
-      // | ExpressionStatemt
+      //  ExpressionStatemt
       // | '{' BlockStatement '}';
       // | IfStatement
       // | WhileStatement
       // | Return
       // | Break
-      P {
-        rule: LoxRule::Statement,
-        definition: vec![Symbol::Rule(LoxRule::Print)],
-      },
-      P {
-        rule: LoxRule::Statement,
-        definition: vec![Symbol::Rule(LoxRule::Assert)],
-      },
       P {
         rule: LoxRule::Statement,
         definition: vec![Symbol::Rule(LoxRule::ExprStatement)],
@@ -458,24 +434,6 @@ fn lox_grammar() -> Grammar<LoxRule> {
         definition: vec![
           Symbol::Rule(LoxRule::BlockStatement),
           Symbol::Rule(LoxRule::Declaration),
-        ],
-      },
-      // PrintStatement := 'print' Expr ';'
-      P {
-        rule: LoxRule::Print,
-        definition: vec![
-          Symbol::Token(LoxTokenKind::Print),
-          Symbol::Rule(LoxRule::Expr),
-          Symbol::Token(LoxTokenKind::Semicolon),
-        ],
-      },
-      // AssertStatement := 'assert' Expr ';'
-      P {
-        rule: LoxRule::Assert,
-        definition: vec![
-          Symbol::Token(LoxTokenKind::Assert),
-          Symbol::Rule(LoxRule::Expr),
-          Symbol::Token(LoxTokenKind::Semicolon),
         ],
       },
       // ExprStatement := Expr ';'
@@ -872,50 +830,6 @@ impl ExprStatement {
   }
 }
 
-impl PrintStatement {
-  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
-    match node {
-      Node::Parent(Parent {
-        rule: LoxRule::Print,
-        children,
-      }) => match children.as_slice() {
-        [Node::Leaf(print), expr, Node::Leaf(semicolon)]
-          if print.token_type == LoxTokenKind::Print
-            && semicolon.token_type == LoxTokenKind::Semicolon =>
-        {
-          PrintStatement {
-            operand: Expression::from_cst(ast, expr),
-          }
-        }
-        _ => panic!("unreachable"),
-      },
-      _ => panic!("unreachable"),
-    }
-  }
-}
-
-impl AssertStatement {
-  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
-    match node {
-      Node::Parent(Parent {
-        rule: LoxRule::Assert,
-        children,
-      }) => match children.as_slice() {
-        [Node::Leaf(print), expr, Node::Leaf(semicolon)]
-          if print.token_type == LoxTokenKind::Assert
-            && semicolon.token_type == LoxTokenKind::Semicolon =>
-        {
-          AssertStatement {
-            operand: Expression::from_cst(ast, expr),
-          }
-        }
-        _ => panic!("unreachable"),
-      },
-      _ => panic!("unreachable: {:?}", node),
-    }
-  }
-}
-
 impl WhileStatement {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
@@ -1039,18 +953,6 @@ impl Statement {
         rule: LoxRule::Statement,
         children,
       }) => match children.as_slice() {
-        [
-          Node::Parent(Parent {
-            rule: LoxRule::Print,
-            children: _,
-          }),
-        ] => Statement::Print(PrintStatement::from_cst(ast, &children[0])),
-        [
-          Node::Parent(Parent {
-            rule: LoxRule::Assert,
-            children: _,
-          }),
-        ] => Statement::Assert(AssertStatement::from_cst(ast, &children[0])),
         [
           Node::Parent(Parent {
             rule: LoxRule::IfStatement,

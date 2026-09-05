@@ -1,17 +1,17 @@
-assert 5 == 5;
-assert 5 > 4;
-assert 5 >= 4;
-assert (5 + 1) >= 5;
-assert "a" == "a";
-assert "a" + "b" + "c" == "abc";
-assert (("abc" + "def") + "hij" == "abcdefhij") == true;
-assert 4 != 5;
-assert 2 + 5 != 6;
-assert !true == false;
-assert -4 == -1 * 4;
-assert !!!!!!!!true 
+assert(5 == 5);
+assert(5 > 4);
+assert(5 >= 4);
+assert((5 + 1) >= 5);
+assert("a" == "a");
+assert("a" + "b" + "c" == "abc");
+assert((("abc" + "def") + "hij" == "abcdefhij") == true);
+assert(4 != 5);
+assert(2 + 5 != 6);
+assert(!true == false);
+assert(-4 == -1 * 4);
+assert(!!!!!!!!true 
 	== !!true 
 	== true 
-	== !false;
+	== !false);
 
-assert 5 - 3 == 2;
+assert(5 - 3 == 2);

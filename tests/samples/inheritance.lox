@@ -14,8 +14,8 @@ class Derived < Base {
 }
 
 var derived = Derived();
-assert derived.foo() == "derived_foo";
-assert derived.bar() == "base_bar";
+assert( derived.foo() == "derived_foo");
+assert( derived.bar() == "base_bar");
 
 class A {
 	f_init() {
@@ -40,7 +40,7 @@ class C < B {
 	}
 }
 
-assert C().test() == "A_method";
+assert( C().test() == "A_method");
 
 class Counter {
 	init() {
@@ -71,5 +71,5 @@ class Derived < Counter {
 }
 
 var d = Derived();
-assert d.count_n_times(1) == 1;
-assert d.count_n_times(4) == 5;
+assert( d.count_n_times(1) == 1);
+assert( d.count_n_times(4) == 5);

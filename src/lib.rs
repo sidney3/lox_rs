@@ -5,6 +5,7 @@ mod executor;
 mod frontend;
 mod gc;
 mod lexer;
+mod native_function;
 mod obj;
 mod parse;
 mod runtime;
@@ -66,6 +67,8 @@ pub fn run(config: Config) -> Result<(), LoxError> {
     error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));
     LoxError::Compile(e)
   })?;
+
+  native_function::load_native_functions(&mut rt);
 
   Executor::new(&mut rt, main).run().map_err(|e| {
     error!("{}", diagnostic_renderer.render(&e.to_diagnostic()));

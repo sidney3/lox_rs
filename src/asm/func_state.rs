@@ -268,14 +268,6 @@ impl FuncState {
     self.emit(Instruction::new(InstructionKind::Pop));
   }
 
-  pub fn print(&mut self) {
-    self.emit(Instruction::new(InstructionKind::Print));
-  }
-
-  pub fn assert(&mut self) {
-    self.emit(Instruction::new(InstructionKind::Assert));
-  }
-
   pub fn jmp(&mut self, to: Label) {
     self.emit_symbolic(SymbolicInstruction::Instruction(
       InstructionKind::Jmp,

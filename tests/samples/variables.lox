@@ -1,34 +1,34 @@
 var x = 5;
-assert x == 5;
+assert( x == 5);
 var y = 10;
-assert 2 * x == y;
+assert( 2 * x == y);
 var z = y;
-assert z == y;
+assert( z == y);
 z = x;
-assert z != y;
-assert 2 * z == y;
+assert( z != y);
+assert( 2 * z == y);
 
 
 var x = 10;
 var y = "abc";
 
 {
-	assert x == 10;
+	assert( x == 10);
 	var x = 9;
-	assert x == 9;
+	assert( x == 9);
 	var y = x = 8;
-	assert x == 8;
-	assert y == x;
+	assert( x == 8);
+	assert( y == x);
 }
 
-assert x == 10;
+assert( x == 10);
 
 {
 	var x = 10;
 	{
 		x = 9;
 	}
-	assert x == 9;
+	assert( x == 9);
 }
 
 var z = "a";
@@ -48,23 +48,23 @@ var z = "a";
 	}
 }
 
-assert z == "b";
+assert( z == "b");
 
 
 var x = 10;
 {
 	x = 9;
 }
-assert x == 9;
+assert( x == 9);
 
 {
 	var a = "outer";
 	{
 		var a = a;
 
-		assert a == "outer";
+		assert( a == "outer");
 	}
-	assert a == "outer";
+	assert( a == "outer");
 }
 
 {

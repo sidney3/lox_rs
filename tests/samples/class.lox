@@ -1,28 +1,28 @@
 class MyClass {}
 
-assert MyClass() == MyClass(); 
+assert(MyClass() == MyClass()); 
 
 var durable = MyClass();
-assert durable == MyClass();
+assert(durable == MyClass());
 
 
 var x = MyClass();
 x.a = "a";
-assert x.a == "a";
+assert(x.a == "a");
 x.a = "b";
-assert x.a == "b";
+assert(x.a == "b");
 x.a = x.a;
-assert x.a == "b";
+assert(x.a == "b");
 
 x.once = MyClass();
 x.once.twice = MyClass();
 x.once.twice.thrice = MyClass();
 x.once.twice.thrice.a = "b";
-assert x.a == x.once.twice.thrice.a;
+assert(x.a == x.once.twice.thrice.a);
 
 x.ctor = MyClass;
 var y = x.ctor();
-assert y == MyClass();
+assert(y == MyClass());
 
 class Dog {
 	init(name) {
@@ -47,25 +47,25 @@ class Dog {
 }
 
 var dog = Dog("fido");
-assert dog.bark() == "woof";
+assert(dog.bark() == "woof");
 
 var bark = dog.bark;
-assert bark() == dog.bark();
+assert(bark() == dog.bark());
 
 dog.set_name("Fido");
-assert dog.get_name() == "Fido";
+assert(dog.get_name() == "Fido");
 
 var fido = Dog("Fido");
 
-assert fido == dog;
+assert(fido == dog);
 
 dog.do_set_name("Maggie");
 
-assert dog.get_name() == "Maggie";
-assert fido != dog;
+assert(dog.get_name() == "Maggie");
+assert(fido != dog);
 
 class OnlyCtor {
 	init() {}
 }
 
-assert(OnlyCtor() == OnlyCtor());
+assert((OnlyCtor() == OnlyCtor()));

@@ -8,8 +8,8 @@ use smallvec::SmallVec;
 use crate::asm::{Instruction, InstructionKind};
 use crate::gc::Ref;
 use crate::obj::{
-  BoundMethod, Class, Closure, Function, Instance, Obj, ObjData, TryAsObjExt, UpValue,
-  UpValueDescriptor,
+  BoundMethod, Class, Closure, Function, Instance, NativeFunction, Obj, ObjData, TryAsObjExt,
+  UpValue, UpValueDescriptor,
 };
 use crate::runtime::{CallFrame, Callee, FrameIndex, Root, Runtime, RuntimeError, Symbol, Value};
 use either::Either;
@@ -117,6 +117,13 @@ impl<'vm> Executor<'vm> {
 
   fn push_value(&mut self, val: Value) {
     self.vm.value_stack.push(val);
+  }
+
+  fn call_native(&mut self, f: Obj<NativeFunction>, nargs: usize) -> Result<Value, RuntimeError> {
+    let until = self.vm.value_stack.len() - nargs;
+    let args: Vec<Value> = self.vm.value_stack.drain(until..).collect();
+
+    f.borrow(self.vm).call(self.vm, &args)
   }
 
   fn execute_binary<F: FnOnce(Value, Value, &Runtime) -> Result<Value, RuntimeError>>(
@@ -274,10 +281,6 @@ impl<'vm> Executor<'vm> {
         InstructionKind::Pop => {
           self.drain_stack(self.vm.value_stack.len() - 1);
         }
-        InstructionKind::Print => {
-          let val = self.pop();
-          println!("{}", val.repr(self.vm));
-        }
         InstructionKind::JumpIfFalse => {
           if !bool::try_from(&self.pop())? {
             self.frame_mut().jmp(next_instruction.operand as usize);
@@ -295,16 +298,6 @@ impl<'vm> Executor<'vm> {
         }
         InstructionKind::Jmp => {
           self.frame_mut().jmp(next_instruction.operand as usize);
-        }
-        InstructionKind::Assert => {
-          let operand = match self.pop() {
-            Value::Bool(b) => b,
-            _ => return Err(RuntimeError::new("Assert expects bool operand")),
-          };
-
-          if !operand {
-            return Err(RuntimeError::new("Assert failed"));
-          }
         }
         InstructionKind::AddGlobal => {
           let assign = self.pop();
@@ -392,6 +385,10 @@ impl<'vm> Executor<'vm> {
               self.vm.value_stack[f_idx] = constructor.as_value();
               instance.free(self.vm);
               Ok(Callee::Class(constructor))
+            } else if let Some(native) = Obj::<NativeFunction>::try_from_value(self.vm, val) {
+              // subvert the normal calling convention
+              self.call_native(native, nargs)?;
+              continue;
             } else {
               let msg = format!(
                 "Call can only be called on a function. Called on: {:?}",

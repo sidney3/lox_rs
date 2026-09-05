@@ -1,10 +1,9 @@
-use super::{BoundMethod, Class, Closure, Function, Instance, LoxString, UpValue};
+use super::{BoundMethod, Class, Closure, Function, Instance, LoxString, NativeFunction, UpValue};
 use std::fmt;
 
 use crate::gc::{Trace, Tracer};
 use crate::runtime::{ProtoValue, Runtime, RuntimeError};
 
-#[derive(Debug)]
 pub enum ObjData {
   LoxString(LoxString),
   Function(Function),
@@ -13,6 +12,7 @@ pub enum ObjData {
   Class(Class),
   Instance(Instance),
   BoundMethod(BoundMethod),
+  NativeFunction(NativeFunction),
 }
 
 impl Trace<ObjData> for ObjData {
@@ -25,6 +25,7 @@ impl Trace<ObjData> for ObjData {
       ObjData::Class(class) => class.trace(tracer),
       ObjData::Instance(class) => class.trace(tracer),
       ObjData::BoundMethod(method) => method.trace(tracer),
+      ObjData::NativeFunction(f) => f.trace(tracer),
     }
   }
 }
@@ -54,18 +55,6 @@ impl ObjData {
       ))),
     }
   }
-
-  pub fn typename(&self) -> &'static str {
-    match self {
-      Self::LoxString(_) => "LoxString",
-      Self::Function(_) => "Function",
-      Self::Closure(_) => "Closure",
-      Self::UpValue(_) => "UpValue",
-      Self::Class(_) => "Class",
-      Self::Instance(_) => "Instance",
-      Self::BoundMethod(_) => "BoundMethod",
-    }
-  }
 }
 
 impl fmt::Display for ObjData {
@@ -81,6 +70,13 @@ impl fmt::Display for ObjData {
       ObjData::Class(_) => write!(f, "Class"),
       ObjData::Instance(_) => write!(f, "Instance"),
       ObjData::BoundMethod(_) => write!(f, "BoundMethod"),
+      ObjData::NativeFunction(_) => write!(f, "NativeFunction"),
     }
+  }
+}
+
+impl fmt::Debug for ObjData {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self)
   }
 }

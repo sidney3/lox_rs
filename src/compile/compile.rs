@@ -8,6 +8,7 @@ use crate::frontend::ast::{
 };
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
+use crate::obj::NativeFunction;
 use crate::obj::{Class, Closure, Function, LoxString, Obj, ObjData};
 use crate::runtime::{Root, Runtime, Symbol, Value};
 use log::info;
@@ -225,15 +226,6 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         self.expr(&e.expr)?;
         self.func_mut().pop();
       }
-      Statement::Print(p) => {
-        self.expr(&p.operand)?;
-        self.func_mut().print();
-      }
-      Statement::Assert(a) => {
-        self.expr(&a.operand)?;
-        self.func_mut().assert();
-      }
-
       Statement::Block(block) => {
         self.block(block)?;
       }

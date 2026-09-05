@@ -52,11 +52,6 @@ pub enum LoxTokenKind {
   Break,
   Super,
 
-  // TODO: get rid of these and represent
-  // them as native functions
-  Print,
-  Assert,
-
   // Literals
   Number,
   String,
@@ -137,8 +132,6 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
   (LoxTokenKind::Var, "var"),
   (LoxTokenKind::While, "while"),
   (LoxTokenKind::Break, "break"),
-  (LoxTokenKind::Print, "print"),   // TODO: remove this token
-  (LoxTokenKind::Assert, "assert"), // TODO: remove this token
   (LoxTokenKind::Super, "super"),
   (LoxTokenKind::Number, "[1-9][0-9]*"),
   (LoxTokenKind::Number, "[0-9]"),
@@ -173,7 +166,7 @@ mod test {
       vec![
         LoxToken {
           lexeme: spur("print"),
-          token_type: LoxTokenKind::Print,
+          token_type: LoxTokenKind::Ident,
           span: Span::trivial(),
         },
         LoxToken {

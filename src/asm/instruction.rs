@@ -55,11 +55,6 @@ pub enum InstructionKind {
   // Unary expressions.
   Not,
   UnaryMinus,
-
-  // TODO: remove when we get functions
-  // working
-  Print,
-  Assert,
 }
 
 #[derive(Copy, Clone, Debug)]

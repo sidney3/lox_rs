@@ -6,6 +6,7 @@ use super::{CallFrame, Root};
 use crate::gc::Ref;
 use crate::gc::{self, AllocFailure, Trace, Tracer};
 use crate::obj::Function;
+use crate::obj::NativeFunction;
 use crate::obj::{Closure, Obj, ObjData, ObjKind};
 use crate::runtime::Callee;
 use lasso::Key;
@@ -168,12 +169,8 @@ impl Runtime {
       self.collect();
     }
 
-    let typename = obj.typename();
     match self.heap.alloc(obj) {
-      Ok(handle) => {
-        debug!("Allocated {} at {:?}", typename, handle);
-        handle
-      }
+      Ok(handle) => handle,
       Err(AllocFailure::NeedGc(obj)) => {
         self.collect();
         self.alloc(obj)
@@ -197,5 +194,12 @@ impl Runtime {
 
   pub fn stack_top(&self) -> usize {
     self.value_stack.len()
+  }
+
+  pub fn add_native(&mut self, native: NativeFunction) {
+    let sym = self.get_or_intern_sym_str(native.name());
+    let val = self.alloc_typed(native).as_value();
+
+    self.globals.insert(sym, val);
   }
 }

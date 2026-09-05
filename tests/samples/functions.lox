@@ -2,12 +2,12 @@ fun f(arg) {
 	return "Hello " + arg;
 }
 
-assert f("World") == "Hello World";
-assert f("Sidney") == "Hello Sidney";
+assert( f("World") == "Hello World");
+assert( f("Sidney") == "Hello Sidney");
 
 var z = f;
 
-assert f("World") == "Hello World";
+assert( f("World") == "Hello World");
 
 fun f(g) {
 	return g(4);
@@ -17,7 +17,7 @@ fun h(x) {
   return x + 5;
 }
 
-assert f(h) == 9;
+assert( f(h) == 9);
 
 fun square(f, elt) {
 	return f(f(elt));
@@ -27,4 +27,4 @@ fun times_5(x) {
 	return x * 5;
 }
 
-assert square(times_5, 5) == 125;
+assert( square(times_5, 5) == 125);
