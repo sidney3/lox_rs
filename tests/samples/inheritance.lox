@@ -35,8 +35,41 @@ class B < A {
 
 class C < B {
 	init() {
-		super.f_init();
+		var x = super.f_init;
+		x();
 	}
 }
 
 assert C().test() == "A_method";
+
+class Counter {
+	init() {
+		this.x = 0;
+	}
+	increment() {
+		this.x = this.x + 1;
+		return this.x;
+	}
+}
+
+class Derived < Counter {
+	init() {
+		super.init();
+	}
+
+	count_n_times(n) {
+		var z = 0;
+		var inc = super.increment;
+		var last_incremented = 0;
+		while(z < n) {
+			last_incremented = inc();
+			z = z + 1;
+		}
+
+		return last_incremented;
+	}
+}
+
+var d = Derived();
+assert d.count_n_times(1) == 1;
+assert d.count_n_times(4) == 5;
