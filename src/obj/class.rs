@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use lox_derive::LoxObj;
 
 use super::Function;
 use super::ObjData;
@@ -13,13 +14,13 @@ use crate::runtime::{Runtime, Value};
 use std::collections::HashMap;
 use std::collections::hash_map::Keys;
 
-#[derive(Debug)]
+#[derive(Debug, LoxObj)]
 pub struct Class {
   name: Symbol,
   methods: Vec<Obj<Closure>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, LoxObj)]
 pub struct Instance {
   ident: Symbol,
   properties: HashMap<Symbol, Value>,
@@ -66,24 +67,6 @@ impl Class {
   // with these attributes properly bound.
   pub fn methods(&self) -> &Vec<Obj<Closure>> {
     &self.methods
-  }
-}
-
-impl ObjKind for Class {
-  fn embed(self) -> ObjData {
-    ObjData::Class(self)
-  }
-  fn project(obj: &ObjData) -> Option<&Self> {
-    match obj {
-      ObjData::Class(class) => Some(class),
-      _ => None,
-    }
-  }
-  fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
-    match obj {
-      ObjData::Class(class) => Some(class),
-      _ => None,
-    }
   }
 }
 
@@ -169,24 +152,6 @@ impl Trace<ObjData> for Class {
   fn trace(&self, tracer: &mut Tracer<ObjData>) {
     for method in &self.methods {
       method.trace(tracer);
-    }
-  }
-}
-
-impl ObjKind for Instance {
-  fn embed(self) -> ObjData {
-    ObjData::Instance(self)
-  }
-  fn project(obj: &ObjData) -> Option<&Self> {
-    match obj {
-      ObjData::Instance(class) => Some(class),
-      _ => None,
-    }
-  }
-  fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
-    match obj {
-      ObjData::Instance(class) => Some(class),
-      _ => None,
     }
   }
 }

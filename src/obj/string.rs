@@ -1,25 +1,18 @@
-use super::{ObjData, ObjKind};
+use super::ObjData;
 use crate::gc::{Trace, Tracer};
+use lox_derive::LoxObj;
 
-pub type LoxString = String;
+#[derive(LoxObj, Debug)]
+pub struct LoxString {
+  raw: String,
+}
 
-impl ObjKind for LoxString {
-  fn project(obj: &ObjData) -> Option<&Self> {
-    match obj {
-      ObjData::String(s) => Some(s),
-      _ => None,
-    }
+impl LoxString {
+  pub fn new(s: String) -> Self {
+    Self { raw: s }
   }
-
-  fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
-    match obj {
-      ObjData::String(s) => Some(s),
-      _ => None,
-    }
-  }
-
-  fn embed(self) -> ObjData {
-    ObjData::String(self)
+  pub fn as_str(&self) -> &str {
+    self.raw.as_str()
   }
 }
 

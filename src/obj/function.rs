@@ -1,7 +1,8 @@
-use super::{ObjData, ObjKind};
+use super::ObjData;
 use crate::asm::Instruction;
-use crate::gc::{Heap, Trace, Tracer};
+use crate::gc::{Trace, Tracer};
 use crate::runtime::{Symbol, Value};
+use lox_derive::LoxObj;
 
 // Compile/runtime bridge: this gets thrown on the static
 // function and consumed by the runtime (to resolve the
@@ -13,7 +14,7 @@ pub enum UpValueDescriptor {
   Recursive { parent_upvalue_pos: usize },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, LoxObj)]
 pub struct Function {
   pub arity: usize,
   pub name: Symbol,
@@ -39,25 +40,5 @@ impl Trace<ObjData> for Function {
     for constant in &self.constants {
       constant.trace(tracer)
     }
-  }
-}
-
-impl ObjKind for Function {
-  fn project(obj: &ObjData) -> Option<&Self> {
-    match obj {
-      ObjData::Func(s) => Some(s),
-      _ => None,
-    }
-  }
-
-  fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
-    match obj {
-      ObjData::Func(s) => Some(s),
-      _ => None,
-    }
-  }
-
-  fn embed(self) -> ObjData {
-    ObjData::Func(self)
   }
 }

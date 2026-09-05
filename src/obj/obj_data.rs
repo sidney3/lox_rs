@@ -6,8 +6,8 @@ use crate::runtime::{ProtoValue, Runtime, RuntimeError};
 
 #[derive(Debug)]
 pub enum ObjData {
-  String(LoxString),
-  Func(Function),
+  LoxString(LoxString),
+  Function(Function),
   Closure(Closure),
   UpValue(UpValue),
   Class(Class),
@@ -18,8 +18,8 @@ pub enum ObjData {
 impl Trace<ObjData> for ObjData {
   fn trace(&self, tracer: &mut Tracer<ObjData>) {
     match self {
-      ObjData::String(s) => s.trace(tracer),
-      ObjData::Func(function) => function.trace(tracer),
+      ObjData::LoxString(s) => s.trace(tracer),
+      ObjData::Function(function) => function.trace(tracer),
       ObjData::Closure(closure) => closure.trace(tracer),
       ObjData::UpValue(upval) => upval.trace(tracer),
       ObjData::Class(class) => class.trace(tracer),
@@ -32,9 +32,9 @@ impl Trace<ObjData> for ObjData {
 impl ObjData {
   pub fn add(&self, rhs: &ObjData, _: &Runtime) -> Result<ProtoValue, RuntimeError> {
     match (self, rhs) {
-      (ObjData::String(lhs), ObjData::String(rhs)) => {
-        Ok(ProtoValue::Obj(ObjData::String(lhs.clone() + rhs)))
-      }
+      (ObjData::LoxString(lhs), ObjData::LoxString(rhs)) => Ok(ProtoValue::Obj(
+        ObjData::LoxString(LoxString::new(lhs.as_str().to_string() + rhs.as_str())),
+      )),
 
       // NOTE: we distinctly don't handle ValueObject here.
       // There are too many possibilities to handle. Instead, we
@@ -45,8 +45,8 @@ impl ObjData {
 
   pub fn equals(&self, rhs: &Self, rt: &Runtime) -> Result<bool, RuntimeError> {
     match (self, rhs) {
-      (Self::String(s1), Self::String(s2)) => Ok(s1 == s2),
-      (Self::Func(_), Self::Func(_)) => Ok(false),
+      (Self::LoxString(s1), Self::LoxString(s2)) => Ok(s1.as_str() == s2.as_str()),
+      (Self::Function(_), Self::Function(_)) => Ok(false),
       (Self::Instance(lhs_inst), Self::Instance(rhs_inst)) => lhs_inst.equals(rt, rhs_inst),
       _ => Err(RuntimeError::from_str(format!(
         "TypeError: {} == {} is not defined",
@@ -57,8 +57,8 @@ impl ObjData {
 
   pub fn typename(&self) -> &'static str {
     match self {
-      Self::String(_) => "LoxString",
-      Self::Func(_) => "Function",
+      Self::LoxString(_) => "LoxString",
+      Self::Function(_) => "Function",
       Self::Closure(_) => "Closure",
       Self::UpValue(_) => "UpValue",
       Self::Class(_) => "Class",
@@ -71,8 +71,8 @@ impl ObjData {
 impl fmt::Display for ObjData {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
-      ObjData::String(s) => write!(f, "{s}"),
-      ObjData::Func(_func) => write!(f, "LoxFunc"),
+      ObjData::LoxString(s) => write!(f, "{}", s.as_str()),
+      ObjData::Function(_func) => write!(f, "LoxFunc"),
       ObjData::Closure(_closure) => write!(f, "LoxClosure"),
       ObjData::UpValue(up) => match up {
         UpValue::Open { absolute_stack_pos } => write!(f, "Open UpValue --> {absolute_stack_pos}"),

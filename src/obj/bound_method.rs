@@ -2,10 +2,10 @@ use super::Closure;
 use super::Instance;
 use super::Obj;
 use super::ObjData;
-use super::ObjKind;
 use crate::gc::{Trace, Tracer};
+use lox_derive::LoxObj;
 
-#[derive(Debug)]
+#[derive(Debug, LoxObj)]
 pub struct BoundMethod {
   receiver: Obj<Instance>,
   method: Obj<Closure>,
@@ -21,24 +21,6 @@ impl BoundMethod {
 
   pub fn receiver(&self) -> Obj<Instance> {
     self.receiver
-  }
-}
-
-impl ObjKind for BoundMethod {
-  fn embed(self) -> ObjData {
-    ObjData::BoundMethod(self)
-  }
-  fn project(obj: &ObjData) -> Option<&Self> {
-    match obj {
-      ObjData::BoundMethod(this) => Some(this),
-      _ => None,
-    }
-  }
-  fn project_mut(obj: &mut ObjData) -> Option<&mut Self> {
-    match obj {
-      ObjData::BoundMethod(this) => Some(this),
-      _ => None,
-    }
   }
 }
 

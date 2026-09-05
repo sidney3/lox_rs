@@ -8,7 +8,7 @@ use crate::frontend::ast::{
 };
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::obj::{Class, Closure, Function, Obj, ObjData};
+use crate::obj::{Class, Closure, Function, LoxString, Obj, ObjData};
 use crate::runtime::{Root, Runtime, Symbol, Value};
 use log::info;
 
@@ -449,7 +449,7 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
     match lit {
       &Literal::Num(x) => self.constant(Value::Num(x))?,
       Literal::String(x) => {
-        let string_val = Value::Obj(self.rt.alloc(ObjData::String(x.clone())));
+        let string_val = Value::Obj(self.rt.alloc(ObjData::LoxString(LoxString::new(x.clone()))));
         self.constant(string_val)?;
       }
       &Literal::Bool(x) => self.constant(Value::Bool(x))?,
