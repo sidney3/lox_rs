@@ -1,15 +1,1 @@
-class Base {
-	fun foo() {
-		print "Hello from base";
-	}
-};
-
-class Derived < Base {
-	fun foo() {
-		super.foo();
-		print "Hello from derived";
-	}
-};
-
-var derived = Derived();
-derived.foo();
+for (var i = 0; i < 1; i = i + 1) {}

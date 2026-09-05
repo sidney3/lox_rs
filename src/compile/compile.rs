@@ -3,8 +3,8 @@ use crate::asm::{
   FuncStack, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
 };
 use crate::frontend::ast::{
-  Assign, Binary, Block, Call, ClassDeclaration, ElseTail, FuncDecl, IfStatement, LValue, Member,
-  Unary,
+  Assign, Binary, Block, Call, ClassDeclaration, ElseTail, ForLoop, FuncDecl, IfStatement, LValue,
+  Member, Unary, VarDeclaration, WhileStatement,
 };
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
@@ -119,13 +119,17 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
       .collect()
   }
 
+  fn var_decl(&mut self, var_decl: &VarDeclaration) -> Result<()> {
+    self.expr(&var_decl.assign)?;
+    let sym = self.load_ident_sym(var_decl.ident);
+    self.func_mut().define_var(sym)?;
+    Ok(())
+  }
   fn decl(&mut self, decl: &Declaration) -> Result<()> {
     match decl {
       Declaration::Statement(s) => self.statement(s)?,
-      Declaration::Var(v) => {
-        self.expr(&v.assign)?;
-        let sym = self.load_ident_sym(v.ident);
-        self.func_mut().define_var(sym)?;
+      Declaration::Var(var) => {
+        self.var_decl(var)?;
       }
       Declaration::Class(class) => {
         self.make_class(class)?;
@@ -239,18 +243,8 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         self.func_mut().bind_label(after_if);
       }
 
-      Statement::While(while_statement) => {
-        let while_start = self.func_mut().create_label("while start");
-        let after_while = self.func_mut().create_label("after while");
-        self.func_mut().begin_loop(after_while);
-        self.func_mut().bind_label(while_start);
-
-        self.expr(&while_statement.cond)?;
-        self.func_mut().jmp_if_false(after_while);
-        self.block(&while_statement.body)?;
-        self.func_mut().jmp(while_start);
-        self.func_mut().bind_label(after_while);
-        self.func_mut().end_loop();
+      Statement::While(WhileStatement { cond, body }) => {
+        self.while_statement(cond, |this| this.block(body))?;
       }
       Statement::Break => self.func_mut().loop_break()?,
       Statement::Return(ret) => {
@@ -258,10 +252,46 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
         self.expr(&ret.expr)?;
         self.func_mut().ret();
       }
+      Statement::For(ForLoop {
+        init,
+        increment,
+        condition,
+        body,
+      }) => {
+        self.func_mut().begin_scope();
+
+        self.var_decl(init)?;
+
+        self.while_statement(condition, |this| {
+          this.expr(increment)?;
+          this.func_mut().pop(); //< a little bit annoying that we have to write this
+          this.block(body)
+        })?;
+
+        self.func_mut().end_scope();
+      }
     };
     Ok(())
   }
 
+  fn while_statement(
+    &mut self,
+    cond: &Expression,
+    body: impl FnOnce(&mut Self) -> Result<()>,
+  ) -> Result<()> {
+    let while_start = self.func_mut().create_label("while start");
+    let after_while = self.func_mut().create_label("after while");
+    self.func_mut().begin_loop(after_while);
+    self.func_mut().bind_label(while_start);
+
+    self.expr(cond)?;
+    self.func_mut().jmp_if_false(after_while);
+    body(self)?;
+    self.func_mut().jmp(while_start);
+    self.func_mut().bind_label(after_while);
+    self.func_mut().end_loop();
+    Ok(())
+  }
   fn if_stmnt(&mut self, if_stmnt: &IfStatement, end_label: Label) -> Result<()> {
     match if_stmnt {
       IfStatement::Trivial { cond, body } => {

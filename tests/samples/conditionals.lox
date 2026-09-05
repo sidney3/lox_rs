@@ -92,3 +92,9 @@ assert x == 1;
 	}
 	assert q == 9;
 }
+
+var q = 0;
+for (var i = 0; i < 9; i = i + 1) {
+	q = q + 2;
+}
+assert q == 9 * 2;

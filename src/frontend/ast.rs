@@ -33,6 +33,7 @@ pub enum LoxRule {
   IfStatement,
   ElseTail,
   WhileStatement,
+  ForLoop,
   Call,
   CallArgs,
   NonemptyCallArgs,
@@ -178,6 +179,14 @@ pub struct WhileStatement {
 }
 
 #[derive(Debug)]
+pub struct ForLoop {
+  pub init: Box<VarDeclaration>,
+  pub condition: Expression,
+  pub increment: Expression,
+  pub body: Box<Block>,
+}
+
+#[derive(Debug)]
 pub enum IfStatement {
   Trivial {
     cond: Expression,
@@ -214,6 +223,7 @@ pub enum Statement {
   Block(Block),
   If(IfStatement),
   While(WhileStatement),
+  For(ForLoop),
   Return(Return),
   Break,
 }
@@ -295,7 +305,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
       },
       P {
         rule: LoxRule::Declaration,
-        definition: vec![Symbol::Rule(LoxRule::VarDecl)],
+        definition: vec![
+          Symbol::Rule(LoxRule::VarDecl),
+          Symbol::Token(LoxTokenKind::Semicolon),
+        ],
       },
       P {
         rule: LoxRule::Declaration,
@@ -309,7 +322,6 @@ fn lox_grammar() -> Grammar<LoxRule> {
           Symbol::Token(LoxTokenKind::Ident),
           Symbol::Token(LoxTokenKind::Equal),
           Symbol::Rule(LoxRule::Expr),
-          Symbol::Token(LoxTokenKind::Semicolon),
         ],
       },
       // FuncDecl := 'Ident' '(' func_args ')' '{' block '}'
@@ -423,6 +435,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
       },
       P {
         rule: LoxRule::Statement,
+        definition: vec![Symbol::Rule(LoxRule::ForLoop)],
+      },
+      P {
+        rule: LoxRule::Statement,
         definition: vec![Symbol::Rule(LoxRule::Return)],
       },
       P {
@@ -512,6 +528,23 @@ fn lox_grammar() -> Grammar<LoxRule> {
         definition: vec![
           Symbol::Token(LoxTokenKind::While),
           Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::LBracket),
+          Symbol::Rule(LoxRule::BlockStatement),
+          Symbol::Token(LoxTokenKind::RBracket),
+        ],
+      },
+      // ForLoop := 'for' '(' Declaration ';' Statement ';' Expression')' '{' BlockStatement '}'
+      P {
+        rule: LoxRule::ForLoop,
+        definition: vec![
+          Symbol::Token(LoxTokenKind::For),
+          Symbol::Token(LoxTokenKind::LParen),
+          Symbol::Rule(LoxRule::VarDecl),
+          Symbol::Token(LoxTokenKind::Semicolon),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::Semicolon),
+          Symbol::Rule(LoxRule::Expr),
+          Symbol::Token(LoxTokenKind::RParen),
           Symbol::Token(LoxTokenKind::LBracket),
           Symbol::Rule(LoxRule::BlockStatement),
           Symbol::Token(LoxTokenKind::RBracket),
@@ -901,6 +934,38 @@ impl WhileStatement {
   }
 }
 
+impl ForLoop {
+  pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
+    match node {
+      Node::Parent(Parent {
+        rule: LoxRule::ForLoop,
+        children,
+      }) => match children.as_slice() {
+        [
+          _for,
+          _lparen,
+          init,
+          _,
+          condition,
+          _,
+          increment,
+          _rparen,
+          _lbrace,
+          body,
+          _rbrace,
+        ] => Self {
+          init: Box::new(VarDeclaration::from_cst(ast, init)),
+          increment: Expression::from_cst(ast, increment),
+          condition: Expression::from_cst(ast, condition),
+          body: Box::new(Block::from_cst(ast, body)),
+        },
+        _ => panic!("unreachable"),
+      },
+      _ => panic!("unreachable: {:?}", node),
+    }
+  }
+}
+
 impl IfStatement {
   pub fn from_cst(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Self {
     match node {
@@ -1000,6 +1065,12 @@ impl Statement {
         ] => Statement::While(WhileStatement::from_cst(ast, &children[0])),
         [
           Node::Parent(Parent {
+            rule: LoxRule::ForLoop,
+            children: _,
+          }),
+        ] => Statement::For(ForLoop::from_cst(ast, &children[0])),
+        [
+          Node::Parent(Parent {
             rule: LoxRule::ExprStatement,
             children: _,
           }),
@@ -1030,16 +1101,10 @@ impl VarDeclaration {
         rule: LoxRule::VarDecl,
         children,
       }) => match children.as_slice() {
-        [
-          Node::Leaf(var),
-          Node::Leaf(ident),
-          Node::Leaf(eq),
-          assign,
-          Node::Leaf(semicolon),
-        ] if var.token_type == LoxTokenKind::Var
-          && ident.token_type == LoxTokenKind::Ident
-          && eq.token_type == LoxTokenKind::Equal
-          && semicolon.token_type == LoxTokenKind::Semicolon =>
+        [Node::Leaf(var), Node::Leaf(ident), Node::Leaf(eq), assign]
+          if var.token_type == LoxTokenKind::Var
+            && ident.token_type == LoxTokenKind::Ident
+            && eq.token_type == LoxTokenKind::Equal =>
         {
           VarDeclaration {
             ident: ident.lexeme,
@@ -1185,6 +1250,7 @@ impl Declaration {
             rule: LoxRule::VarDecl,
             children: _,
           }),
+          _semicolon,
         ] => Declaration::Var(VarDeclaration::from_cst(ast, &children[0])),
         [
           Node::Leaf(_fun),
