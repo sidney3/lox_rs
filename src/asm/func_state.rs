@@ -1,4 +1,3 @@
-use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
 use crate::obj::{Function, Obj, UpValueDescriptor};
@@ -85,36 +84,44 @@ impl FuncState {
     self.instructions.add_instruction(instruction);
   }
 
-  pub fn emit(&mut self, instruction: Instruction) {
+  fn emit(&mut self, instruction: Instruction) {
     self
       .instructions
       .add_instruction(SymbolicInstruction::from_instruction(instruction));
   }
 
+  pub fn emit_nullary(&mut self, instruction_kind: InstructionKind) {
+    self.emit(Instruction {
+      kind: instruction_kind,
+      operand: 0,
+    })
+  }
+
+  fn emit_unary_usize(&mut self, instruction_kind: InstructionKind, operand: usize) {
+    let op = OperandType::try_from(operand).expect("TODO: add widen instruction");
+    self.emit(Instruction {
+      kind: instruction_kind,
+      operand: op,
+    })
+  }
+
   // Stack before: [...]
   // Stack after: [..., Class]
-  pub fn make_class(&mut self, name: Symbol) -> Result<()> {
-    self.emit(Instruction {
-      kind: InstructionKind::MakeClass,
-      operand: index_to_op(name.into_usize())?,
-    });
-
-    Ok(())
+  pub fn make_class(&mut self, name: Symbol) {
+    self.emit_unary_usize(InstructionKind::MakeClass, name.into_usize());
   }
 
   // Stack before: [..., Superclass, Subclass]
   // Stack after: [..., Superclass]
   pub fn inherit(&mut self) {
-    self.emit(Instruction::new(InstructionKind::Inherit));
+    self.emit_nullary(InstructionKind::Inherit);
   }
 
   // Stack before: [..., Class]
   // Stack after: [..., Class]
-  pub fn add_method(&mut self, rt: &mut Runtime, method: Obj<Function>) -> Result<()> {
-    self.constant(rt, method.as_value())?;
-    self.emit(Instruction::new(InstructionKind::AddMethod));
-
-    Ok(())
+  pub fn add_method(&mut self, rt: &mut Runtime, method: Obj<Function>) {
+    self.constant(rt, method.as_value());
+    self.emit_nullary(InstructionKind::AddMethod);
   }
 
   // label_name is just for debugging, they don't have to be unique
@@ -127,29 +134,19 @@ impl FuncState {
 
   // After these instructions, there will be a new symbol `called` that
   // refers to a closure instance of func.
-  pub fn add_closure_to_scope(
-    &mut self,
-    rt: &mut Runtime,
-    func: Obj<Function>,
-    called: Symbol,
-  ) -> Result<()> {
-    let index = self.add_constant(rt, func.as_value())?;
-    self.emit(Instruction {
-      kind: InstructionKind::MakeClosure,
-      operand: index,
-    });
+  pub fn add_closure_to_scope(&mut self, rt: &mut Runtime, func: Obj<Function>, called: Symbol) {
+    let index = self.add_constant(rt, func.as_value());
+    self.emit_unary_usize(InstructionKind::MakeClosure, index);
 
     // Acts on the top of the stack
-    self.define_var(called)?;
-
-    Ok(())
+    self.define_var(called);
   }
 
-  pub fn add_constant(&mut self, rt: &mut Runtime, constant: Value) -> Result<OperandType> {
+  pub fn add_constant(&mut self, rt: &mut Runtime, constant: Value) -> usize {
     let constants = &mut self.staging.as_obj().borrow_mut(rt).constants;
     let index = constants.len();
     constants.push(constant);
-    OperandType::try_from(index).map_err(|_| Error::IndexOutOfRange(index))
+    index
   }
 
   // These two functions exist only for the dance of safely maintaining the
@@ -217,7 +214,7 @@ impl FuncState {
       } else {
         InstructionKind::Pop
       };
-      self.emit(Instruction::new(instruction));
+      self.emit_nullary(instruction);
       self.locals.pop();
     }
     self.scope_depth -= 1;
@@ -227,43 +224,23 @@ impl FuncState {
   /// Instructions
   //////////////////////////
   // Stack before: [ assign_to, receiver ]
-  pub fn set_class_attr(&mut self, _: &mut Runtime, attr: Symbol) -> Result<()> {
-    self.emit(Instruction {
-      kind: InstructionKind::SetClassAttribute,
-      operand: index_to_op(attr.into_usize())?,
-    });
-
-    Ok(())
+  pub fn set_class_attr(&mut self, attr: Symbol) {
+    self.emit_unary_usize(InstructionKind::SetClassAttribute, attr.into_usize());
   }
   // Stack before: [ receiver ]
-  pub fn get_class_attr(&mut self, _: &Runtime, attr: Symbol) -> Result<()> {
-    self.emit(Instruction {
-      kind: InstructionKind::LoadClassAttribute,
-      operand: index_to_op(attr.into_usize())?,
-    });
-
-    Ok(())
+  pub fn get_class_attr(&mut self, attr: Symbol) {
+    self.emit_unary_usize(InstructionKind::LoadClassAttribute, attr.into_usize());
   }
-  pub fn load_super_method(
-    &mut self,
-    this_sym: Symbol,
-    super_sym: Symbol,
-    method: Symbol,
-  ) -> Result<()> {
+  pub fn load_super_method(&mut self, this_sym: Symbol, super_sym: Symbol, method: Symbol) {
     // TODO: should have a special `reserved_symbols` area of the runtime
     // and have this method just take in `&Runtime`
-    self.load_var(this_sym)?;
-    self.load_var(super_sym)?;
-    self.emit(Instruction {
-      kind: InstructionKind::LoadSuperMethod,
-      operand: index_to_op(method.into_usize())?,
-    });
-
-    Ok(())
+    self.load_var(this_sym);
+    self.load_var(super_sym);
+    self.emit_unary_usize(InstructionKind::LoadSuperMethod, method.into_usize());
   }
 
   pub fn pop(&mut self) {
-    self.emit(Instruction::new(InstructionKind::Pop));
+    self.emit_nullary(InstructionKind::Pop);
   }
 
   pub fn jmp(&mut self, to: Label) {
@@ -291,41 +268,33 @@ impl FuncState {
     ));
   }
 
-  pub fn constant(&mut self, rt: &mut Runtime, constant: Value) -> Result<()> {
-    let index = self.add_constant(rt, constant)?;
-    self.emit(Instruction {
-      kind: InstructionKind::Constant,
-      operand: index,
-    });
-    Ok(())
+  pub fn constant(&mut self, rt: &mut Runtime, constant: Value) {
+    let index = self.add_constant(rt, constant);
+    self.emit_unary_usize(InstructionKind::Constant, index);
   }
 
-  pub fn callq(&mut self, nargs: usize) -> Result<()> {
-    self.emit(Instruction {
-      kind: InstructionKind::Callq,
-      operand: index_to_op(nargs)?,
-    });
-    Ok(())
+  pub fn callq(&mut self, nargs: usize) {
+    self.emit_unary_usize(InstructionKind::Callq, nargs);
   }
 
   pub fn ret(&mut self) {
-    self.emit(Instruction::new(InstructionKind::Return));
+    self.emit_nullary(InstructionKind::Return);
   }
 
   pub fn bind_this(&mut self, to: Symbol) {
-    self.emit(Instruction::new(InstructionKind::PushThis));
+    self.emit_nullary(InstructionKind::PushThis);
     self.add_local(to);
   }
 
-  pub fn loop_break(&mut self) -> Result<()> {
+  // It may be slightly evil to make `break` outside loop
+  // scope just a noop, but doing so means the compiler
+  // never returns a failure type after parsing validates.
+  pub fn loop_break(&mut self) {
     if let Some(loop_end) = self.active_loops.last() {
       self.emit_symbolic(SymbolicInstruction::Instruction(
         InstructionKind::Jmp,
         SymbolicOp::Label(*loop_end),
       ));
-      Ok(())
-    } else {
-      Err(Error::NakedBreak)
     }
   }
 
@@ -340,17 +309,12 @@ impl FuncState {
     });
   }
 
-  pub fn define_var(&mut self, sym: Symbol) -> Result<()> {
+  pub fn define_var(&mut self, sym: Symbol) {
     if self.at_global_depth() {
-      self.emit(Instruction {
-        kind: InstructionKind::AddGlobal,
-        operand: index_to_op(sym.into_usize())?,
-      });
+      self.emit_unary_usize(InstructionKind::AddGlobal, sym.into_usize());
     } else {
       self.add_local(sym);
     }
-
-    Ok(())
   }
 
   // mut as we late bind globals, so if this is a global this might be the first
@@ -419,67 +383,36 @@ impl FuncState {
 
   // Find, at compile time, the symbol `sym` and push it
   // onto the stack.
-  pub fn load_var(&mut self, sym: Symbol) -> Result<()> {
+  pub fn load_var(&mut self, sym: Symbol) {
     match self.resolve_var_location(sym) {
-      VariableLocation::Local(idx) => self.emit(Instruction {
-        kind: InstructionKind::LoadLocal,
-        operand: index_to_op(idx)?,
-      }),
-      VariableLocation::UpValue(upvalue_index) => self.emit(Instruction {
-        kind: InstructionKind::LoadUpValue,
-        operand: index_to_op(upvalue_index)?,
-      }),
-      VariableLocation::Global(sym) => self.emit(Instruction {
-        kind: InstructionKind::LoadGlobal,
-        operand: index_to_op(sym.into_usize())?,
-      }),
+      VariableLocation::Local(idx) => self.emit_unary_usize(InstructionKind::LoadLocal, idx),
+      VariableLocation::UpValue(upvalue_index) => {
+        self.emit_unary_usize(InstructionKind::LoadUpValue, upvalue_index);
+      }
+      VariableLocation::Global(sym) => {
+        self.emit_unary_usize(InstructionKind::LoadGlobal, sym.into_usize());
+      }
     }
-    Ok(())
   }
 
   // NB: as this is an expression, this emits
   // an additional instruction to push
   // the new value onto the stack
-  pub fn set_variable(&mut self, lhs: Symbol) -> Result<()> {
+  pub fn set_variable(&mut self, lhs: Symbol) {
     match self.resolve_var_location(lhs) {
       VariableLocation::Global(g) => {
-        let global_index_op = index_to_op(g.into_usize())?;
-        self.emit(Instruction {
-          kind: InstructionKind::SetGlobal,
-          operand: global_index_op,
-        });
-        self.emit(Instruction {
-          kind: InstructionKind::LoadGlobal,
-          operand: global_index_op,
-        });
+        let global_index = g.into_usize();
+        self.emit_unary_usize(InstructionKind::SetGlobal, global_index);
+        self.emit_unary_usize(InstructionKind::LoadGlobal, global_index);
       }
       VariableLocation::Local(l) => {
-        let local_index_op = index_to_op(l)?;
-        self.emit(Instruction {
-          kind: InstructionKind::SetLocal,
-          operand: local_index_op,
-        });
-        self.emit(Instruction {
-          kind: InstructionKind::LoadLocal,
-          operand: local_index_op,
-        });
+        self.emit_unary_usize(InstructionKind::SetLocal, l);
+        self.emit_unary_usize(InstructionKind::LoadLocal, l);
       }
       VariableLocation::UpValue(l) => {
-        let local_index_op = index_to_op(l)?;
-        self.emit(Instruction {
-          kind: InstructionKind::SetUpValue,
-          operand: local_index_op,
-        });
-        self.emit(Instruction {
-          kind: InstructionKind::LoadUpValue,
-          operand: local_index_op,
-        });
+        self.emit_unary_usize(InstructionKind::SetUpValue, l);
+        self.emit_unary_usize(InstructionKind::LoadUpValue, l);
       }
     };
-    Ok(())
   }
-}
-
-fn index_to_op(index: usize) -> Result<OperandType> {
-  OperandType::try_from(index).map_err(|_| Error::IndexOutOfRange(index))
 }

@@ -3,5 +3,5 @@ pub mod diagnostics;
 mod error;
 pub mod token;
 
-pub use diagnostics::{Diagnostic, ToDiagnostic};
+pub use diagnostics::ToDiagnostic;
 pub use error::Error;
