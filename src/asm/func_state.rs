@@ -356,18 +356,12 @@ impl FuncState {
   // mut as we late bind globals, so if this is a global this might be the first
   // time we see `var_name`
   fn find_local(&self, sym: Symbol) -> Option<usize> {
-    let maybe_local_index = self
+    self
       .locals
       .iter()
       .enumerate()
       .rfind(|(_, l)| l.symbol == sym)
-      .map(|(i, _)| i);
-
-    if let Some(local_index) = maybe_local_index {
-      Some(local_index)
-    } else {
-      None
-    }
+      .map(|(i, _)| i)
   }
 
   fn resolve_upvalue(&mut self, sym: Symbol) -> Option<UpValueDescriptor> {
@@ -375,16 +369,14 @@ impl FuncState {
       Some(UpValueDescriptor::Local {
         parent_stack_pos: local_index,
       })
-    } else if let Some(recursive_upvalue) = self
-      .parent
-      .as_deref_mut()
-      .and_then(|p| p.resolve_upvalue(sym))
-    {
-      Some(UpValueDescriptor::Recursive {
-        parent_upvalue_pos: self.add_upvalue(sym, recursive_upvalue),
-      })
     } else {
-      None
+      self
+        .parent
+        .as_deref_mut()
+        .and_then(|p| p.resolve_upvalue(sym))
+        .map(|recursive_upvalue| UpValueDescriptor::Recursive {
+          parent_upvalue_pos: self.add_upvalue(sym, recursive_upvalue),
+        })
     }
   }
 

@@ -43,6 +43,6 @@ where
 
   // total number of interned values
   pub fn len(&self) -> usize {
-    return self.id_to_elt.len();
+    self.id_to_elt.len()
   }
 }

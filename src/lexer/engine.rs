@@ -2,14 +2,14 @@ use lasso::Rodeo;
 use log::error;
 
 use super::Span;
-use super::dfa::DFA;
+use super::dfa::Dfa;
 use super::error::{Error, Result};
-use super::nfa::NFA;
+use super::nfa::Nfa;
 use super::regex::Regex;
 use super::token::{Token, TokenType};
 
 pub struct Lexer<T> {
-  dfa: DFA<T>,
+  dfa: Dfa<T>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -27,7 +27,7 @@ impl<T: TokenType> Tokens<T> {
 impl<T: TokenType> Lexer<T> {
   pub fn new(tokens: &[(T, &str)]) -> Result<Self> {
     let regex_mappings = tokens
-      .into_iter()
+      .iter()
       .map(|(token, regex_str)| match Regex::make(regex_str) {
         Ok(regex) => Ok((*token, regex)),
         Err(error) => {
@@ -37,10 +37,10 @@ impl<T: TokenType> Lexer<T> {
       })
       .collect::<Result<Vec<_>>>()?;
 
-    let nfa = NFA::make(regex_mappings);
+    let nfa = Nfa::make(regex_mappings);
 
     Ok(Self {
-      dfa: DFA::make(nfa),
+      dfa: Dfa::make(nfa),
     })
   }
 

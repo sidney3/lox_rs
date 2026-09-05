@@ -1,10 +1,11 @@
-use super::error::Result;
-use crate::asm::{
-  FuncStack, FuncState, Instruction, InstructionKind, Label,
-};
+mod error;
+
+pub use error::{Error, Result};
+
+use crate::asm::{FuncStack, FuncState, Instruction, InstructionKind, Label};
 use crate::frontend::ast::{
-  Assign, Binary, Block, ClassDeclaration, ElseTail, ForLoop, IfStatement, LValue,
-  Member, Unary, VarDeclaration, WhileStatement,
+  Assign, Binary, Block, ClassDeclaration, ElseTail, ForLoop, IfStatement, LValue, Member, Unary,
+  VarDeclaration, WhileStatement,
 };
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;

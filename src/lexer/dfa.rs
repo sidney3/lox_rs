@@ -5,13 +5,13 @@ use std::ops::{Index, IndexMut};
 use std::option::Option;
 
 use super::nfa;
-use super::nfa::NFA;
+use super::nfa::Nfa;
 use super::subset::{EpsilonClosure, Subset};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateId(pub usize);
 
-impl<T> Index<StateId> for DFA<T> {
+impl<T> Index<StateId> for Dfa<T> {
   type Output = State;
 
   fn index(&self, id: StateId) -> &Self::Output {
@@ -19,7 +19,7 @@ impl<T> Index<StateId> for DFA<T> {
   }
 }
 
-impl<T> IndexMut<StateId> for DFA<T> {
+impl<T> IndexMut<StateId> for Dfa<T> {
   fn index_mut(&mut self, id: StateId) -> &mut Self::Output {
     &mut self.states[id.0]
   }
@@ -37,18 +37,18 @@ impl State {
   }
 }
 
-pub struct DFA<T> {
+pub struct Dfa<T> {
   pub states: Vec<State>,
   pub terminal_states: HashMap<StateId, T>,
   pub initial_state: StateId,
 }
 
-impl<T> Display for DFA<T>
+impl<T> Display for Dfa<T>
 where
   T: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    writeln!(f, "DFA {{")?;
+    writeln!(f, "Dfa {{")?;
 
     for (i, state) in self.states.iter().enumerate() {
       let id = StateId(i);
@@ -83,36 +83,36 @@ where
   }
 }
 
-impl<T> DFA<T>
+impl<T> Dfa<T>
 where
   T: Hash + Copy + Clone + Eq + PartialEq,
 {
-  pub fn make(nfa: NFA<T>) -> Self {
-    DFABuilder::make().build(nfa)
+  pub fn make(nfa: Nfa<T>) -> Self {
+    DfaBuilder::make().build(nfa)
   }
 }
 
-// Basically the DFA but easier to construct (we find out
+// Basically the Dfa but easier to construct (we find out
 // the initial node pretty late).
-struct DFABuilder<T> {
+struct DfaBuilder<T> {
   states: Vec<State>,
   terminal_states: HashMap<StateId, T>,
   subset_state: HashMap<Subset, StateId>,
 }
 
-impl<T> DFABuilder<T>
+impl<T> DfaBuilder<T>
 where
   T: Hash + Copy + Clone + Eq + PartialEq,
 {
   pub fn make() -> Self {
-    DFABuilder {
+    DfaBuilder {
       states: Vec::new(),
       terminal_states: HashMap::new(),
       subset_state: HashMap::new(),
     }
   }
 
-  pub fn build(mut self, nfa: NFA<T>) -> DFA<T> {
+  pub fn build(mut self, nfa: Nfa<T>) -> Dfa<T> {
     let mut closure = EpsilonClosure::make();
 
     let initial_state: Subset = closure.compute(&nfa, std::iter::once(nfa.initial_state).collect());
@@ -128,14 +128,12 @@ where
 
       visited.insert(node);
       self.subset_state.insert(subset, node);
-      let transitioning_chars = subset
-        .into_iter()
-        .flat_map(|node| nfa[node].transitions.keys());
+      let transitioning_chars = subset.iter().flat_map(|node| nfa[node].transitions.keys());
 
       self.states[node.0].transitions = transitioning_chars
         .map(|c| {
           let directly_reachable: Subset = subset
-            .into_iter()
+            .iter()
             .filter_map(|node| nfa[node].transitions.get(c).cloned())
             .collect();
           let reachable = closure.compute(&nfa, directly_reachable);
@@ -151,16 +149,16 @@ where
       .iter()
       .filter_map(|(subset, node)| self.subset_token(&nfa, subset).map(|t| (*node, t)))
       .collect();
-    DFA {
+    Dfa {
       states: self.states,
       terminal_states: self.terminal_states,
       initial_state: initial_node,
     }
   }
 
-  fn subset_token(&self, nfa: &NFA<T>, subset: &Subset) -> Option<T> {
+  fn subset_token(&self, nfa: &Nfa<T>, subset: &Subset) -> Option<T> {
     subset
-      .into_iter()
+      .iter()
       .filter_map(|x: nfa::StateId| nfa.terminal_states.get(&x).copied())
       .max_by_key(|t| nfa.rank.get(t).copied().unwrap_or(0))
   }
@@ -188,9 +186,9 @@ mod test {
   use super::super::regex::Regex;
   use super::*;
 
-  impl FA<TokenType> for DFA<TokenType> {
+  impl FA<TokenType> for Dfa<TokenType> {
     fn make(token_defs: Vec<(TokenType, Regex)>) -> Self {
-      let nfa = NFA::make(token_defs);
+      let nfa = Nfa::make(token_defs);
       Self::make(nfa)
     }
 
@@ -214,6 +212,6 @@ mod test {
 
   #[test]
   fn test_dfa() {
-    run_tests::<DFA<TokenType>>();
+    run_tests::<Dfa<TokenType>>();
   }
 }

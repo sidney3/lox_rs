@@ -46,7 +46,7 @@ impl<U> Eq for Handle<U> {}
 
 impl<U> Clone for Handle<U> {
   fn clone(&self) -> Self {
-    Handle::new(self.index, self.generation)
+    *self
   }
 }
 

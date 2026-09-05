@@ -1,14 +1,22 @@
+mod call_frame;
+mod root;
+mod runtime_error;
+mod value;
+
+pub use call_frame::{CallFrame, Callee};
+pub use root::Root;
+pub use runtime_error::RuntimeError;
+pub use value::ProtoValue;
+pub use value::Value;
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use super::value::Value;
-use super::{CallFrame, Root};
 use crate::gc::Ref;
 use crate::gc::{self, AllocFailure, Trace, Tracer};
 use crate::obj::Function;
 use crate::obj::NativeFunction;
 use crate::obj::{Closure, Obj, ObjData, ObjKind};
-use crate::runtime::Callee;
 use lasso::Key;
 
 pub type Heap = gc::Heap<ObjData>;
@@ -19,13 +27,13 @@ pub struct Symbol(lasso::Spur);
 
 impl Symbol {
   pub fn try_from_usize(x: usize) -> Option<Self> {
-    lasso::Spur::try_from_usize(x).map(|s| Symbol(s))
+    lasso::Spur::try_from_usize(x).map(Symbol)
   }
-  pub fn into_usize(&self) -> usize {
+  pub fn into_usize(self) -> usize {
     self.0.into_usize()
   }
 
-  pub fn as_str<'a>(self, rt: &'a Runtime) -> &'a str {
+  pub fn as_str(self, rt: &Runtime) -> &str {
     rt.resolve_sym(self)
   }
 }

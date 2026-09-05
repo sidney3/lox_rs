@@ -9,7 +9,7 @@ use super::regex::Regex;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateId(pub usize);
 
-impl<T> Index<StateId> for NFA<T> {
+impl<T> Index<StateId> for Nfa<T> {
   type Output = State;
 
   fn index(&self, id: StateId) -> &Self::Output {
@@ -17,7 +17,7 @@ impl<T> Index<StateId> for NFA<T> {
   }
 }
 
-impl<T> IndexMut<StateId> for NFA<T> {
+impl<T> IndexMut<StateId> for Nfa<T> {
   fn index_mut(&mut self, id: StateId) -> &mut Self::Output {
     &mut self.states[id.0]
   }
@@ -37,7 +37,7 @@ impl State {
   }
 }
 
-pub struct NFA<T> {
+pub struct Nfa<T> {
   pub states: Vec<State>,
   pub terminal_states: HashMap<StateId, T>,
   pub rank: HashMap<T, usize>,
@@ -51,7 +51,7 @@ struct Subgraph {
   pub end: StateId,
 }
 
-impl<T> NFA<T>
+impl<T> Nfa<T>
 where
   T: Eq + Hash + Copy + Clone,
 {
@@ -125,7 +125,6 @@ where
       .unique()
       .enumerate()
       .map(|(i, token)| (token, token_definitions.len() - i))
-      // TODO:how does this magic work?
       .collect();
 
     let mut result = Self {
@@ -136,11 +135,11 @@ where
     };
 
     for (token, regex) in &token_definitions {
-      let subgraph = result.parse(&regex);
+      let subgraph = result.parse(regex);
       result[initial_state]
         .epsilon_transitions
         .push(subgraph.start);
-      result.terminal_states.insert(subgraph.end, token.clone());
+      result.terminal_states.insert(subgraph.end, *token);
     }
 
     result
@@ -155,7 +154,7 @@ mod test {
   use super::super::subset::{EpsilonClosure, Subset};
   use super::*;
 
-  impl FA<TokenType> for NFA<TokenType> {
+  impl FA<TokenType> for Nfa<TokenType> {
     fn make(token_defs: Vec<(TokenType, Regex)>) -> Self {
       Self::make(token_defs)
     }
@@ -166,23 +165,24 @@ mod test {
 
       for c in input.chars() {
         let next_states = active_states
-          .into_iter()
-          .filter_map(|s| self[s].transitions.get(&c).map(|x| *x))
+          .iter()
+          .filter_map(|s| self[s].transitions.get(&c))
+          .cloned()
           .collect();
 
         active_states = closure.compute(self, next_states);
       }
 
       active_states
-        .into_iter()
+        .iter()
         .filter_map(|x| self.terminal_states.get(&x))
-        .max_by_key(|t| self.rank.get(&t).copied().unwrap_or(0))
+        .max_by_key(|t| self.rank.get(t).copied().unwrap_or(0))
         .copied()
     }
   }
 
   #[test]
   fn test_nfa() {
-    run_tests::<NFA<TokenType>>();
+    run_tests::<Nfa<TokenType>>();
   }
 }

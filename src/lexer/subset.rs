@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use bitvec::prelude::{BitArr, bitarr};
 
-use super::nfa::{NFA, StateId};
+use super::nfa::{Nfa, StateId};
 
 const MAX_CONCURRENT_STATES: usize = 512;
 
@@ -27,9 +27,9 @@ impl Subset {
   }
 
   pub fn make_empty() -> Self {
-    return Subset {
+    Subset {
       storage: bitarr![0; MAX_CONCURRENT_STATES],
-    };
+    }
   }
 
   pub fn insert(&mut self, state: StateId) {
@@ -44,7 +44,7 @@ impl Subset {
     self.storage.fill(false);
   }
 
-  pub fn into_iter(&self) -> impl Iterator<Item = StateId> + '_ {
+  pub fn iter(&self) -> impl Iterator<Item = StateId> + '_ {
     self.storage.iter_ones().map(StateId)
   }
 }
@@ -62,9 +62,9 @@ impl EpsilonClosure {
     }
   }
 
-  pub fn compute<T>(&mut self, nfa: &NFA<T>, over: Subset) -> Subset {
+  pub fn compute<T>(&mut self, nfa: &Nfa<T>, over: Subset) -> Subset {
     self.visited.clear();
-    self.visiting = over.into_iter().collect();
+    self.visiting = over.iter().collect();
 
     while let Some(x) = self.visiting.pop_front() {
       self.visited.insert(x);

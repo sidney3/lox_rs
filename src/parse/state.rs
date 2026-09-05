@@ -34,7 +34,7 @@ impl State {
   ) -> Self {
     let (mut in_progress, extra_complete) = closure(grammar, in_progress.collect());
     let mut complete: ProductionList = complete.collect();
-    complete.extend(extra_complete.into_iter());
+    complete.extend(extra_complete);
     in_progress.sort();
     complete.sort();
 
@@ -110,7 +110,7 @@ impl State {
   pub fn action<R: Rule>(
     &self,
     grammar: &Grammar<R>,
-    follow: &Vec<HashSet<R::TokenType>>,
+    follow: &[HashSet<R::TokenType>],
     token_type: &R::TokenType,
   ) -> Action {
     let complete_target = self

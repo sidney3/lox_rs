@@ -21,7 +21,7 @@ impl Item {
     grammar: &Grammar<R>,
     production_id: ProductionId,
   ) -> Either<Item, ProductionId> {
-    if grammar.production(production_id).definition.len() == 0 {
+    if grammar.production(production_id).definition.is_empty() {
       Either::Right(production_id)
     } else {
       Either::Left(Self {

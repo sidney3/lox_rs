@@ -19,7 +19,7 @@ pub trait DisplayWithGrammarExt<R: Rule>: DisplayWithGrammar<R> {
   }
 }
 
-impl<R: Rule, T: DisplayWithGrammar<R> + ?Sized> DisplayWithGrammarExt<R> for T {}
+impl<R: Rule, T: DisplayWithGrammar<R>> DisplayWithGrammarExt<R> for T {}
 
 pub struct GrammarWrapper<'a, 'b, R: Rule, T> {
   value: &'a T,

@@ -1020,7 +1020,7 @@ impl VarDeclaration {
 }
 
 impl FuncDecl {
-  fn parse_nonempty_args(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Vec<Ident> {
+  fn parse_nonempty_args(node: &Node<LoxRule>) -> Vec<Ident> {
     match node {
       Node::Parent(Parent {
         rule: LoxRule::NonemptyFuncArgs,
@@ -1028,7 +1028,7 @@ impl FuncDecl {
       }) => match children.as_slice() {
         [Node::Leaf(ident)] => vec![ident.lexeme],
         [elts, Node::Leaf(_comma), Node::Leaf(ident)] => {
-          let mut parsed_elts = Self::parse_nonempty_args(ast, elts);
+          let mut parsed_elts = Self::parse_nonempty_args(elts);
           parsed_elts.push(ident.lexeme);
           parsed_elts
         }
@@ -1037,14 +1037,14 @@ impl FuncDecl {
       _ => panic!("unreachable"),
     }
   }
-  fn parse_args(ast: &Tree<LoxRule>, node: &Node<LoxRule>) -> Vec<Ident> {
+  fn parse_args(node: &Node<LoxRule>) -> Vec<Ident> {
     match node {
       Node::Parent(Parent {
         rule: LoxRule::FuncArgs,
         children,
       }) => match children.as_slice() {
         [] => Vec::new(),
-        [arg_list] => Self::parse_nonempty_args(ast, arg_list),
+        [arg_list] => Self::parse_nonempty_args(arg_list),
         _ => panic!("unreachable"),
       },
       _ => panic!("unreachable"),
@@ -1067,7 +1067,7 @@ impl FuncDecl {
         ] => FuncDecl {
           name: name.lexeme,
           body: Block::from_cst(ast, body),
-          args: Self::parse_args(ast, args),
+          args: Self::parse_args(args),
         },
         _ => panic!("unreachable: {:?}", node),
       },
