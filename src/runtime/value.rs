@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use super::{Handle, Runtime, RuntimeError};
-use crate::gc::{Heap, Trace, Tracer};
+use crate::gc::{Trace, Tracer};
 use crate::obj::{ObjData, UpValue};
 use log::info;
 

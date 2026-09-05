@@ -1,9 +1,6 @@
-use itertools::Itertools;
 use lox_derive::LoxObj;
 
-use super::Function;
 use super::ObjData;
-use super::ObjKind;
 use crate::gc::{Trace, Tracer};
 use crate::obj::BoundMethod;
 use crate::obj::Closure;
@@ -12,7 +9,6 @@ use crate::runtime::RuntimeError;
 use crate::runtime::Symbol;
 use crate::runtime::{Runtime, Value};
 use std::collections::HashMap;
-use std::collections::hash_map::Keys;
 
 #[derive(Debug, LoxObj)]
 pub struct Class {

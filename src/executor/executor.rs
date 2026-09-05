@@ -1,15 +1,14 @@
 use std::ops::Deref;
 
-use lasso::Key;
-use log::{debug, info, warn};
+use log::{debug, warn};
 use nonempty::{NonEmpty, nonempty};
 use smallvec::SmallVec;
 
 use crate::asm::{Instruction, InstructionKind};
 use crate::gc::Ref;
 use crate::obj::{
-  BoundMethod, Class, Closure, Function, Instance, NativeFunction, Obj, ObjData, TryAsObjExt,
-  UpValue, UpValueDescriptor,
+  BoundMethod, Class, Closure, Function, Instance, NativeFunction, Obj, TryAsObjExt, UpValue,
+  UpValueDescriptor,
 };
 use crate::runtime::{CallFrame, Callee, FrameIndex, Root, Runtime, RuntimeError, Symbol, Value};
 use either::Either;

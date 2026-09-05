@@ -16,6 +16,7 @@ pub struct Token<T: TokenType> {
 }
 
 impl<T: TokenType> Token<T> {
+  #[cfg(test)]
   pub fn canonical(self) -> Self {
     Token {
       lexeme: self.lexeme,

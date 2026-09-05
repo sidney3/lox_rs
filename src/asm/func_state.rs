@@ -1,9 +1,7 @@
-use lasso::Key;
-
 use super::error::{Error, Result};
 use super::instruction::{Instruction, InstructionKind, OperandType};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
-use crate::obj::{Class, Closure, Function, Obj, UpValueDescriptor};
+use crate::obj::{Function, Obj, UpValueDescriptor};
 use crate::runtime::{Root, Runtime, Symbol, Value};
 
 // Expression results are transient on the stack.

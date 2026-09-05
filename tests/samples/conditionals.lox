@@ -5,19 +5,19 @@ if true {
 	x = 10;
 }
 
-assert( x == 10);
+assert(x == 10);
 
 if 2 {
 	x = 9;
 }
 
-assert( x == 9);
+assert(x == 9);
 
 if 0 {
 	x = 2;
 }
 
-assert( x == 9);
+assert(x == 9);
 
 var s = "";
 
@@ -27,7 +27,7 @@ if 2 > 3 {
 	s = "3 is greater than 2";
 }
 
-assert( s == "3 is greater than 2");
+assert(s == "3 is greater than 2");
 
 
 var z = 3;
@@ -41,7 +41,7 @@ if z == 1 {
   m = "3";
 }
 
-assert( m == "3");
+assert(m == "3");
 
 
 if z == 1 {
@@ -54,7 +54,7 @@ if z == 1 {
 	m = "4";
 }
 
-assert( m == "3");
+assert(m == "3");
 
 var x = 0;
 var i = 0;
@@ -63,7 +63,7 @@ while i < 5 {
 	x = x + 1;
 }
 
-assert( x == 5);
+assert(x == 5);
 
 var x = 1;
 while true {
@@ -76,25 +76,25 @@ while true {
 	break;
 }
 
-assert( x == 3);
+assert(x == 3);
 
 var x = 1;
 false && (x = 2);
-assert( x == 1);
+assert(x == 1);
 
 true || (x = 2);
-assert( x == 1);
+assert(x == 1);
 
 {
 	var q = 10;
 	if false {} else {
 		q = 9;
 	}
-	assert( q == 9);
+	assert(q == 9);
 }
 
 var q = 0;
 for (var i = 0; i < 9; i = i + 1) {
 	q = q + 2;
 }
-assert( q == 9 * 2);
+assert(q == 9 * 2);

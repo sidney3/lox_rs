@@ -13,7 +13,7 @@ pub use bound_method::BoundMethod;
 pub use class::{Class, Instance};
 pub use closure::Closure;
 pub use function::{Function, UpValueDescriptor};
-pub use native_function::{NativeFunction, RawNativeFunction};
+pub use native_function::NativeFunction;
 pub use obj::{Obj, TryAsObjExt};
 pub use obj_data::ObjData;
 pub use obj_kind::ObjKind;

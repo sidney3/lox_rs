@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::vec;
 
 use lox_derive::Ordinal;

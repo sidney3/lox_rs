@@ -36,10 +36,10 @@
 
 	var f = outer();
 
-	assert( z == 4);
-	assert( f() == 6);
-	assert( z == 6);
-	assert( f() == 8);
+	assert(z == 4);
+	assert(f() == 6);
+	assert(z == 6);
+	assert(f() == 8);
 }
 
 
@@ -64,10 +64,10 @@
 
 	var f = outer();
 
-	assert( f() == 6);
-	assert( f() == 8);
-	assert( f() == 10);
-	assert( f() == 12);
+	assert(f() == 6);
+	assert(f() == 8);
+	assert(f() == 10);
+	assert(f() == 12);
 }
 
 fun make_vector() {
@@ -102,8 +102,8 @@ fun make_vector() {
 		vec("set_y", 3);
 
 
-		assert( vec("get_x", -1) == 9);
-		assert( vec("get_y", -1) == 3);
+		assert(vec("get_x", -1) == 9);
+		assert(vec("get_y", -1) == 3);
 
 		var z = 0;
 
@@ -114,8 +114,8 @@ fun make_vector() {
 			vec("set_y", vec("get_x", -1));
 			vec("set_x", z);
 
-			assert( vec("get_y", -1) == z - 1);
-			assert( vec("get_x", -1) == z);
+			assert(vec("get_y", -1) == z - 1);
+			assert(vec("get_x", -1) == z);
 		}
 	}
 }
@@ -131,6 +131,6 @@ fun make_vector() {
 		return g;
 	}
 
-	assert( f()() == 4);
+	assert(f()() == 4);
 }
 

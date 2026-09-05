@@ -4,18 +4,15 @@ use super::Heap;
 pub struct Tracer<'gc, U> {
   heap: &'gc Heap<U>,
 
-  collecting_generation: usize,
-
   // TODO: take this from the heap. Needless
   // optimization right now...
   grey: Vec<Handle<U>>,
 }
 
 impl<'gc, U> Tracer<'gc, U> {
-  pub fn new(heap: &'gc Heap<U>, collecting_generation: usize) -> Self {
+  pub fn new(heap: &'gc Heap<U>) -> Self {
     Self {
       heap,
-      collecting_generation,
       grey: Vec::new(),
     }
   }

@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use super::{LoxString, ObjData, ObjKind};
+use super::{ObjData, ObjKind};
 use crate::gc::{Heap, Ref, RefMut, Trace, Tracer, UncheckedRef};
 use crate::runtime::{Handle, Root, Runtime, Value};
 

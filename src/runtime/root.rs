@@ -1,7 +1,7 @@
 use log::warn;
 
 use super::Runtime;
-use crate::obj::{Obj, ObjData, ObjKind};
+use crate::obj::{Obj, ObjKind};
 use crate::runtime::Value;
 
 pub struct Root<U: ObjKind>(Obj<U>);

@@ -30,3 +30,7 @@ annotate-snippets = "0.12.16"
 
 [features]
 stress_test_gc = []
+
+
+[lints.rust]
+warnings = "deny"

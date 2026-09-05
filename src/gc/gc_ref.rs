@@ -118,7 +118,7 @@ impl<'a, U> UncheckedRef<'a, U> {
     }
   }
 
-  pub unsafe fn new(header: &'a GcHeader, value: NonNull<U>) -> Self {
+  pub(super) unsafe fn new(header: &'a GcHeader, value: NonNull<U>) -> Self {
     Self {
       header,
       value,

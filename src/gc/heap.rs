@@ -194,7 +194,7 @@ impl<U: Sized> Heap<U> {
   where
     U: Trace<U>,
   {
-    let mut tracer = Tracer::new(self, self.cur_generation);
+    let mut tracer = Tracer::new(self);
     root.trace(&mut tracer);
 
     while let Some(next) = tracer.pop() {

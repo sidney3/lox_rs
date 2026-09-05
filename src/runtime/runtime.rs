@@ -10,7 +10,6 @@ use crate::obj::NativeFunction;
 use crate::obj::{Closure, Obj, ObjData, ObjKind};
 use crate::runtime::Callee;
 use lasso::Key;
-use log::debug;
 
 pub type Heap = gc::Heap<ObjData>;
 pub type Handle = gc::Handle<ObjData>;

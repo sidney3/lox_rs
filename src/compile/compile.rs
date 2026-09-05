@@ -1,17 +1,15 @@
 use super::error::Result;
 use crate::asm::{
-  FuncStack, FuncState, Instruction, InstructionKind, Label, SymbolicInstruction, SymbolicOp,
+  FuncStack, FuncState, Instruction, InstructionKind, Label,
 };
 use crate::frontend::ast::{
-  Assign, Binary, Block, Call, ClassDeclaration, ElseTail, ForLoop, FuncDecl, IfStatement, LValue,
+  Assign, Binary, Block, ClassDeclaration, ElseTail, ForLoop, IfStatement, LValue,
   Member, Unary, VarDeclaration, WhileStatement,
 };
 use crate::frontend::ast::{Ast, BinOp, Declaration, Expression, Literal, Statement, UnaryOp};
 use crate::frontend::token::Ident;
-use crate::obj::NativeFunction;
-use crate::obj::{Class, Closure, Function, LoxString, Obj, ObjData};
+use crate::obj::{Function, LoxString, ObjData};
 use crate::runtime::{Root, Runtime, Symbol, Value};
-use log::info;
 
 pub struct Compiler<'a, 'vm> {
   compile_stack: FuncStack,

@@ -68,8 +68,6 @@ impl TokenType for LoxTokenKind {
   }
 }
 
-pub type LoxToken = lexer::Token<LoxTokenKind>;
-
 pub struct LoxLexer(lexer::Lexer<LoxTokenKind>);
 
 impl LoxLexer {
@@ -144,6 +142,8 @@ mod test {
   use super::*;
 
   use crate::lexer::Span;
+
+  type LoxToken = lexer::Token<LoxTokenKind>;
 
   #[test]
   fn test_program() {
