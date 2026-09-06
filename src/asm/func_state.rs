@@ -1,7 +1,8 @@
-use super::instruction::{Instruction, InstructionKind, OperandType};
+use super::instruction::{Instruction, InstructionKind};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
 use crate::obj::{Function, Obj, UpValueDescriptor};
 use crate::runtime::{Root, Runtime, Symbol, Value};
+use smallvec::SmallVec;
 
 // Expression results are transient on the stack.
 //
@@ -98,11 +99,25 @@ impl FuncState {
   }
 
   fn emit_unary_usize(&mut self, instruction_kind: InstructionKind, operand: usize) {
-    let op = OperandType::try_from(operand).expect("TODO: add widen instruction");
+    const BYTES: usize = (usize::BITS / 8) as usize;
+    let bytes: SmallVec<[u8; BYTES]> = operand
+      .to_be_bytes()
+      .into_iter()
+      .enumerate()
+      .skip_while(|&(i, byte)| byte == 0u8 && i != (BYTES - 1))
+      .map(|(_, byte)| byte)
+      .collect();
+
+    for i in 0..(bytes.len() - 1) {
+      self.emit(Instruction {
+        kind: InstructionKind::Widen,
+        operand: bytes[i],
+      });
+    }
     self.emit(Instruction {
       kind: instruction_kind,
-      operand: op,
-    })
+      operand: *bytes.last().expect("emit_unary_usize"),
+    });
   }
 
   // Stack before: [...]

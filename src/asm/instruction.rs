@@ -55,6 +55,8 @@ pub enum InstructionKind {
   // Unary expressions.
   Not,
   UnaryMinus,
+
+  Widen,
 }
 
 #[derive(Copy, Clone, Debug)]

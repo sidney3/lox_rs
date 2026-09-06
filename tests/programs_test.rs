@@ -51,3 +51,8 @@ pub fn test_classes() {
 pub fn test_inheritance() {
   run_test_file("inheritance.lox");
 }
+
+#[test]
+pub fn test_long_file() {
+  run_test_file("long_file.lox");
+}

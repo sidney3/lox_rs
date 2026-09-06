@@ -1,10 +1,10 @@
 use std::ops::Deref;
 
-use log::{debug, warn};
+use log::warn;
 use nonempty::{NonEmpty, nonempty};
 use smallvec::SmallVec;
 
-use crate::asm::{Instruction, InstructionKind};
+use crate::asm::{Instruction, InstructionKind, OperandType};
 use crate::gc::Ref;
 use crate::obj::{
   BoundMethod, Class, Closure, Function, Instance, NativeFunction, Obj, TryAsObjExt, UpValue,
@@ -240,21 +240,17 @@ impl<'vm> Executor<'vm> {
   }
 
   pub fn execute(mut self) -> Result<(), RuntimeError> {
+    let mut next_operand_buffer: usize = 0;
     loop {
-      let next_instruction: Instruction = if let Some(inst) = self.load_instruction() {
+      let instruction: Instruction = if let Some(inst) = self.load_instruction() {
         inst
       } else {
         panic!("Walked off the end of frame!")
       };
-      debug!(
-        "About to execute: {:?}. Ip = {}, Bp = {}, Sp = {}",
-        next_instruction,
-        self.frame().ip,
-        self.frame().base,
-        self.vm.value_stack.len()
-      );
+      let operand = operand_buffer_push(next_operand_buffer, instruction.operand);
+      next_operand_buffer = 0;
 
-      match next_instruction.kind {
+      match instruction.kind {
         InstructionKind::Divide => self.execute_binary(Value::divide)?,
         InstructionKind::Mult => self.execute_binary(Value::mult)?,
         InstructionKind::Sub => self.execute_binary(Value::sub)?,
@@ -274,7 +270,7 @@ impl<'vm> Executor<'vm> {
           self.push_value(val);
         }
         InstructionKind::Constant => {
-          let val = self.load_const(next_instruction.operand as usize);
+          let val = self.load_const(operand);
           self.push_value(val);
         }
         InstructionKind::Pop => {
@@ -282,32 +278,30 @@ impl<'vm> Executor<'vm> {
         }
         InstructionKind::JumpIfFalse => {
           if !bool::try_from(&self.pop())? {
-            self.frame_mut().jmp(next_instruction.operand as usize);
+            self.frame_mut().jmp(operand);
           }
         }
         InstructionKind::JumpIfFalsePreserving => {
           if !bool::try_from(self.peek())? {
-            self.frame_mut().jmp(next_instruction.operand as usize)
+            self.frame_mut().jmp(operand)
           }
         }
         InstructionKind::JumpIfTruePreserving => {
           if bool::try_from(self.peek())? {
-            self.frame_mut().jmp(next_instruction.operand as usize)
+            self.frame_mut().jmp(operand)
           }
         }
         InstructionKind::Jmp => {
-          self.frame_mut().jmp(next_instruction.operand as usize);
+          self.frame_mut().jmp(operand);
         }
         InstructionKind::AddGlobal => {
           let assign = self.pop();
-          let global_idx =
-            Symbol::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
+          let global_idx = Symbol::try_from_usize(operand).expect("Bad spur");
 
           self.vm.globals.insert(global_idx, assign);
         }
         InstructionKind::LoadGlobal => {
-          let global_idx =
-            Symbol::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
+          let global_idx = Symbol::try_from_usize(operand).expect("Bad spur");
 
           let global = self.vm.globals.get(&global_idx).ok_or_else(|| {
             RuntimeError::new(
@@ -318,19 +312,18 @@ impl<'vm> Executor<'vm> {
           self.push_value(*global);
         }
         InstructionKind::LoadLocal => {
-          let stack_offset = next_instruction.operand as usize;
+          let stack_offset = operand;
           let val = self.load_stack(stack_offset);
           self.push_value(val);
         }
         InstructionKind::SetLocal => {
           let assign: Value = self.pop();
-          let stack_offset = next_instruction.operand as usize;
+          let stack_offset = operand;
           self.set_stack(stack_offset, assign);
         }
         InstructionKind::SetGlobal => {
           let assign: Value = self.pop();
-          let global_idx =
-            Symbol::try_from_usize(next_instruction.operand as usize).expect("Bad spur");
+          let global_idx = Symbol::try_from_usize(operand).expect("Bad spur");
 
           match self.vm.globals.get_mut(&global_idx) {
             Some(global) => {
@@ -348,7 +341,7 @@ impl<'vm> Executor<'vm> {
 
         InstructionKind::MakeClosure => {
           let func = self
-            .load_const(next_instruction.operand as usize)
+            .load_const(operand)
             .try_as_obj(self.vm)
             .expect("MakeClosure expects a function");
 
@@ -357,7 +350,7 @@ impl<'vm> Executor<'vm> {
           closure.free(self.vm);
         }
         InstructionKind::Callq => {
-          let nargs = next_instruction.operand as usize;
+          let nargs = operand;
           let f_idx = self.vm.stack_top() - nargs - 1;
 
           let callee = {
@@ -456,7 +449,7 @@ impl<'vm> Executor<'vm> {
         }
         InstructionKind::LoadUpValue => {
           let val = {
-            let idx = next_instruction.operand as usize;
+            let idx = operand;
             match *self.upval(idx as usize).borrow(self.vm) {
               UpValue::Open { absolute_stack_pos } => self.vm.value_stack[absolute_stack_pos],
               UpValue::Closed(val) => val,
@@ -469,7 +462,7 @@ impl<'vm> Executor<'vm> {
           let set_to = self.pop();
 
           let pos = {
-            let upval = self.upval(next_instruction.operand as usize);
+            let upval = self.upval(operand);
             match *upval.borrow(self.vm) {
               UpValue::Open { absolute_stack_pos } => Either::Left(absolute_stack_pos),
               UpValue::Closed(_) => Either::Right(upval),
@@ -486,8 +479,7 @@ impl<'vm> Executor<'vm> {
         }
 
         InstructionKind::MakeClass => {
-          let name = Symbol::try_from_usize(next_instruction.operand as usize)
-            .expect("Bad attribute access");
+          let name = Symbol::try_from_usize(operand).expect("Bad attribute access");
           let class = self.vm.alloc_typed(Class::new(name));
           self.push_value(class.as_value());
         }
@@ -524,8 +516,7 @@ impl<'vm> Executor<'vm> {
             let class_instance = Obj::<Instance>::try_from_value(self.vm, maybe_instance)
               .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?
               .borrow(self.vm);
-            let symbol = Symbol::try_from_usize(next_instruction.operand as usize)
-              .expect("Bad attribute access");
+            let symbol = Symbol::try_from_usize(operand).expect("Bad attribute access");
             if let Some(val) = class_instance.load_attr(self.vm, symbol) {
               val
             } else {
@@ -549,8 +540,7 @@ impl<'vm> Executor<'vm> {
           // x = y is an expression which should leave y
           // on the stack. So we just leave it there...
           let assign_to = *self.peek();
-          let symbol = Symbol::try_from_usize(next_instruction.operand as usize)
-            .expect("Bad attribute access");
+          let symbol = Symbol::try_from_usize(operand).expect("Bad attribute access");
           Obj::<Instance>::try_from_value(self.vm, maybe_instance)
             .ok_or_else(|| RuntimeError::new("TypeError: expected class"))?
             .borrow_mut(self.vm)
@@ -567,8 +557,7 @@ impl<'vm> Executor<'vm> {
         InstructionKind::LoadSuperMethod => {
           let super_: Obj<Class> = self.pop().try_as_obj(self.vm).expect("LoadSuperMethod");
           let this: Obj<Instance> = self.pop().try_as_obj(self.vm).expect("LoadSuperMethod");
-          let property =
-            Symbol::try_from_usize(next_instruction.operand as usize).expect("LoadSuperMethod");
+          let property = Symbol::try_from_usize(operand).expect("LoadSuperMethod");
 
           let method = match super_.borrow(self.vm).load_method(self.vm, property) {
             Some(x) => x,
@@ -587,7 +576,16 @@ impl<'vm> Executor<'vm> {
           let bound = self.vm.alloc_typed(BoundMethod::new(this, method));
           self.push_value(bound.as_value());
         }
+        InstructionKind::Widen => {
+          next_operand_buffer = operand_buffer_push(next_operand_buffer, instruction.operand);
+        }
       }
     }
   }
+}
+
+fn operand_buffer_push(buffer: usize, bits: OperandType) -> usize {
+  assert!(buffer >> (usize::BITS - 8) == 0, "operand buffer overflow");
+
+  (buffer << 8) | (bits as usize)
 }
