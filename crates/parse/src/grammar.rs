@@ -28,7 +28,7 @@ impl<R: Rule> Production<R> {
     self.definition.len()
   }
 
-  pub fn is_epsilon(&self) -> bool {
+  pub fn is_empty(&self) -> bool {
     self.definition.is_empty()
   }
 }

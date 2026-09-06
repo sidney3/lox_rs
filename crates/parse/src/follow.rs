@@ -45,7 +45,7 @@ pub(super) fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>
         grammar
           .productions_for_rule(r)
           .iter()
-          .any(|&p| grammar.production(p).is_epsilon())
+          .any(|&p| grammar.production(p).is_empty())
       };
       for (i, sym) in def.iter().enumerate() {
         let Symbol::Rule(before) = sym else { continue };

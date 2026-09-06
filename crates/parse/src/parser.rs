@@ -115,7 +115,7 @@ impl<R: Rule> Parser<R> {
           // that we were in before pushing in that element. So
           // we just inspect the first of these drained elements
           // (stack[drain_from]) to figure out what our next state is.
-          if production.len() == 0 {
+          if production.is_empty() {
             Node::Parent(Parent {
               rule: production.rule,
               children: vec![],
