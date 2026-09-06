@@ -4,8 +4,8 @@ use lox_derive::Ordinal;
 use strum::Display;
 
 use super::error::Result;
-use crate::lexer;
-use crate::lexer::{TokenType, Tokens};
+use lexer;
+use lexer::{TokenType, Tokens};
 
 pub type Ident = lasso::Spur;
 
@@ -141,9 +141,17 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
 mod test {
   use super::*;
 
-  use crate::lexer::Span;
+  use lexer::Span;
 
   type LoxToken = lexer::Token<LoxTokenKind>;
+
+  fn canonical(t: &LoxToken) -> LoxToken {
+    LoxToken {
+      lexeme: t.lexeme,
+      token_type: t.token_type,
+      span: Span::trivial(),
+    }
+  }
 
   #[test]
   fn test_program() {
@@ -155,11 +163,7 @@ mod test {
 
     let mut spur = |s| resolved_tokens.lexeme_arena.get_or_intern(s);
 
-    let parsed_tokens: Vec<_> = resolved_tokens
-      .tokens
-      .iter()
-      .map(|t| t.canonical())
-      .collect();
+    let parsed_tokens: Vec<_> = resolved_tokens.tokens.iter().map(canonical).collect();
 
     assert_eq!(
       parsed_tokens,

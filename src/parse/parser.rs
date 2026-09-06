@@ -10,7 +10,7 @@ use super::goto::make_goto;
 use super::grammar::*;
 use super::rule::Rule;
 use super::state::{State, StateId};
-use crate::lexer::{Token, Tokens};
+use lexer::{Token, Tokens};
 
 #[derive(Debug)]
 pub struct Tree<R: Rule> {

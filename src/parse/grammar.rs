@@ -8,7 +8,7 @@ use smallvec::SmallVec;
 
 use super::debug::DisplayWithGrammar;
 use super::rule::Rule;
-use crate::lexer::TokenType;
+use lexer::TokenType;
 
 #[derive(Debug, Hash, Eq, Clone, PartialEq)]
 pub enum Symbol<R: Rule> {

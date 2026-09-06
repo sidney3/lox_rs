@@ -10,8 +10,8 @@ use super::action::Action;
 use super::grammar::{Grammar, ProductionId, Symbol};
 use super::item::{Item, ItemList};
 use super::rule::Rule;
-use crate::lexer::TokenType;
 use crate::parse::debug::{DisplayWithGrammar, DisplayWithGrammarExt};
+use lexer::TokenType;
 
 usize_id!(StateId);
 

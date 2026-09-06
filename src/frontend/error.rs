@@ -1,8 +1,8 @@
 use thiserror::Error;
 
 use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
-use crate::lexer::Error as LexError;
 use crate::parse::Error as ParseError;
+use lexer::Error as LexError;
 
 #[derive(Debug, Error)]
 pub enum Error {

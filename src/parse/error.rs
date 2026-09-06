@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::lexer::Span;
+use lexer::Span;
 
 #[derive(Debug, Error)]
 pub enum Error {

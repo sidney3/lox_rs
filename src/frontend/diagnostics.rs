@@ -1,10 +1,10 @@
 use std::fmt::Display;
 
-use crate::lexer::Error as LexError;
 use crate::parse::Error as ParseError;
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
+use lexer::Error as LexError;
 
-pub use crate::lexer::Span;
+pub use lexer::Span;
 
 pub struct Diagnostic {
   pub message: String,

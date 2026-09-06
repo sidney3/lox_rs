@@ -1,4 +1,4 @@
-use crate::lexer::TokenType;
+use lexer::TokenType;
 use lox_core::Ordinal;
 
 pub trait Rule: Ordinal {

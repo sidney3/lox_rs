@@ -1,0 +1,13 @@
+[package]
+name = "lexer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+lox_core = { path = "../lox_core" }
+bitvec = { version = "1" }
+thiserror.workspace = true
+itertools.workspace = true
+smallvec.workspace = true
+lasso.workspace = true
+log.workspace = true

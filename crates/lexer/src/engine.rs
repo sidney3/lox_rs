@@ -196,6 +196,14 @@ mod test {
     }
   }
 
+  fn canonical(t: &Token<TokenT>) -> Token<TokenT> {
+    Token {
+      lexeme: t.lexeme,
+      token_type: t.token_type,
+      span: Span::trivial(),
+    }
+  }
+
   #[test]
   fn test_literal_precedence() {
     let lexer = Lexer::new(&[
@@ -255,7 +263,7 @@ mod test {
       .expect("Unable to lex")
       .tokens
       .iter()
-      .map(|t| t.canonical())
+      .map(canonical)
       .collect();
 
     assert_eq!(seen_tokens, expected_tokens,)

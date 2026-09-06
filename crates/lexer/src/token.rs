@@ -14,14 +14,3 @@ pub struct Token<T: TokenType> {
   pub token_type: T,
   pub span: Span,
 }
-
-impl<T: TokenType> Token<T> {
-  #[cfg(test)]
-  pub fn canonical(self) -> Self {
-    Token {
-      lexeme: self.lexeme,
-      token_type: self.token_type,
-      span: Span::trivial(),
-    }
-  }
-}

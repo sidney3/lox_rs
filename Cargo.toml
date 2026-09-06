@@ -6,6 +6,11 @@ members = ["crates/*"]
 proc-macro2 = { version = "1.0.74" }
 quote = { version = "1.0.35" }
 syn = { version = "2.0.81" }
+smallvec = { version = "1" }
+itertools = { version = "0.12" }
+thiserror = { version = "2" }
+lasso = { version = "0.7.3" }
+log = { version = "0.4.33" }
 
 [package]
 name = "lox_rs"
@@ -14,22 +19,22 @@ edition = "2024"
 
 
 [dependencies]
-smallvec = "1"
-itertools = "0.12"
-bitvec = "1"
-lasso = "0.7.3"
+smallvec.workspace = true
+itertools.workspace = true
+thiserror.workspace = true
+lasso.workspace = true
+log.workspace = true
 ndarray = "0.17"
 either = "1"
 nonempty = "0.10"
-thiserror = "2"
 strum = { version = "0.28.0", features = ["derive"] }
 clap = { version = "4.6.1", features = ["derive"] }
-log = "0.4.33"
 env_logger = "0.11.11"
 annotate-snippets = "0.12.16"
 
 lox_derive = { path = "crates/lox_derive" }
 lox_core = { path = "crates/lox_core" }
+lexer = { path = "crates/lexer" }
 
 [features]
 stress_test_gc = []

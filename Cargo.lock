@@ -298,6 +298,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "lexer"
+version = "0.1.0"
+dependencies = [
+ "bitvec",
+ "itertools",
+ "lasso",
+ "log",
+ "lox_core",
+ "smallvec",
+ "thiserror",
+]
+
+[[package]]
 name = "log"
 version = "0.4.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -321,12 +334,12 @@ name = "lox_rs"
 version = "0.1.0"
 dependencies = [
  "annotate-snippets",
- "bitvec",
  "clap",
  "either",
  "env_logger",
  "itertools",
  "lasso",
+ "lexer",
  "log",
  "lox_core",
  "lox_derive",

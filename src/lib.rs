@@ -3,7 +3,6 @@ mod compile;
 mod executor;
 mod frontend;
 mod gc;
-mod lexer;
 mod native_function;
 mod obj;
 mod parse;

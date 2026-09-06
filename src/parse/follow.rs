@@ -1,7 +1,7 @@
 use super::first::first;
 use super::{Grammar, Rule, Symbol};
-use crate::lexer::TokenType;
 use itertools::Itertools;
+use lexer::TokenType;
 use log::debug;
 use smallvec::SmallVec;
 use std::collections::HashSet;
