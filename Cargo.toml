@@ -1,5 +1,6 @@
 [workspace]
-members = ["lox_derive"]
+resolver = "2"
+members = ["crates/*"]
 
 [workspace.dependencies]
 proc-macro2 = { version = "1.0.74" }
@@ -21,12 +22,13 @@ ndarray = "0.17"
 either = "1"
 nonempty = "0.10"
 thiserror = "2"
-lox_derive = { path = "lox_derive" }
 strum = { version = "0.28.0", features = ["derive"] }
 clap = { version = "4.6.1", features = ["derive"] }
 log = "0.4.33"
 env_logger = "0.11.11"
 annotate-snippets = "0.12.16"
+
+lox_derive = { path = "crates/lox_derive" }
 
 [features]
 stress_test_gc = []
