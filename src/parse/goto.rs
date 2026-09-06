@@ -5,15 +5,15 @@ use ndarray::Array2;
 use super::grammar::{Grammar, Symbol};
 use super::rule::Rule;
 use super::state::{State, StateId};
+use crate::core::InternPool;
 use crate::core::Ordinal;
-use crate::core::interner::Interner;
 
 pub fn make_goto<R: Rule>(
   grammar: &Grammar<R>,
-  interner: &mut Interner<StateId, State>,
+  interner: &mut InternPool<StateId, State>,
 ) -> Array2<Option<StateId>> {
   let start_state = State::initial(grammar);
-  let start_state_id = interner.intern(start_state);
+  let start_state_id = interner.get_or_intern(start_state);
 
   let mut visited: HashSet<StateId> = HashSet::new();
   let mut workset: Vec<StateId> = vec![start_state_id];
@@ -26,11 +26,11 @@ pub fn make_goto<R: Rule>(
       visited.insert(state_id);
     }
 
-    let state = interner.get_left(state_id).clone();
+    let state = interner[state_id].clone();
 
     for edge in state.edges(grammar) {
       let next_state = state.transition(grammar, edge);
-      let next_state_id = interner.intern(next_state);
+      let next_state_id = interner.get_or_intern(next_state);
 
       workset.push(next_state_id);
       wip_goto.push((state_id, edge, next_state_id));

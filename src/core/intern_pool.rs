@@ -1,11 +1,11 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, ops::Index};
 
-pub struct Interner<Id, T> {
+pub struct InternPool<Id, T> {
   elt_to_id: HashMap<T, Id>,
   id_to_elt: Vec<T>, // indexed by Id
 }
 
-impl<Id, T> Interner<Id, T>
+impl<Id, T> InternPool<Id, T>
 where
   T: Hash + Eq,
   Id: Into<usize> + From<usize> + Copy + Clone,
@@ -17,7 +17,7 @@ where
     }
   }
 
-  pub fn intern(&mut self, t: T) -> Id
+  pub fn get_or_intern(&mut self, t: T) -> Id
   where
     T: Clone,
   {
@@ -33,7 +33,7 @@ where
     }
   }
 
-  pub fn get_left(&self, i: Id) -> &T {
+  fn get_left(&self, i: Id) -> &T {
     &self.id_to_elt[i.into()]
   }
 
@@ -44,5 +44,16 @@ where
   // total number of interned values
   pub fn len(&self) -> usize {
     self.id_to_elt.len()
+  }
+}
+
+impl<Id, T> Index<Id> for InternPool<Id, T>
+where
+  T: Hash + Eq,
+  Id: Into<usize> + From<usize> + Copy + Clone,
+{
+  type Output = T;
+  fn index(&self, index: Id) -> &Self::Output {
+    self.get_left(index)
   }
 }

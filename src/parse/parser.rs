@@ -9,8 +9,8 @@ use super::goto::make_goto;
 use super::grammar::*;
 use super::rule::Rule;
 use super::state::{State, StateId};
+use crate::core::InternPool;
 use crate::core::Ordinal;
-use crate::core::interner::Interner;
 use crate::lexer::{Token, Tokens};
 
 #[derive(Debug)]
@@ -43,7 +43,7 @@ impl<R: Rule> Node<R> {
 pub struct Parser<R: Rule> {
   grammar: Grammar<R>,
 
-  state_table: Interner<StateId, State>,
+  state_table: InternPool<StateId, State>,
   goto_table: Array2<Option<StateId>>,
   action_table: Array2<Action>,
   initial_state_id: StateId,
@@ -53,11 +53,11 @@ type Stack<R> = Vec<(StateId, Node<R>)>;
 
 impl<R: Rule> Parser<R> {
   pub fn new(grammar: Grammar<R>) -> Self {
-    let mut state_table = Interner::new();
+    let mut state_table = InternPool::new();
 
     let goto_table = make_goto(&grammar, &mut state_table);
     let action_table = make_action(&grammar, &state_table);
-    let initial_state_id = state_table.intern(State::initial(&grammar));
+    let initial_state_id = state_table.get_or_intern(State::initial(&grammar));
 
     Self {
       grammar,
@@ -80,7 +80,7 @@ impl<R: Rule> Parser<R> {
 
       debug!(
         "Current state: {}",
-        self.state_table.get_left(curr_state_id).with(&self.grammar)
+        self.state_table[curr_state_id].with(&self.grammar)
       );
 
       // We want to support rules that return nodes that are _not_ of the type of that rule.
