@@ -5,8 +5,7 @@ use ndarray::Array2;
 use super::grammar::{Grammar, Symbol};
 use super::rule::Rule;
 use super::state::{State, StateId};
-use crate::core::InternPool;
-use crate::core::Ordinal;
+use lox_core::{InternPool, Ordinal};
 
 pub fn make_goto<R: Rule>(
   grammar: &Grammar<R>,

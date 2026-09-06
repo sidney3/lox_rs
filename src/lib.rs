@@ -1,6 +1,5 @@
 mod asm;
 mod compile;
-mod core;
 mod executor;
 mod frontend;
 mod gc;

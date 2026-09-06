@@ -1,3 +1,4 @@
+use lox_core::{Ordinal, usize_id};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -7,9 +8,7 @@ use smallvec::SmallVec;
 
 use super::debug::DisplayWithGrammar;
 use super::rule::Rule;
-use crate::core::Ordinal;
 use crate::lexer::TokenType;
-use crate::usize_id;
 
 #[derive(Debug, Hash, Eq, Clone, PartialEq)]
 pub enum Symbol<R: Rule> {

@@ -1,3 +1,4 @@
+use lox_core::usize_id;
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -11,7 +12,6 @@ use super::item::{Item, ItemList};
 use super::rule::Rule;
 use crate::lexer::TokenType;
 use crate::parse::debug::{DisplayWithGrammar, DisplayWithGrammarExt};
-use crate::usize_id;
 
 usize_id!(StateId);
 

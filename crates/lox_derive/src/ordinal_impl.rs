@@ -25,7 +25,7 @@ fn expand(input: syn::DeriveInput) -> syn::Result<proc_macro::TokenStream> {
   let expanded = quote! {
       // TODO: figure out how to refer to the
       // actual crate
-      impl crate::core::Ordinal for #name {
+      impl lox_core::Ordinal for #name {
           const COUNT: usize = #variant_count;
 
           fn ord(&self) -> usize {

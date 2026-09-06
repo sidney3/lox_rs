@@ -5,8 +5,7 @@ use super::follow::follow;
 use super::grammar::{Grammar, ProductionId};
 use super::rule::Rule;
 use super::state::{State, StateId};
-use crate::core::InternPool;
-use crate::core::Ordinal;
+use lox_core::{InternPool, Ordinal};
 
 #[derive(Debug, Clone)]
 pub enum Action {

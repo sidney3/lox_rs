@@ -1,5 +1,6 @@
 use lasso::Rodeo;
 use log::debug;
+use lox_core::{InternPool, Ordinal};
 use ndarray::Array2;
 
 use super::action::{Action, make_action};
@@ -9,8 +10,6 @@ use super::goto::make_goto;
 use super::grammar::*;
 use super::rule::Rule;
 use super::state::{State, StateId};
-use crate::core::InternPool;
-use crate::core::Ordinal;
 use crate::lexer::{Token, Tokens};
 
 #[derive(Debug)]
@@ -174,6 +173,7 @@ impl<R: Rule> Parser<R> {
 mod test {
 
   use std::collections::VecDeque;
+  use std::fmt::Display;
 
   use lox_derive::Ordinal;
   use strum::Display;

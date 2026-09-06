@@ -41,9 +41,12 @@ where
     self.elt_to_id.values()
   }
 
-  // total number of interned values
   pub fn len(&self) -> usize {
     self.id_to_elt.len()
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.id_to_elt.is_empty()
   }
 }
 
@@ -55,5 +58,15 @@ where
   type Output = T;
   fn index(&self, index: Id) -> &Self::Output {
     self.get_left(index)
+  }
+}
+
+impl<Id, T> Default for InternPool<Id, T>
+where
+  T: Hash + Eq,
+  Id: Into<usize> + From<usize> + Copy + Clone,
+{
+  fn default() -> Self {
+    Self::new()
   }
 }
