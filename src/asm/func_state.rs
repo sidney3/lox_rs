@@ -2,7 +2,6 @@ use super::instruction::{Instruction, InstructionKind};
 use super::symbolic_instruction::{Label, SymbolicInstruction, SymbolicOp, SymbolicProgram};
 use crate::obj::{Function, Obj, UpValueDescriptor};
 use crate::runtime::{Root, Runtime, Symbol, Value};
-use smallvec::SmallVec;
 
 // Expression results are transient on the stack.
 //
@@ -99,24 +98,21 @@ impl FuncState {
   }
 
   fn emit_unary_usize(&mut self, instruction_kind: InstructionKind, operand: usize) {
-    const BYTES: usize = (usize::BITS / 8) as usize;
-    let bytes: SmallVec<[u8; BYTES]> = operand
+    let final_operand_byte = operand as u8;
+    let leading_operand_bytes = (operand >> 8)
       .to_be_bytes()
       .into_iter()
-      .enumerate()
-      .skip_while(|&(i, byte)| byte == 0u8 && i != (BYTES - 1))
-      .map(|(_, byte)| byte)
-      .collect();
+      .skip_while(|&byte| byte == 0u8);
 
-    for i in 0..(bytes.len() - 1) {
+    for byte in leading_operand_bytes {
       self.emit(Instruction {
         kind: InstructionKind::Widen,
-        operand: bytes[i],
+        operand: byte,
       });
     }
     self.emit(Instruction {
       kind: instruction_kind,
-      operand: *bytes.last().expect("emit_unary_usize"),
+      operand: final_operand_byte,
     });
   }
 
