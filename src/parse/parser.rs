@@ -173,7 +173,6 @@ impl<R: Rule> Parser<R> {
 mod test {
 
   use std::collections::VecDeque;
-  use std::fmt::Display;
 
   use lox_derive::Ordinal;
   use strum::Display;

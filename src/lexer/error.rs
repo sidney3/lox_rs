@@ -1,6 +1,5 @@
 use thiserror::Error;
 
-use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
 use crate::lexer::Span;
 
 #[derive(Error, Debug)]
@@ -22,16 +21,3 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-impl ToDiagnostic for Error {
-  fn to_diagnostic(&self) -> Diagnostic {
-    match self {
-      Self::UnterminatedEscape(_) => Diagnostic::from_message(self),
-      Self::UnterminatedRegex(_) => Diagnostic::from_message(self),
-      Self::MalformattedRange(_) => Diagnostic::from_message(self),
-      Self::UnorderedRange(_, _) => Diagnostic::from_message(self),
-
-      &Self::NoMatchingToken(span) => Diagnostic::from_span("No matching token", span),
-    }
-  }
-}
