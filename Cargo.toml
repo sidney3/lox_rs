@@ -11,6 +11,7 @@ itertools = { version = "0.12" }
 thiserror = { version = "2" }
 lasso = { version = "0.7.3" }
 log = { version = "0.4.33" }
+either = { version = "1" }
 
 [package]
 name = "lox_rs"
@@ -24,8 +25,7 @@ itertools.workspace = true
 thiserror.workspace = true
 lasso.workspace = true
 log.workspace = true
-ndarray = "0.17"
-either = "1"
+either.workspace = true
 nonempty = "0.10"
 strum = { version = "0.28.0", features = ["derive"] }
 clap = { version = "4.6.1", features = ["derive"] }
@@ -35,6 +35,7 @@ annotate-snippets = "0.12.16"
 lox_derive = { path = "crates/lox_derive" }
 lox_core = { path = "crates/lox_core" }
 lexer = { path = "crates/lexer" }
+parse = { path = "crates/parse" }
 
 [features]
 stress_test_gc = []

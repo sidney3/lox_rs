@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use crate::parse::Error as ParseError;
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
 use lexer::Error as LexError;
+use parse::Error as ParseError;
 
 pub use lexer::Span;
 

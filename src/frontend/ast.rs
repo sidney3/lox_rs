@@ -7,8 +7,8 @@ use strum::Display;
 use super::error::Result;
 use super::token::LoxTokenKind;
 use crate::frontend::token::Ident;
-use crate::parse::{Grammar, Node, Parent, Parser, Production, Rule, Symbol, Tree};
 use lexer::Tokens;
+use parse::{Grammar, Node, Parent, Parser, Production, Rule, Symbol, Tree};
 
 #[derive(Ordinal, Eq, PartialEq, Hash, Display, Debug, PartialOrd)]
 pub enum LoxRule {

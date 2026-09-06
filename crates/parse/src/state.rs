@@ -7,10 +7,10 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 
 use super::action::Action;
+use super::debug::{DisplayWithGrammar, DisplayWithGrammarExt};
 use super::grammar::{Grammar, ProductionId, Symbol};
 use super::item::{Item, ItemList};
 use super::rule::Rule;
-use crate::parse::debug::{DisplayWithGrammar, DisplayWithGrammarExt};
 use lexer::TokenType;
 
 usize_id!(StateId);

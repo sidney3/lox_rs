@@ -343,8 +343,8 @@ dependencies = [
  "log",
  "lox_core",
  "lox_derive",
- "ndarray",
  "nonempty",
+ "parse",
  "smallvec",
  "strum",
  "thiserror",
@@ -425,6 +425,21 @@ name = "once_cell_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
+
+[[package]]
+name = "parse"
+version = "0.1.0"
+dependencies = [
+ "either",
+ "itertools",
+ "lasso",
+ "lexer",
+ "log",
+ "lox_core",
+ "ndarray",
+ "smallvec",
+ "thiserror",
+]
 
 [[package]]
 name = "portable-atomic"

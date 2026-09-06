@@ -5,7 +5,6 @@ mod frontend;
 mod gc;
 mod native_function;
 mod obj;
-mod parse;
 mod runtime;
 
 use std::path::PathBuf;
