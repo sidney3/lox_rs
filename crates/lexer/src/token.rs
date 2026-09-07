@@ -6,6 +6,7 @@ use super::Span;
 
 pub trait TokenType: Hash + Eq + Clone + Copy + PartialEq {
   fn eof() -> Self;
+  fn whitespace() -> Self;
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

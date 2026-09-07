@@ -27,7 +27,7 @@ pub enum LoxError {
 }
 
 fn compile(program: &str, rt: &mut Runtime) -> Result<Root<Function>, frontend::Error> {
-  let lexer = frontend::token::LoxLexer::new().expect("Token definition error");
+  let lexer = frontend::token::make_lox_lexer().expect("Token definition error");
   let parser = frontend::ast::LoxParser::new();
 
   let tokens = lexer.lex(program)?;

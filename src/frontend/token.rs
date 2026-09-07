@@ -5,7 +5,7 @@ use strum::Display;
 
 use super::error::Result;
 use lexer;
-use lexer::{TokenType, Tokens};
+use lexer::TokenType;
 
 pub type Ident = lasso::Spur;
 
@@ -66,29 +66,13 @@ impl TokenType for LoxTokenKind {
   fn eof() -> Self {
     LoxTokenKind::Eof
   }
+  fn whitespace() -> Self {
+    LoxTokenKind::WhiteSpace
+  }
 }
 
-pub struct LoxLexer(lexer::Lexer<LoxTokenKind>);
-
-impl LoxLexer {
-  pub fn new() -> Result<Self> {
-    Ok(Self(lexer::Lexer::<LoxTokenKind>::new(LEXICAL_SPEC)?))
-  }
-
-  pub fn lex(&self, program: &str) -> Result<Tokens<LoxTokenKind>> {
-    let result = self.0.lex(program)?;
-
-    let filtered = result
-      .tokens
-      .into_iter()
-      .filter(|t| t.token_type != LoxTokenKind::WhiteSpace)
-      .collect();
-
-    Ok(Tokens {
-      tokens: filtered,
-      lexeme_arena: result.lexeme_arena,
-    })
-  }
+pub fn make_lox_lexer() -> Result<lexer::Lexer<LoxTokenKind>> {
+  Ok(lexer::Lexer::<LoxTokenKind>::new(LEXICAL_SPEC)?)
 }
 
 const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
@@ -157,7 +141,7 @@ mod test {
   fn test_program() {
     let program = "print 9 + 2;\n";
 
-    let lexer = LoxLexer::new().unwrap();
+    let lexer = make_lox_lexer().unwrap();
 
     let mut resolved_tokens = lexer.lex(program).unwrap();
 

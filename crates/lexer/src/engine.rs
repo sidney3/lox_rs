@@ -59,8 +59,13 @@ impl<T: TokenType> Lexer<T> {
       span: Span::new(program.len(), program.len()),
     });
 
+    let without_whitespace: Vec<_> = out
+      .into_iter()
+      .filter(|t| t.token_type != TokenType::whitespace())
+      .collect();
+
     let result = Tokens {
-      tokens: out,
+      tokens: without_whitespace,
       lexeme_arena: rodeo,
     };
 
@@ -194,6 +199,9 @@ mod test {
     fn eof() -> Self {
       TokenT::Eof
     }
+    fn whitespace() -> Self {
+      TokenT::Whitespace
+    }
   }
 
   fn canonical(t: &Token<TokenT>) -> Token<TokenT> {
@@ -218,11 +226,6 @@ mod test {
 
     let mut spur = |s| tokens.lexeme_arena.get_or_intern(s);
 
-    let ws_token = Token {
-      lexeme: spur(" "),
-      token_type: TokenT::Whitespace,
-      span: Span::trivial(),
-    };
     let struct_token = Token {
       lexeme: spur("struct"),
       token_type: TokenT::Struct,
@@ -231,25 +234,21 @@ mod test {
 
     let expected_tokens: Vec<_> = vec![
       struct_token,
-      ws_token,
       Token {
         lexeme: spur("structa"),
         token_type: TokenT::Literal,
         span: Span::trivial(),
       },
-      ws_token,
       Token {
         lexeme: spur("structs"),
         token_type: TokenT::Literal,
         span: Span::trivial(),
       },
-      ws_token,
       Token {
         lexeme: spur("sstruct"),
         token_type: TokenT::Literal,
         span: Span::trivial(),
       },
-      ws_token,
       struct_token,
       Token {
         lexeme: spur("EOF"),
