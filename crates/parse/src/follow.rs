@@ -32,12 +32,7 @@ pub(super) fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>
         .cloned()
         .collect();
 
-      let mut add_follow = |rule: &R, token: R::TokenType| {
-        if !follow_table[rule.ord()].contains(&token) {
-          changed = true;
-          follow_table[rule.ord()].insert(token);
-        }
-      };
+      let mut new_follows: SmallVec<[(R, R::TokenType); 8]> = SmallVec::new();
 
       let def = &production.definition;
 
@@ -50,21 +45,31 @@ pub(super) fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>
       for (i, sym) in def.iter().enumerate() {
         let Symbol::Rule(before) = sym else { continue };
 
-        let include_first_of = def[i + 1..]
+        let include_first_of: SmallVec<[Symbol<R>; 8]> = def[i + 1..]
           .iter()
           .copied()
-          .take_while_inclusive(|s| matches!(s, Symbol::Rule(r2) if rule_contains_epsilon(*r2)));
+          .take_while_inclusive(|s| matches!(s, Symbol::Rule(r2) if rule_contains_epsilon(*r2)))
+          .collect();
 
-        for after in include_first_of {
+        for after in &include_first_of {
           match after {
             Symbol::Token(t) => {
-              add_follow(before, t);
+              new_follows.push((*before, *t));
             }
             Symbol::Rule(r2) => {
               for fst_token in &first_table[r2.ord()] {
-                add_follow(before, *fst_token);
+                new_follows.push((*before, *fst_token));
               }
             }
+          }
+        }
+
+        if let Some(last) = include_first_of.last()
+          && let &Symbol::Rule(r) = last
+          && rule_contains_epsilon(r)
+        {
+          for follow_token in &follow_table[r.ord()] {
+            new_follows.push((*before, *follow_token));
           }
         }
       }
@@ -84,8 +89,12 @@ pub(super) fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>
       // Then B should contain FOLLOW(A)
       if let Some(Symbol::Rule(r)) = production.definition.last() {
         for t in follows {
-          add_follow(r, t);
+          new_follows.push((*r, t));
         }
+      }
+
+      for (r, t) in new_follows {
+        changed = changed || follow_table[r.ord()].insert(t);
       }
     }
   }
