@@ -1,96 +1,96 @@
-use crate::lparse_grammar::LGrammar,LParseToken,BoundLeaf,BoundRule,LRule;
+use crate::lparse_grammar::{LGrammar,LParseToken,BoundLeaf,BoundRule,LRule};
 use crate::lparse_grammar::Ident;
 
 goal_rule = LGrammar;
 token_type = LParseToken;
 
-BoundLeaf: BoundLeaf {
-	[_:LSquareBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RSquareBracket] => {{ BoundLeaf{token, bind_to } }},
+BoundLeaf: %BoundLeaf% {
+	[_:LSquareBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RSquareBracket] => % BoundLeaf{token, bind_to } %,
 };
 
 
-BoundRule: BoundRule {
-	[_:LAngleBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RAngleBracket] => {{ BoundRule{token, bind_to } }},
+BoundRule: %BoundRule% {
+	[_:LAngleBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RAngleBracket] => % BoundRule{token, bind_to } %,
 };
 
-Node: LNode {
-	<leaf:BoundLeaf> => {{ LNode::Leaf(leaf) }},
-	<rule:BoundRule> => {{ LNode::Rule(rule) }},
+Node: %LNode% {
+	<leaf:BoundLeaf> => % LNode::Leaf(leaf) %,
+	<rule:BoundRule> => % LNode::Rule(rule) %,
 };
 
-Nodes: Vec<Node> {
-	=> {{ Vec::new() }},
-	<first:Node> <rest:Nodes> => {{
+Nodes: %Vec<Node>% {
+	=> % Vec::new() %,
+	<first:Node> <rest:Nodes> => %
 		{
 			let mut all = rest;
 			all.push(first);
 			all
 		}
-	}},
+	%,
 };
 
-Production: ProductionDefinition {
-	<definition:Nodes> [_:Equals] [_:RangleBracket] [semantic_action:EmbeddedRust] [_:Semicolon] [_:Comma] => {{ ProductionDefinition{ definition, semantic_action } }},
+Production: %ProductionDefinition% {
+	<definition:Nodes> [_:Equals] [_:RangleBracket] [semantic_action:EmbeddedRust] [_:Semicolon] [_:Comma] => % ProductionDefinition{ definition, semantic_action } %,
 };
 
-Productions: Vec<ProductionDefinition> {
-	=> {{ Vec::new() }},
-	<first:Production> <rest:Productions> => {{
+Productions: %Vec<ProductionDefinition>% {
+	=> % Vec::new() %,
+	<first:Production> <rest:Productions> => %
 		{
 			let mut all = rest;
 			rest.push(first);
 			rest
 		}
-	}}
+	%,
 };
 
-Rule: LRule {
-	[name:Ident] [_:Colon] [return_type:Ident] [_:LCurlyBrace] <productions:Productions> [_:RCurlyBrace] [_:Semicolon] => {{
+Rule: %LRule% {
+	[name:Ident] [_:Colon] [return_type:Ident] [_:LCurlyBrace] <productions:Productions> [_:RCurlyBrace] [_:Semicolon] => %
 		LRule {
 			name,
 			return_type,
 			productions,
 		}
-	}}
+	%,
 };
 
-Rules: Vec<LRule> {
-	=> {{ Vec::new() }},
-	<first:Rule> <rest:Rules> => {{
+Rules: %Vec<LRule>% {
+	=> % Vec::new() %,
+	<first:Rule> <rest:Rules> => %
 		{
 			let mut all = rest;
 			rest.push(first);
 			rest
 		}
-	}}
+	%,
 };
 
-SetGoalRule: Ident {
-	[_:GoalRule] [_:Equal] [goal_rule:Ident] => {{ goal_rule }},
+SetGoalRule: %Ident% {
+	[_:GoalRule] [_:Equal] [goalrule:Ident] => % goalrule %,
 };
 
-SetTokenType: Ident {
-	[_:TokenType] [_:Equal] [token_type:Ident] => {{ token_type }},
+SetTokenType: %Ident% {
+	[_:TokenType] [_:Equal] [tokentype:Ident] => % tokentype %,
 };
 
-Preamble: Vec<Ident> {
-	=> {{ Vec::new() }},
-	[import:RustImport] <rest:Preamble> => {{
+Preamble: %Vec<Ident>% {
+	=> % Vec::new() %,
+	[import:RustImport] <rest:Preamble> => %
 		{
 			let mut all = rest;
 			rest.push(import);
 			all
 		}
-	}}
+	%,
 };
 
-Grammar: LGrammar {
- <preamble:Preamble> <goal_rule:SetGoalRule> <token_type:SetTokenType> <rules: Rules> => {{
+Grammar: %LGrammar% {
+ <preamble:Preamble> <goalrule:SetGoalRule> <tokentype:SetTokenType> <rules: Rules> => %
 	 LGrammar {
 	 	preamble,
-		goal_rule,
-		token_type,
+		goalrule,
+		tokentype,
 		rules,
 	 }
- }},
+ %,
 };

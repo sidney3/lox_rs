@@ -36,29 +36,35 @@ impl ParseLParseExt for Parser<LParseRule> {
   }
 }
 
+#[derive(Debug)]
 pub struct BoundLeaf {
   pub token: Ident,
   pub bind_to: Ident,
 }
+#[derive(Debug)]
 pub struct BoundRule {
   pub rule: Ident,
   pub bind_to: Ident,
 }
+#[derive(Debug)]
 pub enum LNode {
   Leaf(BoundLeaf),
   Rule(BoundRule),
 }
+#[derive(Debug)]
 pub struct ProductionDefinition {
   pub definition: Vec<LNode>,
   pub semantic_action: Ident,
 }
 
+#[derive(Debug)]
 pub struct LRule {
   pub name: Ident,
   pub return_type: Ident,
   pub productions: Vec<ProductionDefinition>,
 }
 
+#[derive(Debug)]
 pub struct LGrammar {
   pub preamble: Vec<Spur>,
   pub goal_rule: Ident,
@@ -113,7 +119,7 @@ const LEX_SPEC: &[(LParseToken, &str)] = &[
   (LParseToken::Comma, ","),
   (LParseToken::GoalRule, "goal_rule"),
   (LParseToken::TokenType, "token_type"),
-  (LParseToken::EmbeddedRust, "{{[\u{0}-\u{255}]*}}"),
+  (LParseToken::EmbeddedRust, "%[\u{0}-\u{24}\u{26}-\u{7F}]*%"),
   (LParseToken::Whitespace, " "),
   (LParseToken::Whitespace, "\t"),
   (LParseToken::Whitespace, "\n"),
@@ -212,7 +218,7 @@ fn lparse_grammar() -> Grammar<LParseRule> {
         definition: vec![
           Symbol::Token(LParseToken::Ident),
           Symbol::Token(LParseToken::Colon),
-          Symbol::Token(LParseToken::Ident),
+          Symbol::Token(LParseToken::EmbeddedRust),
           Symbol::Token(LParseToken::LCurlyBrace),
           Symbol::Rule(LParseRule::ProductionDefinitions),
           Symbol::Token(LParseToken::RCurlyBrace),
@@ -406,7 +412,7 @@ fn parse_rule(node: &ParentNode) -> LRule {
       [
         RawNode::Leaf(name_ident),
         RawNode::Leaf(colon),
-        RawNode::Leaf(return_type_ident),
+        RawNode::Leaf(return_type_rust_type),
         RawNode::Leaf(l_curly_brace),
         RawNode::Parent(production_definitions_inner),
         RawNode::Leaf(r_curly_brace),
@@ -414,7 +420,7 @@ fn parse_rule(node: &ParentNode) -> LRule {
       ],
     ) if (name_ident.token_type == LParseToken::Ident
       && colon.token_type == LParseToken::Colon
-      && return_type_ident.token_type == LParseToken::Ident
+      && return_type_rust_type.token_type == LParseToken::EmbeddedRust
       && l_curly_brace.token_type == LParseToken::LCurlyBrace
       && production_definitions_inner.rule == LParseRule::ProductionDefinitions
       && r_curly_brace.token_type == LParseToken::RCurlyBrace
@@ -422,7 +428,7 @@ fn parse_rule(node: &ParentNode) -> LRule {
     {
       LRule {
         name: name_ident.lexeme,
-        return_type: return_type_ident.lexeme,
+        return_type: return_type_rust_type.lexeme,
         productions: parse_production_definitions(production_definitions_inner),
       }
     }
@@ -433,11 +439,11 @@ fn parse_rule(node: &ParentNode) -> LRule {
 fn parse_rules(node: &ParentNode) -> Vec<LRule> {
   match (&node.rule, node.children.as_slice()) {
     (LParseRule::Rules, []) => vec![],
-    (LParseRule::Rules, [RawNode::Parent(rule_inner), RawNode::Parent(rules_inner)])
-      if (rule_inner.rule == LParseRule::Rule && rules_inner.rule == LParseRule::Rules) =>
+    (LParseRule::Rules, [RawNode::Parent(first), RawNode::Parent(rules_inner)])
+      if (first.rule == LParseRule::Rule && rules_inner.rule == LParseRule::Rules) =>
     {
-      let mut result = vec![parse_rule(rule_inner)];
-      result.extend(parse_rules(rules_inner));
+      let mut result = parse_rules(rules_inner);
+      result.push(parse_rule(first));
       result
     }
     _ => panic!("Unreachable"),

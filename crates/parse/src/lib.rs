@@ -15,6 +15,7 @@ mod lparse_grammar;
 
 pub use error::Error;
 pub use grammar::{Grammar, Production, Symbol};
+use log::debug;
 use lox_core::diagnostics::{self, Diagnostic, ToDiagnostic};
 pub use parser::{Node, Parent, Parser, Tree};
 pub use rule::Rule;
