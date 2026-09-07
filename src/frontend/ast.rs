@@ -4,10 +4,8 @@ use lox_derive::Ordinal;
 use nonempty::{NonEmpty, nonempty};
 use strum::Display;
 
-use super::error::Result;
 use super::token::LoxTokenKind;
 use crate::frontend::token::Ident;
-use lexer::Tokens;
 use parse::{Grammar, Node, Parent, Parser, Production, Rule, Symbol, Tree};
 
 #[derive(Ordinal, Eq, PartialEq, Hash, Display, Debug, PartialOrd)]
@@ -796,18 +794,10 @@ fn lox_grammar() -> Grammar<LoxRule> {
   )
 }
 
-pub struct LoxParser(Parser<LoxRule>);
+pub type LoxParser = Parser<LoxRule>;
 
-impl LoxParser {
-  pub fn new() -> Self {
-    Self(Parser::<LoxRule>::new(lox_grammar()))
-  }
-
-  pub fn parse(&self, tokens: Tokens<LoxTokenKind>) -> Result<Ast> {
-    let cst = self.0.parse(tokens)?;
-
-    Ok(Ast::from_cst(cst))
-  }
+pub fn make_lox_parser() -> LoxParser {
+  LoxParser::new(lox_grammar())
 }
 
 impl ExprStatement {

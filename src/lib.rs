@@ -28,10 +28,10 @@ pub enum LoxError {
 
 fn compile(program: &str, rt: &mut Runtime) -> Result<Root<Function>, frontend::Error> {
   let lexer = frontend::token::make_lox_lexer().expect("Token definition error");
-  let parser = frontend::ast::LoxParser::new();
+  let parser = frontend::ast::make_lox_parser();
 
   let tokens = lexer.lex(program)?;
-  let ast = parser.parse(tokens)?;
+  let ast = frontend::ast::Ast::from_cst(parser.parse(tokens)?);
   Ok(compile::Compiler::new(&ast, rt).compile())
 }
 
