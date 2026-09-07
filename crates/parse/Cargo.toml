@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 lox_core = { path = "../lox_core" }
+lox_derive = { path = "../lox_derive" }
 lexer = { path = "../lexer" }
 thiserror.workspace = true
 itertools.workspace = true
@@ -12,4 +13,11 @@ smallvec.workspace = true
 lasso.workspace = true
 log.workspace = true
 either.workspace = true
+strum.workspace = true
+proc-macro2.workspace = true
+clap.workspace = true
+env_logger.workspace = true
 ndarray = "0.17"
+syn.workspace = true
+prettyplease = "0.2"
+quote.workspace = true

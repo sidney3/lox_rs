@@ -5,7 +5,7 @@ members = ["crates/*"]
 [workspace.dependencies]
 proc-macro2 = { version = "1.0.74" }
 quote = { version = "1.0.35" }
-syn = { version = "2.0.81" }
+syn = { version = "2.0.81", features = ["full"] }
 smallvec = { version = "1" }
 itertools = { version = "0.12" }
 thiserror = { version = "2" }
@@ -13,6 +13,9 @@ lasso = { version = "0.7.3" }
 log = { version = "0.4.33" }
 either = { version = "1" }
 annotate-snippets = { version = "0.12.16" }
+strum = { version = "0.28.0", features = ["derive"] }
+clap = { version = "4.6.1", features = ["derive"] }
+env_logger = {  version = "0.11.11" }
 
 [package]
 name = "lox_rs"
@@ -27,15 +30,17 @@ thiserror.workspace = true
 lasso.workspace = true
 log.workspace = true
 either.workspace = true
+annotate-snippets.workspace = true
+strum.workspace = true
+clap.workspace = true
+env_logger.workspace = true
 nonempty = "0.10"
-strum = { version = "0.28.0", features = ["derive"] }
-clap = { version = "4.6.1", features = ["derive"] }
-env_logger = "0.11.11"
 
 lox_derive = { path = "crates/lox_derive" }
 lox_core = { path = "crates/lox_core" }
 lexer = { path = "crates/lexer" }
 parse = { path = "crates/parse" }
+quote.workspace = true
 
 [features]
 stress_test_gc = []

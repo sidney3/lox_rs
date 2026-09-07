@@ -336,6 +336,7 @@ dependencies = [
 name = "lox_rs"
 version = "0.1.0"
 dependencies = [
+ "annotate-snippets",
  "clap",
  "either",
  "env_logger",
@@ -347,6 +348,7 @@ dependencies = [
  "lox_derive",
  "nonempty",
  "parse",
+ "quote",
  "smallvec",
  "strum",
  "thiserror",
@@ -432,14 +434,22 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 name = "parse"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "either",
+ "env_logger",
  "itertools",
  "lasso",
  "lexer",
  "log",
  "lox_core",
+ "lox_derive",
  "ndarray",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
  "smallvec",
+ "strum",
+ "syn",
  "thiserror",
 ]
 
@@ -456,6 +466,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a106d1259c23fac8e543272398ae0e3c0b8d33c88ed73d0cc71b0f1d902618"
 dependencies = [
  "portable-atomic",
+]
+
+[[package]]
+name = "prettyplease"
+version = "0.2.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "479ca8adacdd7ce8f1fb39ce9ecccbfe93a3f1344b3d0d97f20bc0196208f62b"
+dependencies = [
+ "proc-macro2",
+ "syn",
 ]
 
 [[package]]

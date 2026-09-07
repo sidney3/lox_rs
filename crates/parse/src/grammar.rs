@@ -18,6 +18,7 @@ pub enum Symbol<R: Rule> {
 
 impl<R: Rule> Copy for Symbol<R> {}
 
+#[derive(Debug)]
 pub struct Production<R: Rule> {
   pub rule: R,
   pub definition: Vec<Symbol<R>>,
