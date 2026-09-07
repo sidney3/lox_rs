@@ -12,6 +12,7 @@ thiserror = { version = "2" }
 lasso = { version = "0.7.3" }
 log = { version = "0.4.33" }
 either = { version = "1" }
+annotate-snippets = { version = "0.12.16" }
 
 [package]
 name = "lox_rs"
@@ -30,7 +31,6 @@ nonempty = "0.10"
 strum = { version = "0.28.0", features = ["derive"] }
 clap = { version = "4.6.1", features = ["derive"] }
 env_logger = "0.11.11"
-annotate-snippets = "0.12.16"
 
 lox_derive = { path = "crates/lox_derive" }
 lox_core = { path = "crates/lox_core" }

@@ -1,12 +1,12 @@
 use lasso::Rodeo;
 use log::error;
 
-use super::Span;
 use super::dfa::Dfa;
 use super::error::{Error, Result};
 use super::nfa::Nfa;
 use super::regex::Regex;
 use super::token::{Token, TokenType};
+use lox_core::Span;
 
 pub struct Lexer<T> {
   dfa: Dfa<T>,

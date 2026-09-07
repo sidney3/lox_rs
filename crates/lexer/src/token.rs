@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use lasso::Spur;
 
-use super::Span;
+use lox_core::Span;
 
 pub trait TokenType: Hash + Eq + Clone + Copy + PartialEq {
   fn eof() -> Self;

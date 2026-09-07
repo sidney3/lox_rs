@@ -1,6 +1,6 @@
+use lox_core::Span;
+use lox_core::diagnostics::{Diagnostic, ToDiagnostic};
 use thiserror::Error;
-
-use lexer::Span;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -18,3 +18,14 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+impl ToDiagnostic for Error {
+  fn to_diagnostic(&self) -> Diagnostic {
+    match self {
+      &Self::ExpectedToken(span) => Diagnostic::from_span("Expected token", span),
+      &Self::UnexpectedToken(span) => Diagnostic::from_span("Unexpected token", span),
+      &Self::ExcessProgram(span) => Diagnostic::from_span("Unexpected excess characters", span),
+      Self::IncompleteProgram => Diagnostic::from_message("Incomplete program"),
+    }
+  }
+}

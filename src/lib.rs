@@ -12,9 +12,9 @@ use std::path::PathBuf;
 use log::error;
 
 use crate::executor::Executor;
-use crate::frontend::ToDiagnostic;
 use crate::obj::Function;
 use crate::runtime::{Root, Runtime, RuntimeError};
+use lox_core::diagnostics::ToDiagnostic;
 
 pub struct Config {
   pub script: PathBuf,
@@ -38,7 +38,7 @@ fn compile(program: &str, rt: &mut Runtime) -> Result<Root<Function>, frontend::
 pub fn run(config: Config) -> Result<(), LoxError> {
   let source_code = std::fs::read_to_string(config.script).expect("Source code reading error");
 
-  let diagnostic_renderer = frontend::diagnostics::DiagnosticRenderer::new(&source_code);
+  let diagnostic_renderer = lox_core::diagnostics::DiagnosticRenderer::new(&source_code);
   let mut rt = runtime::Runtime::new();
 
   let main = compile(source_code.as_str(), &mut rt).map_err(|e| {

@@ -125,7 +125,7 @@ const LEXICAL_SPEC: &[(LoxTokenKind, &str)] = &[
 mod test {
   use super::*;
 
-  use lexer::Span;
+  use lox_core::Span;
 
   type LoxToken = lexer::Token<LoxTokenKind>;
 

@@ -1,10 +1,8 @@
 use std::fmt::Display;
 
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
-use lexer::Error as LexError;
-use parse::Error as ParseError;
 
-pub use lexer::Span;
+pub use super::Span;
 
 pub struct Diagnostic {
   pub message: String,
@@ -63,29 +61,5 @@ impl<'s> DiagnosticRenderer<'s> {
     }
     let report = &[Level::ERROR.primary_title(&diag.message).element(snippet)];
     self.renderer.render(report).to_string()
-  }
-}
-
-impl ToDiagnostic for LexError {
-  fn to_diagnostic(&self) -> Diagnostic {
-    match self {
-      Self::UnterminatedEscape(_) => Diagnostic::from_message(self),
-      Self::UnterminatedRegex(_) => Diagnostic::from_message(self),
-      Self::MalformattedRange(_) => Diagnostic::from_message(self),
-      Self::UnorderedRange(_, _) => Diagnostic::from_message(self),
-
-      &Self::NoMatchingToken(span) => Diagnostic::from_span("No matching token", span),
-    }
-  }
-}
-
-impl ToDiagnostic for ParseError {
-  fn to_diagnostic(&self) -> Diagnostic {
-    match self {
-      &Self::ExpectedToken(span) => Diagnostic::from_span("Expected token", span),
-      &Self::UnexpectedToken(span) => Diagnostic::from_span("Unexpected token", span),
-      &Self::ExcessProgram(span) => Diagnostic::from_span("Unexpected excess characters", span),
-      Self::IncompleteProgram => Diagnostic::from_message("Incomplete program"),
-    }
   }
 }

@@ -1,7 +1,7 @@
 use thiserror::Error;
 
-use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
 use lexer::Error as LexError;
+use lox_core::diagnostics::{Diagnostic, ToDiagnostic};
 use parse::Error as ParseError;
 
 #[derive(Debug, Error)]

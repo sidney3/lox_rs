@@ -1,4 +1,4 @@
-use crate::frontend::diagnostics::{Diagnostic, ToDiagnostic};
+use lox_core::diagnostics::{Diagnostic, ToDiagnostic};
 
 #[derive(Debug)]
 pub struct RuntimeError {

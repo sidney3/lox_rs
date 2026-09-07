@@ -3,7 +3,6 @@ mod engine;
 mod error;
 mod nfa;
 mod regex;
-mod span;
 mod subset;
 mod token;
 
@@ -12,5 +11,4 @@ mod fa_test;
 
 pub use engine::{Lexer, Tokens};
 pub use error::Error;
-pub use span::Span;
 pub use token::{Token, TokenType};
