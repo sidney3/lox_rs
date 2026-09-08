@@ -1,16 +1,18 @@
 use crate::lparse_grammar::{LGrammar,LParseToken,BoundLeaf,BoundRule,LRule};
 use crate::lparse_grammar::Ident;
+use crate::Production;
+use crate::Grammar;
 
 goal_rule = LGrammar;
 token_type = LParseToken;
 
 BoundLeaf: %BoundLeaf% {
-	[_:LSquareBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RSquareBracket] => % BoundLeaf{token, bind_to } %,
+	[_1:LSquareBracket] [bind_to:Ident] [_2:Colon] [token: Ident] [_3: RSquareBracket] => % BoundLeaf{token: token.lexeme, bind_to: bind_to.lexeme } %,
 };
 
 
 BoundRule: %BoundRule% {
-	[_:LAngleBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RAngleBracket] => % BoundRule{token, bind_to } %,
+	[_1:LAngleBracket] [bind_to:Ident] [_2:Colon] [token: Ident] [_3: RAngleBracket] => % BoundRule{token: token.lexeme, bind_to: bind_to.lexeme } %,
 };
 
 Node: %LNode% {
@@ -30,7 +32,7 @@ Nodes: %Vec<Node>% {
 };
 
 Production: %ProductionDefinition% {
-	<definition:Nodes> [_:Equals] [_:RangleBracket] [semantic_action:EmbeddedRust] [_:Semicolon] [_:Comma] => % ProductionDefinition{ definition, semantic_action } %,
+	<definition:Nodes> [_1:Equals] [_2:RangleBracket] [semantic_action:EmbeddedRust] [_3:Semicolon] [_4:Comma] => % ProductionDefinition{ definition: definition.lexeme, semantic_action: semantic_action.lexeme } %,
 };
 
 Productions: %Vec<ProductionDefinition>% {
@@ -45,10 +47,10 @@ Productions: %Vec<ProductionDefinition>% {
 };
 
 Rule: %LRule% {
-	[name:Ident] [_:Colon] [return_type:Ident] [_:LCurlyBrace] <productions:Productions> [_:RCurlyBrace] [_:Semicolon] => %
+	[name:Ident] [_1:Colon] [return_type:Ident] [_2:LCurlyBrace] <productions:Productions> [_3:RCurlyBrace] [_4:Semicolon] => %
 		LRule {
-			name,
-			return_type,
+			name: name.lexeme,
+			return_type: return_type.lexeme,
 			productions,
 		}
 	%,
@@ -66,11 +68,11 @@ Rules: %Vec<LRule>% {
 };
 
 SetGoalRule: %Ident% {
-	[_:GoalRule] [_:Equal] [goalrule:Ident] => % goalrule %,
+	[_1:GoalRule] [_2:Equal] [goalrule:Ident] => % goalrule.lexeme %,
 };
 
 SetTokenType: %Ident% {
-	[_:TokenType] [_:Equal] [tokentype:Ident] => % tokentype %,
+	[_1:TokenType] [_2:Equal] [tokentype:Ident] => % tokentype.lexeme %,
 };
 
 Preamble: %Vec<Ident>% {
@@ -88,8 +90,8 @@ Grammar: %LGrammar% {
  <preamble:Preamble> <goalrule:SetGoalRule> <tokentype:SetTokenType> <rules: Rules> => %
 	 LGrammar {
 	 	preamble,
-		goalrule,
-		tokentype,
+		goal_rule: goalrule,
+		token_type: tokentype,
 		rules,
 	 }
  %,
