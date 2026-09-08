@@ -21,3 +21,4 @@ ndarray = "0.17"
 syn.workspace = true
 prettyplease = "0.2"
 quote.workspace = true
+heck.workspace = true

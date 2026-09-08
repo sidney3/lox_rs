@@ -1,3 +1,5 @@
+extern crate self as parse;
+
 mod action;
 mod debug;
 mod error;
@@ -10,12 +12,12 @@ mod parser;
 mod rule;
 mod state;
 
+mod generated_lparse_parser;
 mod lparse_compiler;
-mod lparse_grammar;
+mod lparse_frontend;
 
 pub use error::Error;
 pub use grammar::{Grammar, Production, Symbol};
-use log::debug;
 use lox_core::diagnostics::{self, Diagnostic, ToDiagnostic};
 pub use parser::{Node, Parent, Parser, Tree};
 pub use rule::Rule;
@@ -23,7 +25,7 @@ pub use rule::Rule;
 use std::path::Path;
 use thiserror::Error;
 
-use lparse_grammar::ParseLParseExt;
+use generated_lparse_parser::LParseParser;
 
 #[derive(Debug, Error)]
 pub enum ParseGenerateError {
@@ -41,13 +43,13 @@ pub enum ParseGenerateError {
 }
 
 pub fn run_generate_parser(input: &Path, output: &Path) -> Result<(), ParseGenerateError> {
-  let lexer = lparse_grammar::lexer().expect("Ill-formed LParse tokens ");
-  let parser = lparse_grammar::parser();
+  let lexer = lparse_frontend::lexer().expect("Ill-formed LParse tokens ");
 
   let program = std::fs::read_to_string(input)?;
 
   let tokens = lexer.lex(program.as_str())?;
-  let (rodeo, ast) = parser.parse_lparse(tokens)?;
+
+  let (rodeo, ast) = LParseParser::new().parse(tokens)?;
 
   let output_tokens = lparse_compiler::compile(&rodeo, &ast)?;
   let file: syn::File = syn::parse2(output_tokens).expect("Ill-formed output file");

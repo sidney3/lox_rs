@@ -16,6 +16,7 @@ annotate-snippets = { version = "0.12.16" }
 strum = { version = "0.28.0", features = ["derive"] }
 clap = { version = "4.6.1", features = ["derive"] }
 env_logger = {  version = "0.11.11" }
+heck = { version = "0.5.0" }
 
 [package]
 name = "lox_rs"

@@ -1,18 +1,28 @@
-use crate::lparse_grammar::{LGrammar,LParseToken,BoundLeaf,BoundRule,LRule};
-use crate::lparse_grammar::Ident;
-use crate::Production;
-use crate::Grammar;
+use crate::lparse_frontend::BoundLeaf;
+use crate::lparse_frontend::BoundRule;
+use crate::lparse_frontend::Ident;
+use crate::lparse_frontend::LGrammar;
+use crate::lparse_frontend::LNode;
+use crate::lparse_frontend::LParseToken;
+use crate::lparse_frontend::LRule;
+use crate::lparse_frontend::ProductionDefinition;
+use lasso::Rodeo;
+use lexer::Tokens;
+use lox_derive::Ordinal;
+use strum::Display;
+use std::collections::VecDeque;
+use parse;
 
-goal_rule = LGrammar;
+goal_rule = Grammar;
 token_type = LParseToken;
 
 BoundLeaf: %BoundLeaf% {
-	[_1:LSquareBracket] [bind_to:Ident] [_2:Colon] [token: Ident] [_3: RSquareBracket] => % BoundLeaf{token: token.lexeme, bind_to: bind_to.lexeme } %,
+	[_:LSquareBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RSquareBracket] => % BoundLeaf{token: token, bind_to: bind_to } %,
 };
 
 
 BoundRule: %BoundRule% {
-	[_1:LAngleBracket] [bind_to:Ident] [_2:Colon] [token: Ident] [_3: RAngleBracket] => % BoundRule{token: token.lexeme, bind_to: bind_to.lexeme } %,
+	[_:LAngleBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RAngleBracket] => % BoundRule{rule: token, bind_to: bind_to } %,
 };
 
 Node: %LNode% {
@@ -20,67 +30,67 @@ Node: %LNode% {
 	<rule:BoundRule> => % LNode::Rule(rule) %,
 };
 
-Nodes: %Vec<Node>% {
-	=> % Vec::new() %,
-	<first:Node> <rest:Nodes> => %
+Nodes: %VecDeque<LNode>% {
+	=> % VecDeque::new() %,
+	<head:Node> <tail:Nodes> => %
 		{
-			let mut all = rest;
-			all.push(first);
+			let mut all = tail;
+			all.push_front(head);
 			all
 		}
 	%,
 };
 
 Production: %ProductionDefinition% {
-	<definition:Nodes> [_1:Equals] [_2:RangleBracket] [semantic_action:EmbeddedRust] [_3:Semicolon] [_4:Comma] => % ProductionDefinition{ definition: definition.lexeme, semantic_action: semantic_action.lexeme } %,
+	<definition:Nodes> [_:Equals] [_:RAngleBracket] [semantic_action:EmbeddedRust] [_:Comma] => % ProductionDefinition{ definition: definition, semantic_action: semantic_action } %,
 };
 
-Productions: %Vec<ProductionDefinition>% {
-	=> % Vec::new() %,
-	<first:Production> <rest:Productions> => %
+Productions: %VecDeque<ProductionDefinition>% {
+	=> % VecDeque::new() %,
+	<head:Production> <tail:Productions> => %
 		{
-			let mut all = rest;
-			rest.push(first);
-			rest
+			let mut all = tail;
+			all.push_front(head);
+			all
 		}
 	%,
 };
 
 Rule: %LRule% {
-	[name:Ident] [_1:Colon] [return_type:Ident] [_2:LCurlyBrace] <productions:Productions> [_3:RCurlyBrace] [_4:Semicolon] => %
+	[name:Ident] [_:Colon] [return_type:EmbeddedRust] [_:LCurlyBrace] <productions:Productions> [_:RCurlyBrace] [_:Semicolon] => %
 		LRule {
-			name: name.lexeme,
-			return_type: return_type.lexeme,
+			name: name,
+			return_type: return_type,
 			productions,
 		}
 	%,
 };
 
-Rules: %Vec<LRule>% {
-	=> % Vec::new() %,
-	<first:Rule> <rest:Rules> => %
+Rules: %VecDeque<LRule>% {
+	=> % VecDeque::new() %,
+	<head:Rule> <tail:Rules>=> %
 		{
-			let mut all = rest;
-			rest.push(first);
-			rest
+			let mut all = tail;
+			all.push_front(head);
+			all
 		}
 	%,
 };
 
 SetGoalRule: %Ident% {
-	[_1:GoalRule] [_2:Equal] [goalrule:Ident] => % goalrule.lexeme %,
+	[_:GoalRule] [_:Equals] [goalrule:Ident] [_:Semicolon] => % goalrule %,
 };
 
 SetTokenType: %Ident% {
-	[_1:TokenType] [_2:Equal] [tokentype:Ident] => % tokentype.lexeme %,
+	[_:TokenType] [_:Equals] [tokentype:Ident] [_:Semicolon] => % tokentype %,
 };
 
-Preamble: %Vec<Ident>% {
-	=> % Vec::new() %,
-	[import:RustImport] <rest:Preamble> => %
+Preamble: %VecDeque<Ident>% {
+	=> % VecDeque::new() %,
+	[import:RustImport] <tail:Preamble> => %
 		{
-			let mut all = rest;
-			rest.push(import);
+			let mut all = tail;
+			all.push_front(import);
 			all
 		}
 	%,

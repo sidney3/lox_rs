@@ -437,6 +437,7 @@ dependencies = [
  "clap",
  "either",
  "env_logger",
+ "heck",
  "itertools",
  "lasso",
  "lexer",
