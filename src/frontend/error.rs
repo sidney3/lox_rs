@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use lexer::Error as LexError;
 use lox_core::diagnostics::{Diagnostic, ToDiagnostic};
-use parse::Error as ParseError;
+use lparse::Error as ParseError;
 
 #[derive(Debug, Error)]
 pub enum Error {

@@ -40,7 +40,7 @@ nonempty = "0.10"
 lox_derive = { path = "crates/lox_derive" }
 lox_core = { path = "crates/lox_core" }
 lexer = { path = "crates/lexer" }
-parse = { path = "crates/parse" }
+lparse = { path = "crates/lparse" }
 quote.workspace = true
 
 [features]

@@ -104,7 +104,7 @@ impl<'ast> Compiler<'ast> {
         let this_token_kind = self.ident_tokens(&leaf.token);
 
         quote! {
-          parse::Symbol::Token(#token_type::#this_token_kind)
+          lparse::Symbol::Token(#token_type::#this_token_kind)
         }
       }
       LNode::Rule(rule) => {
@@ -112,7 +112,7 @@ impl<'ast> Compiler<'ast> {
         let rule_type = self.rule_type();
 
         quote! {
-          parse::Symbol::Rule(#rule_type::#rule_tokens)
+          lparse::Symbol::Rule(#rule_type::#rule_tokens)
         }
       }
     }
@@ -129,7 +129,7 @@ impl<'ast> Compiler<'ast> {
     let rule_definition = production.definition.iter().map(|n| self.node_type(n));
 
     quote! {
-      parse::Production::<#rule_type> {
+      lparse::Production::<#rule_type> {
         rule: #rule_type::#rule_name,
         definition: Vec::from([
           #(#rule_definition),*
@@ -144,7 +144,7 @@ impl<'ast> Compiler<'ast> {
     let return_type = self.resolve_embedded_rust(rule.return_type);
 
     let parent_node = quote! {
-      parse::Parent<#rule_type>
+      lparse::Parent<#rule_type>
     };
 
     let match_branches = rule
@@ -173,20 +173,20 @@ impl<'ast> Compiler<'ast> {
     // parser :)
     quote! {
       pub struct LParseParser {
-        parser: parse::Parser<#rule_name>,
+        parser: lparse::Parser<#rule_name>,
       }
 
       impl LParseParser {
         pub fn new() -> Self {
           Self {
-            parser: parse::Parser::new(#grammar_func()),
+            parser: lparse::Parser::new(#grammar_func()),
           }
         }
 
-        pub fn parse(&self, tokens: Tokens<#token_type>) -> Result<(Rodeo, #goal_rule_type), parse::Error> {
+        pub fn parse(&self, tokens: Tokens<#token_type>) -> Result<(Rodeo, #goal_rule_type), lparse::Error> {
           let cst = self.parser.parse(tokens)?;
 
-          if let parse::Node::Parent(root) = &cst.root {
+          if let lparse::Node::Parent(root) = &cst.root {
             Ok((cst.lexeme_arena, #goal_rule_factory(&root)))
           } else {
             panic!("Unreachable, root of CST is a token");
@@ -217,7 +217,7 @@ impl<'ast> Compiler<'ast> {
       let anonymous_binding = anonymous_node_binding(i);
 
       quote! {
-        parse::Node::#node_kind(#anonymous_binding)
+        lparse::Node::#node_kind(#anonymous_binding)
       }
     });
 
@@ -315,8 +315,8 @@ impl<'ast> Compiler<'ast> {
     let goal_rule = self.ident_tokens(&self.grammar.goal_rule);
 
     quote! {
-      fn #make_grammar_name() -> parse::Grammar<#rule_type> {
-        parse::Grammar::new(
+      fn #make_grammar_name() -> lparse::Grammar<#rule_type> {
+        lparse::Grammar::new(
           #rule_type::#goal_rule, //<goal rule
           Vec::from([
             #(#rule_definitions)*
@@ -330,7 +330,7 @@ impl<'ast> Compiler<'ast> {
     let rule_type = self.rule_type();
     let token_type = self.token_type();
     quote! {
-      impl parse::Rule for #rule_type {
+      impl lparse::Rule for #rule_type {
         type TokenType = #token_type;
       }
     }

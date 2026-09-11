@@ -18,5 +18,5 @@ pub fn main() {
 
   let cli = Cli::parse();
 
-  parse::generate_parser(&cli.grammar, &cli.out).expect("Failed to generate parser");
+  lparse::generate_parser(&cli.grammar, &cli.out).expect("Failed to generate parser");
 }

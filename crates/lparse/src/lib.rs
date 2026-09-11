@@ -1,4 +1,4 @@
-extern crate self as parse;
+extern crate self as lparse;
 
 mod action;
 mod debug;

@@ -10,7 +10,7 @@ use lasso::Rodeo;
 use lexer::Tokens;
 use lox_derive::Ordinal;
 use strum::Display;
-use parse;
+use lparse;
 
 goal_rule = Grammar;
 token_type = LParseToken;
