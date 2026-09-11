@@ -22,9 +22,9 @@ pub(super) fn first<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>>
       let mut fst_set: SmallVec<[R::TokenType; 8]> = SmallVec::new();
 
       for node in first_nodes {
-        match node {
-          &Symbol::Token(t) => fst_set.push(t),
-          &Symbol::Rule(r) => fst_set.extend(first_table[r.ord()].iter().cloned()),
+        match *node {
+          Symbol::Token(t) => fst_set.push(t),
+          Symbol::Rule(r) => fst_set.extend(first_table[r.ord()].iter().cloned()),
         };
       }
 
