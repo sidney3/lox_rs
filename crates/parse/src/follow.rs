@@ -36,19 +36,15 @@ pub(super) fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>
 
       let def = &production.definition;
 
-      let rule_contains_epsilon = |r| {
-        grammar
-          .productions_for_rule(r)
-          .iter()
-          .any(|&p| grammar.production(p).is_empty())
-      };
       for (i, sym) in def.iter().enumerate() {
         let Symbol::Rule(before) = sym else { continue };
 
         let include_first_of: SmallVec<[Symbol<R>; 8]> = def[i + 1..]
           .iter()
           .copied()
-          .take_while_inclusive(|s| matches!(s, Symbol::Rule(r2) if rule_contains_epsilon(*r2)))
+          .take_while_inclusive(
+            |s| matches!(s, Symbol::Rule(r2) if grammar.rule_contains_epsilon(*r2)),
+          )
           .collect();
 
         for after in &include_first_of {
@@ -66,7 +62,7 @@ pub(super) fn follow<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>
 
         if let Some(last) = include_first_of.last()
           && let &Symbol::Rule(r) = last
-          && rule_contains_epsilon(r)
+          && grammar.rule_contains_epsilon(r)
         {
           for follow_token in &follow_table[r.ord()] {
             new_follows.push((*before, *follow_token));

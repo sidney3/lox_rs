@@ -127,6 +127,12 @@ impl<R: Rule> Grammar<R> {
   pub fn productions_for_rule(&self, r: R) -> &ProductionList {
     &self.productions_for_rule[r.ord()]
   }
+  pub fn rule_contains_epsilon(&self, r: R) -> bool {
+    self
+      .productions_for_rule(r)
+      .iter()
+      .any(|&p| self.production(p).is_empty())
+  }
   pub fn productions(&self) -> impl Iterator<Item = &Production<R>> {
     self.productions.iter()
   }

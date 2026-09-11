@@ -1,5 +1,6 @@
 use super::{Grammar, Rule, Symbol};
-use smallvec::{SmallVec, smallvec};
+use itertools::Itertools;
+use smallvec::SmallVec;
 use std::collections::HashSet;
 
 pub(super) fn first<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>> {
@@ -10,11 +11,23 @@ pub(super) fn first<R: Rule>(grammar: &Grammar<R>) -> Vec<HashSet<R::TokenType>>
     changed = false;
 
     for production in grammar.productions() {
-      let fst_set: SmallVec<[R::TokenType; 8]> = match production.definition.first() {
-        None => smallvec![],
-        Some(&Symbol::Token(t)) => smallvec![t],
-        Some(&Symbol::Rule(r)) => first_table[r.ord()].iter().cloned().collect(),
-      };
+      let first_nodes = production
+        .definition
+        .iter()
+        .take_while_inclusive(|sym| match sym {
+          Symbol::Token(_) => false,
+          &Symbol::Rule(rule) => grammar.rule_contains_epsilon(*rule),
+        });
+
+      let mut fst_set: SmallVec<[R::TokenType; 8]> = SmallVec::new();
+
+      for node in first_nodes {
+        match node {
+          &Symbol::Token(t) => fst_set.push(t),
+          &Symbol::Rule(r) => fst_set.extend(first_table[r.ord()].iter().cloned()),
+        };
+      }
+
       let mut add_first = |rule: &R, token: R::TokenType| {
         if !first_table[rule.ord()].contains(&token) {
           changed = true;
