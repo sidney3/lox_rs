@@ -358,6 +358,8 @@ impl<'ast> Compiler<'ast> {
       .map(|rule| self.rule_factory_function(rule));
 
     Ok(quote! {
+      #![allow(clippy::all)]
+
       #preamble
 
       #rule_enum_def

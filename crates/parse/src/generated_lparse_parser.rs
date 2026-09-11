@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 use crate::lparse_frontend::BoundLeaf;
 use crate::lparse_frontend::BoundRule;
 use crate::lparse_frontend::Ident;
