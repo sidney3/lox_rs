@@ -10,7 +10,6 @@ use lasso::Rodeo;
 use lexer::Tokens;
 use lox_derive::Ordinal;
 use strum::Display;
-use std::collections::VecDeque;
 use parse;
 
 goal_rule = Grammar;
@@ -30,12 +29,12 @@ Node: %LNode% {
 	<rule:BoundRule> => % LNode::Rule(rule) %,
 };
 
-Nodes: %VecDeque<LNode>% {
-	=> % VecDeque::new() %,
-	<head:Node> <tail:Nodes> => %
+Nodes: %Vec<LNode>% {
+	=> % Vec::new() %,
+	<head:Nodes> <node:Node>=> %
 		{
-			let mut all = tail;
-			all.push_front(head);
+			let mut all = head;
+			all.push(node);
 			all
 		}
 	%,
@@ -45,12 +44,12 @@ Production: %ProductionDefinition% {
 	<definition:Nodes> [_:Equals] [_:RAngleBracket] [semantic_action:EmbeddedRust] [_:Comma] => % ProductionDefinition{ definition: definition, semantic_action: semantic_action } %,
 };
 
-Productions: %VecDeque<ProductionDefinition>% {
-	=> % VecDeque::new() %,
-	<head:Production> <tail:Productions> => %
+Productions: %Vec<ProductionDefinition>% {
+	=> % Vec::new() %,
+	<head:Productions><production:Production>=> %
 		{
-			let mut all = tail;
-			all.push_front(head);
+			let mut all = head;
+			all.push(production);
 			all
 		}
 	%,
@@ -66,12 +65,12 @@ Rule: %LRule% {
 	%,
 };
 
-Rules: %VecDeque<LRule>% {
-	=> % VecDeque::new() %,
-	<head:Rule> <tail:Rules>=> %
+Rules: %Vec<LRule>% {
+	=> % Vec::new() %,
+	<head:Rules> <rule:Rule>=> %
 		{
-			let mut all = tail;
-			all.push_front(head);
+			let mut all = head;
+			all.push(rule);
 			all
 		}
 	%,
@@ -85,12 +84,12 @@ SetTokenType: %Ident% {
 	[_:TokenType] [_:Equals] [tokentype:Ident] [_:Semicolon] => % tokentype %,
 };
 
-Preamble: %VecDeque<Ident>% {
-	=> % VecDeque::new() %,
-	[import:RustImport] <tail:Preamble> => %
+Preamble: %Vec<Ident>% {
+	=> % Vec::new() %,
+	<head:Preamble> [import:RustImport]=> %
 		{
-			let mut all = tail;
-			all.push_front(import);
+			let mut all = head;
+			all.push(import);
 			all
 		}
 	%,

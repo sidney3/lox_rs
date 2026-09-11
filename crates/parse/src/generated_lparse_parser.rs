@@ -10,7 +10,6 @@ use lasso::Rodeo;
 use lexer::Tokens;
 use lox_derive::Ordinal;
 use strum::Display;
-use std::collections::VecDeque;
 use parse;
 #[derive(Ordinal, Eq, PartialEq, Hash, Display, Debug, PartialOrd)]
 enum ParseRule {
@@ -90,8 +89,8 @@ fn __make_grammar() -> parse::Grammar<ParseRule> {
             parse::Production::<ParseRule> {
                 rule: ParseRule::Nodes,
                 definition: Vec::from([
-                    parse::Symbol::Rule(ParseRule::Node),
                     parse::Symbol::Rule(ParseRule::Nodes),
+                    parse::Symbol::Rule(ParseRule::Node),
                 ]),
             },
             parse::Production::<ParseRule> {
@@ -111,8 +110,8 @@ fn __make_grammar() -> parse::Grammar<ParseRule> {
             parse::Production::<ParseRule> {
                 rule: ParseRule::Productions,
                 definition: Vec::from([
-                    parse::Symbol::Rule(ParseRule::Production),
                     parse::Symbol::Rule(ParseRule::Productions),
+                    parse::Symbol::Rule(ParseRule::Production),
                 ]),
             },
             parse::Production::<ParseRule> {
@@ -134,8 +133,8 @@ fn __make_grammar() -> parse::Grammar<ParseRule> {
             parse::Production::<ParseRule> {
                 rule: ParseRule::Rules,
                 definition: Vec::from([
-                    parse::Symbol::Rule(ParseRule::Rule),
                     parse::Symbol::Rule(ParseRule::Rules),
+                    parse::Symbol::Rule(ParseRule::Rule),
                 ]),
             },
             parse::Production::<ParseRule> {
@@ -163,8 +162,8 @@ fn __make_grammar() -> parse::Grammar<ParseRule> {
             parse::Production::<ParseRule> {
                 rule: ParseRule::Preamble,
                 definition: Vec::from([
-                    parse::Symbol::Token(LParseToken::RustImport),
                     parse::Symbol::Rule(ParseRule::Preamble),
+                    parse::Symbol::Token(LParseToken::RustImport),
                 ]),
             },
             parse::Production::<ParseRule> {
@@ -256,21 +255,21 @@ fn __rule_factory_function_node(node: &parse::Parent<ParseRule>) -> LNode {
         _ => panic!("Unreachable"),
     }
 }
-fn __rule_factory_function_nodes(node: &parse::Parent<ParseRule>) -> VecDeque<LNode> {
+fn __rule_factory_function_nodes(node: &parse::Parent<ParseRule>) -> Vec<LNode> {
     match (&node.rule, node.children.as_slice()) {
-        (ParseRule::Nodes, []) if true => VecDeque::new(),
+        (ParseRule::Nodes, []) if true => Vec::new(),
         (
             ParseRule::Nodes,
             [parse::Node::Parent(__node_0),
             parse::Node::Parent(__node_1),
             ],
-        ) if true && __node_0.rule == ParseRule::Node
-            && __node_1.rule == ParseRule::Nodes => {
-            let head = __rule_factory_function_node(__node_0);
-            let tail = __rule_factory_function_nodes(__node_1);
+        ) if true && __node_0.rule == ParseRule::Nodes
+            && __node_1.rule == ParseRule::Node => {
+            let head = __rule_factory_function_nodes(__node_0);
+            let node = __rule_factory_function_node(__node_1);
             {
-                let mut all = tail;
-                all.push_front(head);
+                let mut all = head;
+                all.push(node);
                 all
             }
         }
@@ -309,21 +308,21 @@ fn __rule_factory_function_production(
 }
 fn __rule_factory_function_productions(
     node: &parse::Parent<ParseRule>,
-) -> VecDeque<ProductionDefinition> {
+) -> Vec<ProductionDefinition> {
     match (&node.rule, node.children.as_slice()) {
-        (ParseRule::Productions, []) if true => VecDeque::new(),
+        (ParseRule::Productions, []) if true => Vec::new(),
         (
             ParseRule::Productions,
             [parse::Node::Parent(__node_0),
             parse::Node::Parent(__node_1),
             ],
-        ) if true && __node_0.rule == ParseRule::Production
-            && __node_1.rule == ParseRule::Productions => {
-            let head = __rule_factory_function_production(__node_0);
-            let tail = __rule_factory_function_productions(__node_1);
+        ) if true && __node_0.rule == ParseRule::Productions
+            && __node_1.rule == ParseRule::Production => {
+            let head = __rule_factory_function_productions(__node_0);
+            let production = __rule_factory_function_production(__node_1);
             {
-                let mut all = tail;
-                all.push_front(head);
+                let mut all = head;
+                all.push(production);
                 all
             }
         }
@@ -365,21 +364,21 @@ fn __rule_factory_function_rule(node: &parse::Parent<ParseRule>) -> LRule {
         _ => panic!("Unreachable"),
     }
 }
-fn __rule_factory_function_rules(node: &parse::Parent<ParseRule>) -> VecDeque<LRule> {
+fn __rule_factory_function_rules(node: &parse::Parent<ParseRule>) -> Vec<LRule> {
     match (&node.rule, node.children.as_slice()) {
-        (ParseRule::Rules, []) if true => VecDeque::new(),
+        (ParseRule::Rules, []) if true => Vec::new(),
         (
             ParseRule::Rules,
             [parse::Node::Parent(__node_0),
             parse::Node::Parent(__node_1),
             ],
-        ) if true && __node_0.rule == ParseRule::Rule
-            && __node_1.rule == ParseRule::Rules => {
-            let head = __rule_factory_function_rule(__node_0);
-            let tail = __rule_factory_function_rules(__node_1);
+        ) if true && __node_0.rule == ParseRule::Rules
+            && __node_1.rule == ParseRule::Rule => {
+            let head = __rule_factory_function_rules(__node_0);
+            let rule = __rule_factory_function_rule(__node_1);
             {
-                let mut all = tail;
-                all.push_front(head);
+                let mut all = head;
+                all.push(rule);
                 all
             }
         }
@@ -430,21 +429,21 @@ fn __rule_factory_function_set_token_type(node: &parse::Parent<ParseRule>) -> Id
         _ => panic!("Unreachable"),
     }
 }
-fn __rule_factory_function_preamble(node: &parse::Parent<ParseRule>) -> VecDeque<Ident> {
+fn __rule_factory_function_preamble(node: &parse::Parent<ParseRule>) -> Vec<Ident> {
     match (&node.rule, node.children.as_slice()) {
-        (ParseRule::Preamble, []) if true => VecDeque::new(),
+        (ParseRule::Preamble, []) if true => Vec::new(),
         (
             ParseRule::Preamble,
-            [parse::Node::Leaf(__node_0),
-            parse::Node::Parent(__node_1),
+            [parse::Node::Parent(__node_0),
+            parse::Node::Leaf(__node_1),
             ],
-        ) if true && __node_0.token_type == LParseToken::RustImport
-            && __node_1.rule == ParseRule::Preamble => {
-            let import = __node_0.lexeme;
-            let tail = __rule_factory_function_preamble(__node_1);
+        ) if true && __node_0.rule == ParseRule::Preamble
+            && __node_1.token_type == LParseToken::RustImport => {
+            let head = __rule_factory_function_preamble(__node_0);
+            let import = __node_1.lexeme;
             {
-                let mut all = tail;
-                all.push_front(import);
+                let mut all = head;
+                all.push(import);
                 all
             }
         }

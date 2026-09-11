@@ -1,7 +1,6 @@
 use lasso::Spur;
 use lexer::TokenType;
 use lox_derive::Ordinal;
-use std::collections::VecDeque;
 use strum::Display;
 
 pub type Ident = Spur;
@@ -27,7 +26,7 @@ pub enum LNode {
 }
 #[derive(Debug)]
 pub struct ProductionDefinition {
-  pub definition: VecDeque<LNode>,
+  pub definition: Vec<LNode>,
   pub semantic_action: Ident,
 }
 
@@ -35,15 +34,15 @@ pub struct ProductionDefinition {
 pub struct LRule {
   pub name: Ident,
   pub return_type: Ident,
-  pub productions: VecDeque<ProductionDefinition>,
+  pub productions: Vec<ProductionDefinition>,
 }
 
 #[derive(Debug)]
 pub struct LGrammar {
-  pub preamble: VecDeque<Spur>,
+  pub preamble: Vec<Spur>,
   pub goal_rule: Ident,
   pub token_type: Ident,
-  pub rules: VecDeque<LRule>,
+  pub rules: Vec<LRule>,
 }
 
 #[derive(Ordinal, Eq, PartialEq, Hash, Display, Debug, PartialOrd)]
