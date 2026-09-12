@@ -16,6 +16,7 @@ use lparse;
 enum ParseRule {
     BoundLeaf,
     BoundRule,
+    BoundKleeneRule,
     Node,
     Nodes,
     Production,
@@ -77,12 +78,27 @@ fn __make_grammar() -> lparse::Grammar<ParseRule> {
                 ]),
             },
             lparse::Production::<ParseRule> {
+                rule: ParseRule::BoundKleeneRule,
+                definition: Vec::from([
+                    lparse::Symbol::Token(LParseToken::LAngleBracket),
+                    lparse::Symbol::Token(LParseToken::Ident),
+                    lparse::Symbol::Token(LParseToken::Colon),
+                    lparse::Symbol::Token(LParseToken::Ident),
+                    lparse::Symbol::Token(LParseToken::Asterisk),
+                    lparse::Symbol::Token(LParseToken::RAngleBracket),
+                ]),
+            },
+            lparse::Production::<ParseRule> {
                 rule: ParseRule::Node,
                 definition: Vec::from([lparse::Symbol::Rule(ParseRule::BoundLeaf)]),
             },
             lparse::Production::<ParseRule> {
                 rule: ParseRule::Node,
                 definition: Vec::from([lparse::Symbol::Rule(ParseRule::BoundRule)]),
+            },
+            lparse::Production::<ParseRule> {
+                rule: ParseRule::Node,
+                definition: Vec::from([lparse::Symbol::Rule(ParseRule::BoundKleeneRule)]),
             },
             lparse::Production::<ParseRule> {
                 rule: ParseRule::Nodes,
@@ -240,6 +256,36 @@ fn __rule_factory_function_bound_rule(node: &lparse::Parent<ParseRule>) -> Bound
         _ => panic!("Unreachable"),
     }
 }
+fn __rule_factory_function_bound_kleene_rule(
+    node: &lparse::Parent<ParseRule>,
+) -> BoundRule {
+    match (&node.rule, node.children.as_slice()) {
+        (
+            ParseRule::BoundKleeneRule,
+            [lparse::Node::Leaf(__node_0),
+            lparse::Node::Leaf(__node_1),
+            lparse::Node::Leaf(__node_2),
+            lparse::Node::Leaf(__node_3),
+            lparse::Node::Leaf(__node_4),
+            lparse::Node::Leaf(__node_5),
+            ],
+        ) if true && __node_0.token_type == LParseToken::LAngleBracket
+            && __node_1.token_type == LParseToken::Ident
+            && __node_2.token_type == LParseToken::Colon
+            && __node_3.token_type == LParseToken::Ident
+            && __node_4.token_type == LParseToken::Asterisk
+            && __node_5.token_type == LParseToken::RAngleBracket => {
+            let _ = __node_0.lexeme;
+            let bind_to = __node_1.lexeme;
+            let _ = __node_2.lexeme;
+            let token = __node_3.lexeme;
+            let _ = __node_4.lexeme;
+            let _ = __node_5.lexeme;
+            BoundRule { rule: token, bind_to }
+        }
+        _ => panic!("Unreachable"),
+    }
+}
 fn __rule_factory_function_node(node: &lparse::Parent<ParseRule>) -> LNode {
     match (&node.rule, node.children.as_slice()) {
         (
@@ -257,6 +303,14 @@ fn __rule_factory_function_node(node: &lparse::Parent<ParseRule>) -> LNode {
         ) if true && __node_0.rule == ParseRule::BoundRule => {
             let rule = __rule_factory_function_bound_rule(__node_0);
             LNode::Rule(rule)
+        }
+        (
+            ParseRule::Node,
+            [lparse::Node::Parent(__node_0),
+            ],
+        ) if true && __node_0.rule == ParseRule::BoundKleeneRule => {
+            let rule = __rule_factory_function_bound_kleene_rule(__node_0);
+            LNode::Kleene(rule, ())
         }
         _ => panic!("Unreachable"),
     }

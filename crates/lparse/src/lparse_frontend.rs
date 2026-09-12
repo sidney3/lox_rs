@@ -133,6 +133,7 @@ pub enum LParseToken {
   Semicolon,
   Colon,
   Comma,
+  Asterisk,
   RustImport,
 
   // keywords
@@ -166,6 +167,7 @@ const LEX_SPEC: &[(LParseToken, &str)] = &[
   (LParseToken::Semicolon, ";"),
   (LParseToken::Colon, ":"),
   (LParseToken::Comma, ","),
+  (LParseToken::Asterisk, "\\*"),
   (LParseToken::GoalRule, "goal_rule"),
   (LParseToken::TokenType, "token_type"),
   (LParseToken::EmbeddedRust, "%[\u{0}-\u{24}\u{26}-\u{7F}]*%"),

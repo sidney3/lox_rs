@@ -24,9 +24,14 @@ BoundRule: %BoundRule% {
 	[_:LAngleBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RAngleBracket] => % BoundRule{rule: token, bind_to: bind_to } %,
 };
 
+BoundKleeneRule: %BoundRule% {
+	[_:LAngleBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: Asterisk] [_: RAngleBracket] => % BoundRule{rule: token, bind_to } %,
+};
+
 Node: %LNode% {
 	<leaf:BoundLeaf> => % LNode::Leaf(leaf) %,
 	<rule:BoundRule> => % LNode::Rule(rule) %,
+	<rule:BoundKleeneRule> => % LNode::Kleene(rule, ()) %,
 };
 
 Nodes: %Vec<LNode>% {
