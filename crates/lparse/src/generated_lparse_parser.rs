@@ -24,6 +24,7 @@ enum ParseRule {
     Rules,
     SetGoalRule,
     SetTokenType,
+    Import,
     Preamble,
     Grammar,
 }
@@ -157,6 +158,10 @@ fn __make_grammar() -> lparse::Grammar<ParseRule> {
                 ]),
             },
             lparse::Production::<ParseRule> {
+                rule: ParseRule::Import,
+                definition: Vec::from([lparse::Symbol::Token(LParseToken::RustImport)]),
+            },
+            lparse::Production::<ParseRule> {
                 rule: ParseRule::Preamble,
                 definition: Vec::from([]),
             },
@@ -164,7 +169,7 @@ fn __make_grammar() -> lparse::Grammar<ParseRule> {
                 rule: ParseRule::Preamble,
                 definition: Vec::from([
                     lparse::Symbol::Rule(ParseRule::Preamble),
-                    lparse::Symbol::Token(LParseToken::RustImport),
+                    lparse::Symbol::Rule(ParseRule::Import),
                 ]),
             },
             lparse::Production::<ParseRule> {
@@ -430,18 +435,31 @@ fn __rule_factory_function_set_token_type(node: &lparse::Parent<ParseRule>) -> I
         _ => panic!("Unreachable"),
     }
 }
+fn __rule_factory_function_import(node: &lparse::Parent<ParseRule>) -> Ident {
+    match (&node.rule, node.children.as_slice()) {
+        (
+            ParseRule::Import,
+            [lparse::Node::Leaf(__node_0),
+            ],
+        ) if true && __node_0.token_type == LParseToken::RustImport => {
+            let import = __node_0.lexeme;
+            import
+        }
+        _ => panic!("Unreachable"),
+    }
+}
 fn __rule_factory_function_preamble(node: &lparse::Parent<ParseRule>) -> Vec<Ident> {
     match (&node.rule, node.children.as_slice()) {
         (ParseRule::Preamble, []) if true => Vec::new(),
         (
             ParseRule::Preamble,
             [lparse::Node::Parent(__node_0),
-            lparse::Node::Leaf(__node_1),
+            lparse::Node::Parent(__node_1),
             ],
         ) if true && __node_0.rule == ParseRule::Preamble
-            && __node_1.token_type == LParseToken::RustImport => {
+            && __node_1.rule == ParseRule::Import => {
             let head = __rule_factory_function_preamble(__node_0);
-            let import = __node_1.lexeme;
+            let import = __rule_factory_function_import(__node_1);
             {
                 let mut all = head;
                 all.push(import);

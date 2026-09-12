@@ -84,9 +84,13 @@ SetTokenType: %Ident% {
 	[_:TokenType] [_:Equals] [tokentype:Ident] [_:Semicolon] => % tokentype %,
 };
 
+Import: %Ident% {
+	[import:RustImport] => %import%,
+};
+
 Preamble: %Vec<Ident>% {
 	=> % Vec::new() %,
-	<head:Preamble> [import:RustImport]=> %
+	<head:Preamble> <import:Import>=> %
 		{
 			let mut all = head;
 			all.push(import);
