@@ -1,6 +1,8 @@
+use itertools::Itertools;
 use lasso::{Rodeo, Spur};
 use lexer::TokenType;
 use lox_derive::Ordinal;
+use quote::{format_ident, quote};
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt::Debug;
@@ -40,7 +42,6 @@ pub struct BoundRule {
 pub enum LNode<S: Stage = Raw> {
   Leaf(BoundLeaf),
   Rule(BoundRule),
-  #[allow(dead_code)]
   Kleene(BoundRule, S::Kleene),
 }
 
@@ -63,6 +64,26 @@ pub struct LGrammar<S: Stage = Raw> {
   pub goal_rule: Ident,
   pub token_type: Ident,
   pub rules: Vec<LRule<S>>,
+}
+
+pub fn try_unwrap_embedded_rust(s: &str) -> Option<&str> {
+  s.strip_prefix("%").and_then(|s| s.strip_suffix("%"))
+}
+pub fn format_embedded_rust(s: &str) -> String {
+  format!("%{s}%")
+}
+
+impl<S: Stage> LGrammar<S> {
+  pub fn get_rule(&self, ident: Ident) -> Option<&LRule<S>> {
+    self.rules.iter().find(|r| r.name == ident)
+  }
+
+  pub fn all_productions(&self) -> impl Iterator<Item = &ProductionDefinition<S>> {
+    self.rules.iter().flat_map(|rule| rule.productions.iter())
+  }
+  pub fn all_nodes(&self) -> impl Iterator<Item = &LNode<S>> {
+    self.all_productions().flat_map(|p| p.definition.iter())
+  }
 }
 
 impl LGrammar {
@@ -111,13 +132,75 @@ impl LGrammar {
   }
 
   // OriginalRuleName -> Kleene for that rule
-  fn make_kleene_rules(&self, _rodeo: &mut Rodeo) -> HashMap<Ident, LRule<NoKleene>> {
-    HashMap::new()
+  fn make_kleene_rules(&self, rodeo: &mut Rodeo) -> HashMap<Ident, LRule<NoKleene>> {
+    self
+      .all_nodes()
+      .filter_map(|node| match node {
+        LNode::Kleene(bound_to, _) => Some(bound_to.rule),
+        _ => None,
+      })
+      .unique()
+      .map(|rule_ident| self.get_rule(rule_ident).expect("Unbound kleene"))
+      .map(|rule| (rule.name, self.make_kleene_rule(rule, rodeo)))
+      .collect()
   }
 
-  #[allow(dead_code)]
-  fn make_kleene_rule(&self, _rule: &LRule) -> LRule<NoKleene> {
-    todo!();
+  fn make_kleene_rule(&self, rule: &LRule, rodeo: &mut Rodeo) -> LRule<NoKleene> {
+    let name = format!("Reserved{}Kleene", rodeo.resolve(&rule.name));
+    let return_type = format_embedded_rust(
+      format!(
+        "Vec<{}>",
+        try_unwrap_embedded_rust(rodeo.resolve(&rule.return_type))
+          .expect("Return type not embedded rust")
+      )
+      .as_str(),
+    );
+
+    let trivial_semantic_action = quote! {
+      Vec::new()
+    };
+
+    let tail = "tail";
+    let first = "first";
+
+    let tail_ident = format_ident!("{}", tail);
+    let first_ident = format_ident!("{}", first);
+
+    let recursive_semantic_action = quote! {
+      let mut all = #first_ident;
+      all.push(#tail_ident);
+      all
+    };
+
+    let productions = vec![
+      ProductionDefinition::<NoKleene> {
+        definition: Vec::new(),
+        semantic_action: rodeo.get_or_intern(format_embedded_rust(
+          trivial_semantic_action.to_string().as_str(),
+        )),
+      },
+      ProductionDefinition::<NoKleene> {
+        definition: vec![
+          LNode::<NoKleene>::Rule(BoundRule {
+            rule: rodeo.get_or_intern(name.as_str()),
+            bind_to: rodeo.get_or_intern(first),
+          }),
+          LNode::<NoKleene>::Rule(BoundRule {
+            rule: rule.name,
+            bind_to: rodeo.get_or_intern(tail),
+          }),
+        ],
+        semantic_action: rodeo.get_or_intern(format_embedded_rust(
+          recursive_semantic_action.to_string().as_str(),
+        )),
+      },
+    ];
+
+    LRule::<NoKleene> {
+      name: rodeo.get_or_intern(name.as_str()),
+      return_type: rodeo.get_or_intern(return_type),
+      productions,
+    }
   }
 }
 

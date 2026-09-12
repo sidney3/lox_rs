@@ -34,49 +34,17 @@ Node: %LNode% {
 	<rule:BoundKleeneRule> => % LNode::Kleene(rule, ()) %,
 };
 
-Nodes: %Vec<LNode>% {
-	=> % Vec::new() %,
-	<head:Nodes> <node:Node>=> %
-		{
-			let mut all = head;
-			all.push(node);
-			all
-		}
-	%,
-};
 
 Production: %ProductionDefinition% {
-	<definition:Nodes> [_:Equals] [_:RAngleBracket] [semantic_action:EmbeddedRust] [_:Comma] => % ProductionDefinition{ definition: definition, semantic_action: semantic_action } %,
-};
-
-Productions: %Vec<ProductionDefinition>% {
-	=> % Vec::new() %,
-	<head:Productions><production:Production>=> %
-		{
-			let mut all = head;
-			all.push(production);
-			all
-		}
-	%,
+	<definition:Node*> [_:Equals] [_:RAngleBracket] [semantic_action:EmbeddedRust] [_:Comma] => % ProductionDefinition{ definition: definition, semantic_action: semantic_action } %,
 };
 
 Rule: %LRule% {
-	[name:Ident] [_:Colon] [return_type:EmbeddedRust] [_:LCurlyBrace] <productions:Productions> [_:RCurlyBrace] [_:Semicolon] => %
+	[name:Ident] [_:Colon] [return_type:EmbeddedRust] [_:LCurlyBrace] <productions:Production*> [_:RCurlyBrace] [_:Semicolon] => %
 		LRule {
 			name: name,
 			return_type: return_type,
 			productions,
-		}
-	%,
-};
-
-Rules: %Vec<LRule>% {
-	=> % Vec::new() %,
-	<head:Rules> <rule:Rule>=> %
-		{
-			let mut all = head;
-			all.push(rule);
-			all
 		}
 	%,
 };
@@ -93,19 +61,8 @@ Import: %Ident% {
 	[import:RustImport] => %import%,
 };
 
-Preamble: %Vec<Ident>% {
-	=> % Vec::new() %,
-	<head:Preamble> <import:Import>=> %
-		{
-			let mut all = head;
-			all.push(import);
-			all
-		}
-	%,
-};
-
 Grammar: %LGrammar% {
- <preamble:Preamble> <goalrule:SetGoalRule> <tokentype:SetTokenType> <rules: Rules> => %
+ <preamble:Import*> <goalrule:SetGoalRule> <tokentype:SetTokenType> <rules: Rule*> => %
 	 LGrammar {
 	 	preamble,
 		goal_rule: goalrule,

@@ -47,6 +47,10 @@ impl<'ast> Compiler<'ast> {
     }
   }
 
+  fn try_unwrap_embedded_rust(&self, ident: &Ident) -> Option<TokenStream> {
+    lparse_frontend::try_unwrap_embedded_rust(self.lexeme_arena.resolve(ident))
+      .and_then(|s| s.parse().ok())
+  }
   fn ident_tokens(&self, ident: &Ident) -> TokenStream {
     self
       .lexeme_arena
@@ -146,7 +150,9 @@ impl<'ast> Compiler<'ast> {
   fn rule_factory_function(&self, rule: &LRule) -> TokenStream {
     let func_name = self.rule_factory_function_name(rule);
     let rule_type = self.rule_type();
-    let return_type = self.resolve_embedded_rust(rule.return_type);
+    let return_type = self
+      .try_unwrap_embedded_rust(&rule.return_type)
+      .expect("Return type not embedded rust.");
 
     let parent_node = quote! {
       lparse::Parent<#rule_type>
@@ -172,7 +178,9 @@ impl<'ast> Compiler<'ast> {
     let rule_name = self.rule_type();
     let goal_rule_factory = self.rule_factory_function_name(self.goal_rule);
     let token_type = self.token_type();
-    let goal_rule_type = self.resolve_embedded_rust(self.goal_rule.return_type);
+    let goal_rule_type = self
+      .try_unwrap_embedded_rust(&self.goal_rule.return_type)
+      .expect("Return type is embedded rust");
 
     // TODO: rename from GeneratedParser to just...
     // parser :)
@@ -278,8 +286,8 @@ impl<'ast> Compiler<'ast> {
     });
 
     let semantic_action = self
-      .resolve_embedded_rust(production.semantic_action)
-      .unwrap();
+      .try_unwrap_embedded_rust(&production.semantic_action)
+      .expect("Invalid semantic action");
 
     quote! {
       (
@@ -342,15 +350,6 @@ impl<'ast> Compiler<'ast> {
         type TokenType = #token_type;
       }
     }
-  }
-
-  fn resolve_embedded_rust(&self, s: Ident) -> Option<TokenStream> {
-    self
-      .lexeme_arena
-      .resolve(&s)
-      .strip_prefix("%")
-      .and_then(|s| s.strip_suffix("%"))
-      .and_then(|s| s.parse().ok())
   }
 
   pub fn compile(&self) -> Result<TokenStream, Error> {

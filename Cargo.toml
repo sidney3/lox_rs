@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-proc-macro2 = { version = "1.0.74" }
+proc-macro2 = { version = "1.0.74", features = ["span-locations"] }
 quote = { version = "1.0.35" }
 syn = { version = "2.0.81", features = ["full"] }
 smallvec = { version = "1" }

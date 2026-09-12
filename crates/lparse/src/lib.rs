@@ -52,7 +52,20 @@ pub fn run_generate_parser(input: &Path, output: &Path) -> Result<(), ParseGener
   let (rodeo, ast) = LParseParser::new().parse(tokens)?;
 
   let output_tokens = lparse_compiler::compile(rodeo, ast)?;
-  let file: syn::File = syn::parse2(output_tokens).expect("Ill-formed output file");
+  let src = output_tokens.to_string();
+  let file: syn::File = match syn::parse_str(&src) {
+    Ok(f) => f,
+    Err(e) => {
+      let r = e.span().byte_range(); // Range<usize> into `src`
+      panic!(
+        "ill-formed output at bytes {}..{}: {}\n{}",
+        r.start,
+        r.end,
+        e,
+        &src[r.clone()], // the offending slice
+      );
+    }
+  };
 
   std::fs::write(output, prettyplease::unparse(&file))?;
 
