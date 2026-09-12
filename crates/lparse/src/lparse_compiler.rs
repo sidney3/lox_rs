@@ -5,8 +5,6 @@ use quote::{format_ident, quote};
 use std::collections::HashMap;
 use thiserror::Error;
 
-use crate::lparse_frontend::{LNode, LRule};
-
 use super::lparse_frontend::{self, Ident};
 
 #[derive(Debug, Error)]
@@ -16,22 +14,28 @@ pub enum Error {
 }
 
 pub fn compile(
-  lexeme_arena: Rodeo,
+  mut lexeme_arena: Rodeo,
   grammar: lparse_frontend::LGrammar,
 ) -> Result<TokenStream, Error> {
-  Compiler::new(&lexeme_arena, &grammar).compile()
+  let no_kleene_grammar = grammar.parse(&mut lexeme_arena);
+  Compiler::new(&lexeme_arena, &no_kleene_grammar).compile()
 }
 
+type LGrammar = lparse_frontend::LGrammar<lparse_frontend::NoKleene>;
+type LRule = lparse_frontend::LRule<lparse_frontend::NoKleene>;
+type LNode = lparse_frontend::LNode<lparse_frontend::NoKleene>;
+type ProductionDefinition = lparse_frontend::ProductionDefinition<lparse_frontend::NoKleene>;
+
 struct Compiler<'ast> {
-  grammar: &'ast lparse_frontend::LGrammar,
-  rules_by_ident: HashMap<Ident, &'ast lparse_frontend::LRule>,
-  goal_rule: &'ast lparse_frontend::LRule,
+  grammar: &'ast LGrammar,
+  rules_by_ident: HashMap<Ident, &'ast LRule>,
+  goal_rule: &'ast LRule,
   lexeme_arena: &'ast Rodeo,
 }
 
 impl<'ast> Compiler<'ast> {
-  pub fn new(lexeme_arena: &'ast Rodeo, grammar: &'ast lparse_frontend::LGrammar) -> Self {
-    let rules_by_ident: HashMap<Ident, &'ast lparse_frontend::LRule> =
+  pub fn new(lexeme_arena: &'ast Rodeo, grammar: &'ast LGrammar) -> Self {
+    let rules_by_ident: HashMap<Ident, &'ast LRule> =
       grammar.rules.iter().map(|rule| (rule.name, rule)).collect();
 
     let goal_rule = *rules_by_ident.get(&grammar.goal_rule).expect("GoalRule");
@@ -115,13 +119,14 @@ impl<'ast> Compiler<'ast> {
           lparse::Symbol::Rule(#rule_type::#rule_tokens)
         }
       }
+      LNode::Kleene(_, never) => match *never {},
     }
   }
 
   fn production_grammatical_definition(
     &self,
     parent_rule: &LRule,
-    production: &lparse_frontend::ProductionDefinition,
+    production: &ProductionDefinition,
   ) -> TokenStream {
     let rule_type = self.rule_type();
     let rule_name = self.ident_tokens(&parent_rule.name);
@@ -199,7 +204,7 @@ impl<'ast> Compiler<'ast> {
   fn production_match_statement(
     &self,
     parent_rule: &LRule,
-    production: &lparse_frontend::ProductionDefinition,
+    production: &ProductionDefinition,
   ) -> TokenStream {
     let rule_type = self.rule_type();
     let rule_name = self.ident_tokens(&parent_rule.name);
@@ -212,6 +217,7 @@ impl<'ast> Compiler<'ast> {
       let node_kind = match node {
         LNode::Leaf(_) => format_ident!("Leaf"),
         LNode::Rule(_) => format_ident!("Parent"),
+        LNode::Kleene(_, never) => match *never {},
       };
 
       let anonymous_binding = anonymous_node_binding(i);
@@ -243,6 +249,7 @@ impl<'ast> Compiler<'ast> {
             }
           }
         }
+        LNode::Kleene(_, never) => match *never {},
       }
     });
 
@@ -266,6 +273,7 @@ impl<'ast> Compiler<'ast> {
             #anonymous_binding.rule == #rule_type::#rule
           }
         }
+        LNode::Kleene(_, never) => match *never {},
       }
     });
 
