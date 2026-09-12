@@ -12,9 +12,9 @@ mod parser;
 mod rule;
 mod state;
 
-mod generated_lparse_parser;
 mod lparse_compiler;
 mod lparse_frontend;
+mod lparse_parser;
 
 pub use error::Error;
 pub use grammar::{Grammar, Production, Symbol};
@@ -25,7 +25,7 @@ pub use rule::Rule;
 use std::path::Path;
 use thiserror::Error;
 
-use generated_lparse_parser::LParseParser;
+use lparse_parser::LParseParser;
 
 #[derive(Debug, Error)]
 pub enum ParseGenerateError {
