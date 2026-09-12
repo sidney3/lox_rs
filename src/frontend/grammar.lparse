@@ -1,0 +1,14 @@
+use crate::frontend::token::LoxTokenKind;
+use crate::frontend::ast::Ast;
+use lasso::Rodeo;
+use lexer::Tokens;
+use lox_derive::Ordinal;
+use strum::Display;
+use lparse;
+
+goal_rule = Ast;
+token_type = LoxTokenKind;
+
+Ast: %usize% {
+
+};

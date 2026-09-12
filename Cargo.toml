@@ -24,6 +24,9 @@ version = "0.1.0"
 edition = "2024"
 
 
+[build-dependencies]
+lparse = { path = "crates/lparse" }
+
 [dependencies]
 smallvec.workspace = true
 itertools.workspace = true
