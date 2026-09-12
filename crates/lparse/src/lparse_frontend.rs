@@ -97,6 +97,8 @@ impl LGrammar {
       .collect();
     rules.extend(kleene_rules.into_values());
 
+    rules.sort_by(|lhs, rhs| lhs.name.cmp(&rhs.name));
+
     LGrammar::<NoKleene> {
       preamble: self.preamble,
       goal_rule: self.goal_rule,
