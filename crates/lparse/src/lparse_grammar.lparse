@@ -1,3 +1,5 @@
+#![allow(clippy::all)]
+
 use crate::lparse_frontend::BoundLeaf;
 use crate::lparse_frontend::BoundRule;
 use crate::lparse_frontend::Ident;
@@ -57,12 +59,13 @@ SetTokenType: %Ident% {
 	[_:TokenType] [_:Equals] [tokentype:Ident] [_:Semicolon] => % tokentype %,
 };
 
-Import: %Ident% {
+Preamble: %Ident% {
 	[import:RustImport] => %import%,
+	[directive:RustDirective] => %directive%,
 };
 
 Grammar: %LGrammar% {
- <preamble:Import*> <goalrule:SetGoalRule> <tokentype:SetTokenType> <rules: Rule*> => %
+ <preamble:Preamble*> <goalrule:SetGoalRule> <tokentype:SetTokenType> <rules: Rule*> => %
 	 LGrammar {
 	 	preamble,
 		goal_rule: goalrule,

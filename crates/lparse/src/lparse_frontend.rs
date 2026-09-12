@@ -95,8 +95,8 @@ impl LGrammar {
       .iter()
       .map(|r| self.parse_rule(r, &kleene_rules))
       .collect();
-    rules.extend(kleene_rules.into_values());
 
+    rules.extend(kleene_rules.into_values());
     rules.sort_by(|lhs, rhs| lhs.name.cmp(&rhs.name));
 
     LGrammar::<NoKleene> {
@@ -220,6 +220,7 @@ pub enum LParseToken {
   Comma,
   Asterisk,
   RustImport,
+  RustDirective,
 
   // keywords
   GoalRule,
@@ -260,5 +261,6 @@ const LEX_SPEC: &[(LParseToken, &str)] = &[
   (LParseToken::Whitespace, "\t"),
   (LParseToken::Whitespace, "\n"),
   (LParseToken::RustImport, "use ([a-zA-Z]|_|{|}|:|,| )*;"),
+  (LParseToken::RustDirective, "#!\\[allow\\(clippy::all\\)\\]"),
   (LParseToken::Ident, "([a-zA-Z]|_)([a-zA-Z0-9]|_)*"),
 ];
