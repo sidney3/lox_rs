@@ -51,7 +51,7 @@ pub fn run_generate_parser(input: &Path, output: &Path) -> Result<(), ParseGener
 
   let (rodeo, ast) = LParseParser::new().parse(tokens)?;
 
-  let output_tokens = lparse_compiler::compile(&rodeo, &ast)?;
+  let output_tokens = lparse_compiler::compile(rodeo, ast)?;
   let file: syn::File = syn::parse2(output_tokens).expect("Ill-formed output file");
 
   std::fs::write(output, prettyplease::unparse(&file))?;

@@ -15,11 +15,11 @@ pub enum Error {
   UnboundRule(String),
 }
 
-pub fn compile<'ast>(
-  lexeme_arena: &'ast Rodeo,
-  grammar: &'ast lparse_frontend::LGrammar,
+pub fn compile(
+  lexeme_arena: Rodeo,
+  grammar: lparse_frontend::LGrammar,
 ) -> Result<TokenStream, Error> {
-  Compiler::new(lexeme_arena, grammar).compile()
+  Compiler::new(&lexeme_arena, &grammar).compile()
 }
 
 struct Compiler<'ast> {
