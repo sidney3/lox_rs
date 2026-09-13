@@ -14,15 +14,15 @@ use lox_derive::Ordinal;
 use strum::Display;
 use lparse;
 
-goal_rule = Grammar;
+goal_rule = LGrammar;
 token_type = LParseToken;
 
-BoundLeaf: %BoundLeaf% {
+BoundLeaf {
 	[_:LSquareBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RSquareBracket] => % BoundLeaf{token: token, bind_to: bind_to } %,
 };
 
 
-BoundRule: %BoundRule% {
+BoundRule {
 	[_:LAngleBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: RAngleBracket] => % BoundRule{rule: token, bind_to: bind_to } %,
 };
 
@@ -30,22 +30,29 @@ BoundKleeneRule: %BoundRule% {
 	[_:LAngleBracket] [bind_to:Ident] [_:Colon] [token: Ident] [_: Asterisk] [_: RAngleBracket] => % BoundRule{rule: token, bind_to } %,
 };
 
-Node: %LNode% {
+LNode {
 	<leaf:BoundLeaf> => % LNode::Leaf(leaf) %,
 	<rule:BoundRule> => % LNode::Rule(rule) %,
 	<rule:BoundKleeneRule> => % LNode::Kleene(rule, ()) %,
 };
 
 
-Production: %ProductionDefinition% {
-	<definition:Node*> [_:Equals] [_:RAngleBracket] [semantic_action:EmbeddedRust] [_:Comma] => % ProductionDefinition{ definition: definition, semantic_action: semantic_action } %,
+ProductionDefinition {
+	<definition:LNode*> [_:Equals] [_:RAngleBracket] [semantic_action:EmbeddedRust] [_:Comma] => % ProductionDefinition{ definition: definition, semantic_action: semantic_action } %,
 };
 
-Rule: %LRule% {
-	[name:Ident] [_:Colon] [return_type:EmbeddedRust] [_:LCurlyBrace] <productions:Production*> [_:RCurlyBrace] [_:Semicolon] => %
+LRule {
+	[name:Ident] [_:Colon] [return_type:EmbeddedRust] [_:LCurlyBrace] <productions:ProductionDefinition*> [_:RCurlyBrace] [_:Semicolon] => %
 		LRule {
 			name: name,
-			return_type: return_type,
+			return_type: Some(return_type),
+			productions,
+		}
+	%,
+	[name:Ident] [_:LCurlyBrace] <productions:ProductionDefinition*> [_:RCurlyBrace] [_:Semicolon] => %
+		LRule {
+			name: name,
+			return_type: None,
 			productions,
 		}
 	%,
@@ -64,8 +71,8 @@ Preamble: %Ident% {
 	[directive:RustDirective] => %directive%,
 };
 
-Grammar: %LGrammar% {
- <preamble:Preamble*> <goalrule:SetGoalRule> <tokentype:SetTokenType> <rules: Rule*> => %
+LGrammar {
+ <preamble:Preamble*> <goalrule:SetGoalRule> <tokentype:SetTokenType> <rules: LRule*> => %
 	 LGrammar {
 	 	preamble,
 		goal_rule: goalrule,

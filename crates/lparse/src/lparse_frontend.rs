@@ -10,16 +10,19 @@ use strum::Display;
 
 pub(crate) trait Stage {
   type Kleene: Debug;
+  type RuleReturnType: Debug;
 }
 
 pub(crate) struct Raw {}
 impl Stage for Raw {
   type Kleene = ();
+  type RuleReturnType = Option<Ident>;
 }
 
 pub(crate) struct NoKleene {}
 impl Stage for NoKleene {
   type Kleene = Infallible;
+  type RuleReturnType = Ident;
 }
 
 pub type Ident = Spur;
@@ -54,7 +57,7 @@ pub struct ProductionDefinition<S: Stage = Raw> {
 #[derive(Debug)]
 pub struct LRule<S: Stage = Raw> {
   pub name: Ident,
-  pub return_type: Ident,
+  pub return_type: S::RuleReturnType,
   pub productions: Vec<ProductionDefinition<S>>,
 }
 
@@ -93,7 +96,7 @@ impl LGrammar {
     let mut rules: Vec<LRule<NoKleene>> = self
       .rules
       .iter()
-      .map(|r| self.parse_rule(r, &kleene_rules))
+      .map(|r| self.parse_rule(rodeo, r, &kleene_rules))
       .collect();
 
     rules.extend(kleene_rules.into_values());
@@ -109,6 +112,7 @@ impl LGrammar {
 
   fn parse_rule(
     &self,
+    rodeo: &mut Rodeo,
     rule: &LRule,
     kleene_rules: &HashMap<Ident, LRule<NoKleene>>,
   ) -> LRule<NoKleene> {
@@ -128,8 +132,18 @@ impl LGrammar {
 
     LRule::<NoKleene> {
       name: rule.name,
-      return_type: rule.return_type,
+      return_type: self.rule_return_type(rodeo, rule),
       productions: rule.productions.iter().map(parse_production).collect(),
+    }
+  }
+
+  fn rule_return_type(&self, rodeo: &mut Rodeo, rule: &LRule) -> Ident {
+    match rule.return_type {
+      Some(return_type) => return_type,
+      None => {
+        let defaulted_return_type = format_embedded_rust(rodeo.resolve(&rule.name));
+        rodeo.get_or_intern(defaulted_return_type)
+      }
     }
   }
 
@@ -149,10 +163,11 @@ impl LGrammar {
 
   fn make_kleene_rule(&self, rule: &LRule, rodeo: &mut Rodeo) -> LRule<NoKleene> {
     let name = format!("Reserved{}Kleene", rodeo.resolve(&rule.name));
+    let rule_return_type = self.rule_return_type(rodeo, rule);
     let return_type = format_embedded_rust(
       format!(
         "Vec<{}>",
-        try_unwrap_embedded_rust(rodeo.resolve(&rule.return_type))
+        try_unwrap_embedded_rust(rodeo.resolve(&rule_return_type))
           .expect("Return type not embedded rust")
       )
       .as_str(),

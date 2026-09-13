@@ -14,20 +14,20 @@ use strum::Display;
 use lparse;
 #[derive(Ordinal, Eq, PartialEq, Hash, Display, Debug, PartialOrd)]
 enum ParseRule {
-    Grammar,
+    LGrammar,
     BoundLeaf,
     BoundRule,
     BoundKleeneRule,
-    Node,
-    Production,
-    Rule,
+    LNode,
+    ProductionDefinition,
+    LRule,
     SetGoalRule,
     SetTokenType,
     Preamble,
-    ReservedNodeKleene,
-    ReservedProductionKleene,
+    ReservedLNodeKleene,
+    ReservedProductionDefinitionKleene,
     ReservedPreambleKleene,
-    ReservedRuleKleene,
+    ReservedLRuleKleene,
 }
 impl lparse::Rule for ParseRule {
     type TokenType = LParseToken;
@@ -47,7 +47,7 @@ impl LParseParser {
     ) -> Result<(Rodeo, LGrammar), lparse::Error> {
         let cst = self.parser.parse(tokens)?;
         if let lparse::Node::Parent(root) = &cst.root {
-            Ok((cst.lexeme_arena, __rule_factory_function_grammar(&root)))
+            Ok((cst.lexeme_arena, __rule_factory_function_l_grammar(&root)))
         } else {
             panic!("Unreachable, root of CST is a token");
         }
@@ -55,15 +55,15 @@ impl LParseParser {
 }
 fn __make_grammar() -> lparse::Grammar<ParseRule> {
     lparse::Grammar::new(
-        ParseRule::Grammar,
+        ParseRule::LGrammar,
         Vec::from([
             lparse::Production::<ParseRule> {
-                rule: ParseRule::Grammar,
+                rule: ParseRule::LGrammar,
                 definition: Vec::from([
                     lparse::Symbol::Rule(ParseRule::ReservedPreambleKleene),
                     lparse::Symbol::Rule(ParseRule::SetGoalRule),
                     lparse::Symbol::Rule(ParseRule::SetTokenType),
-                    lparse::Symbol::Rule(ParseRule::ReservedRuleKleene),
+                    lparse::Symbol::Rule(ParseRule::ReservedLRuleKleene),
                 ]),
             },
             lparse::Production::<ParseRule> {
@@ -98,21 +98,21 @@ fn __make_grammar() -> lparse::Grammar<ParseRule> {
                 ]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::Node,
+                rule: ParseRule::LNode,
                 definition: Vec::from([lparse::Symbol::Rule(ParseRule::BoundLeaf)]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::Node,
+                rule: ParseRule::LNode,
                 definition: Vec::from([lparse::Symbol::Rule(ParseRule::BoundRule)]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::Node,
+                rule: ParseRule::LNode,
                 definition: Vec::from([lparse::Symbol::Rule(ParseRule::BoundKleeneRule)]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::Production,
+                rule: ParseRule::ProductionDefinition,
                 definition: Vec::from([
-                    lparse::Symbol::Rule(ParseRule::ReservedNodeKleene),
+                    lparse::Symbol::Rule(ParseRule::ReservedLNodeKleene),
                     lparse::Symbol::Token(LParseToken::Equals),
                     lparse::Symbol::Token(LParseToken::RAngleBracket),
                     lparse::Symbol::Token(LParseToken::EmbeddedRust),
@@ -120,13 +120,23 @@ fn __make_grammar() -> lparse::Grammar<ParseRule> {
                 ]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::Rule,
+                rule: ParseRule::LRule,
                 definition: Vec::from([
                     lparse::Symbol::Token(LParseToken::Ident),
                     lparse::Symbol::Token(LParseToken::Colon),
                     lparse::Symbol::Token(LParseToken::EmbeddedRust),
                     lparse::Symbol::Token(LParseToken::LCurlyBrace),
-                    lparse::Symbol::Rule(ParseRule::ReservedProductionKleene),
+                    lparse::Symbol::Rule(ParseRule::ReservedProductionDefinitionKleene),
+                    lparse::Symbol::Token(LParseToken::RCurlyBrace),
+                    lparse::Symbol::Token(LParseToken::Semicolon),
+                ]),
+            },
+            lparse::Production::<ParseRule> {
+                rule: ParseRule::LRule,
+                definition: Vec::from([
+                    lparse::Symbol::Token(LParseToken::Ident),
+                    lparse::Symbol::Token(LParseToken::LCurlyBrace),
+                    lparse::Symbol::Rule(ParseRule::ReservedProductionDefinitionKleene),
                     lparse::Symbol::Token(LParseToken::RCurlyBrace),
                     lparse::Symbol::Token(LParseToken::Semicolon),
                 ]),
@@ -160,25 +170,25 @@ fn __make_grammar() -> lparse::Grammar<ParseRule> {
                 ]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::ReservedNodeKleene,
+                rule: ParseRule::ReservedLNodeKleene,
                 definition: Vec::from([]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::ReservedNodeKleene,
+                rule: ParseRule::ReservedLNodeKleene,
                 definition: Vec::from([
-                    lparse::Symbol::Rule(ParseRule::ReservedNodeKleene),
-                    lparse::Symbol::Rule(ParseRule::Node),
+                    lparse::Symbol::Rule(ParseRule::ReservedLNodeKleene),
+                    lparse::Symbol::Rule(ParseRule::LNode),
                 ]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::ReservedProductionKleene,
+                rule: ParseRule::ReservedProductionDefinitionKleene,
                 definition: Vec::from([]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::ReservedProductionKleene,
+                rule: ParseRule::ReservedProductionDefinitionKleene,
                 definition: Vec::from([
-                    lparse::Symbol::Rule(ParseRule::ReservedProductionKleene),
-                    lparse::Symbol::Rule(ParseRule::Production),
+                    lparse::Symbol::Rule(ParseRule::ReservedProductionDefinitionKleene),
+                    lparse::Symbol::Rule(ParseRule::ProductionDefinition),
                 ]),
             },
             lparse::Production::<ParseRule> {
@@ -193,23 +203,23 @@ fn __make_grammar() -> lparse::Grammar<ParseRule> {
                 ]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::ReservedRuleKleene,
+                rule: ParseRule::ReservedLRuleKleene,
                 definition: Vec::from([]),
             },
             lparse::Production::<ParseRule> {
-                rule: ParseRule::ReservedRuleKleene,
+                rule: ParseRule::ReservedLRuleKleene,
                 definition: Vec::from([
-                    lparse::Symbol::Rule(ParseRule::ReservedRuleKleene),
-                    lparse::Symbol::Rule(ParseRule::Rule),
+                    lparse::Symbol::Rule(ParseRule::ReservedLRuleKleene),
+                    lparse::Symbol::Rule(ParseRule::LRule),
                 ]),
             },
         ]),
     )
 }
-fn __rule_factory_function_grammar(node: &lparse::Parent<ParseRule>) -> LGrammar {
+fn __rule_factory_function_l_grammar(node: &lparse::Parent<ParseRule>) -> LGrammar {
     match (&node.rule, node.children.as_slice()) {
         (
-            ParseRule::Grammar,
+            ParseRule::LGrammar,
             [lparse::Node::Parent(__node_0),
             lparse::Node::Parent(__node_1),
             lparse::Node::Parent(__node_2),
@@ -218,11 +228,11 @@ fn __rule_factory_function_grammar(node: &lparse::Parent<ParseRule>) -> LGrammar
         ) if true && __node_0.rule == ParseRule::ReservedPreambleKleene
             && __node_1.rule == ParseRule::SetGoalRule
             && __node_2.rule == ParseRule::SetTokenType
-            && __node_3.rule == ParseRule::ReservedRuleKleene => {
+            && __node_3.rule == ParseRule::ReservedLRuleKleene => {
             let preamble = __rule_factory_function_reserved_preamble_kleene(__node_0);
             let goalrule = __rule_factory_function_set_goal_rule(__node_1);
             let tokentype = __rule_factory_function_set_token_type(__node_2);
-            let rules = __rule_factory_function_reserved_rule_kleene(__node_3);
+            let rules = __rule_factory_function_reserved_l_rule_kleene(__node_3);
             LGrammar {
                 preamble,
                 goal_rule: goalrule,
@@ -319,10 +329,10 @@ fn __rule_factory_function_bound_kleene_rule(
         _ => panic!("Unreachable"),
     }
 }
-fn __rule_factory_function_node(node: &lparse::Parent<ParseRule>) -> LNode {
+fn __rule_factory_function_l_node(node: &lparse::Parent<ParseRule>) -> LNode {
     match (&node.rule, node.children.as_slice()) {
         (
-            ParseRule::Node,
+            ParseRule::LNode,
             [lparse::Node::Parent(__node_0),
             ],
         ) if true && __node_0.rule == ParseRule::BoundLeaf => {
@@ -330,7 +340,7 @@ fn __rule_factory_function_node(node: &lparse::Parent<ParseRule>) -> LNode {
             LNode::Leaf(leaf)
         }
         (
-            ParseRule::Node,
+            ParseRule::LNode,
             [lparse::Node::Parent(__node_0),
             ],
         ) if true && __node_0.rule == ParseRule::BoundRule => {
@@ -338,7 +348,7 @@ fn __rule_factory_function_node(node: &lparse::Parent<ParseRule>) -> LNode {
             LNode::Rule(rule)
         }
         (
-            ParseRule::Node,
+            ParseRule::LNode,
             [lparse::Node::Parent(__node_0),
             ],
         ) if true && __node_0.rule == ParseRule::BoundKleeneRule => {
@@ -348,24 +358,24 @@ fn __rule_factory_function_node(node: &lparse::Parent<ParseRule>) -> LNode {
         _ => panic!("Unreachable"),
     }
 }
-fn __rule_factory_function_production(
+fn __rule_factory_function_production_definition(
     node: &lparse::Parent<ParseRule>,
 ) -> ProductionDefinition {
     match (&node.rule, node.children.as_slice()) {
         (
-            ParseRule::Production,
+            ParseRule::ProductionDefinition,
             [lparse::Node::Parent(__node_0),
             lparse::Node::Leaf(__node_1),
             lparse::Node::Leaf(__node_2),
             lparse::Node::Leaf(__node_3),
             lparse::Node::Leaf(__node_4),
             ],
-        ) if true && __node_0.rule == ParseRule::ReservedNodeKleene
+        ) if true && __node_0.rule == ParseRule::ReservedLNodeKleene
             && __node_1.token_type == LParseToken::Equals
             && __node_2.token_type == LParseToken::RAngleBracket
             && __node_3.token_type == LParseToken::EmbeddedRust
             && __node_4.token_type == LParseToken::Comma => {
-            let definition = __rule_factory_function_reserved_node_kleene(__node_0);
+            let definition = __rule_factory_function_reserved_l_node_kleene(__node_0);
             let _ = __node_1.lexeme;
             let _ = __node_2.lexeme;
             let semantic_action = __node_3.lexeme;
@@ -378,10 +388,10 @@ fn __rule_factory_function_production(
         _ => panic!("Unreachable"),
     }
 }
-fn __rule_factory_function_rule(node: &lparse::Parent<ParseRule>) -> LRule {
+fn __rule_factory_function_l_rule(node: &lparse::Parent<ParseRule>) -> LRule {
     match (&node.rule, node.children.as_slice()) {
         (
-            ParseRule::Rule,
+            ParseRule::LRule,
             [lparse::Node::Leaf(__node_0),
             lparse::Node::Leaf(__node_1),
             lparse::Node::Leaf(__node_2),
@@ -394,21 +404,47 @@ fn __rule_factory_function_rule(node: &lparse::Parent<ParseRule>) -> LRule {
             && __node_1.token_type == LParseToken::Colon
             && __node_2.token_type == LParseToken::EmbeddedRust
             && __node_3.token_type == LParseToken::LCurlyBrace
-            && __node_4.rule == ParseRule::ReservedProductionKleene
+            && __node_4.rule == ParseRule::ReservedProductionDefinitionKleene
             && __node_5.token_type == LParseToken::RCurlyBrace
             && __node_6.token_type == LParseToken::Semicolon => {
             let name = __node_0.lexeme;
             let _ = __node_1.lexeme;
             let return_type = __node_2.lexeme;
             let _ = __node_3.lexeme;
-            let productions = __rule_factory_function_reserved_production_kleene(
+            let productions = __rule_factory_function_reserved_production_definition_kleene(
                 __node_4,
             );
             let _ = __node_5.lexeme;
             let _ = __node_6.lexeme;
             LRule {
                 name: name,
-                return_type: return_type,
+                return_type: Some(return_type),
+                productions,
+            }
+        }
+        (
+            ParseRule::LRule,
+            [lparse::Node::Leaf(__node_0),
+            lparse::Node::Leaf(__node_1),
+            lparse::Node::Parent(__node_2),
+            lparse::Node::Leaf(__node_3),
+            lparse::Node::Leaf(__node_4),
+            ],
+        ) if true && __node_0.token_type == LParseToken::Ident
+            && __node_1.token_type == LParseToken::LCurlyBrace
+            && __node_2.rule == ParseRule::ReservedProductionDefinitionKleene
+            && __node_3.token_type == LParseToken::RCurlyBrace
+            && __node_4.token_type == LParseToken::Semicolon => {
+            let name = __node_0.lexeme;
+            let _ = __node_1.lexeme;
+            let productions = __rule_factory_function_reserved_production_definition_kleene(
+                __node_2,
+            );
+            let _ = __node_3.lexeme;
+            let _ = __node_4.lexeme;
+            LRule {
+                name: name,
+                return_type: None,
                 productions,
             }
         }
@@ -480,20 +516,20 @@ fn __rule_factory_function_preamble(node: &lparse::Parent<ParseRule>) -> Ident {
         _ => panic!("Unreachable"),
     }
 }
-fn __rule_factory_function_reserved_node_kleene(
+fn __rule_factory_function_reserved_l_node_kleene(
     node: &lparse::Parent<ParseRule>,
 ) -> Vec<LNode> {
     match (&node.rule, node.children.as_slice()) {
-        (ParseRule::ReservedNodeKleene, []) if true => Vec::new(),
+        (ParseRule::ReservedLNodeKleene, []) if true => Vec::new(),
         (
-            ParseRule::ReservedNodeKleene,
+            ParseRule::ReservedLNodeKleene,
             [lparse::Node::Parent(__node_0),
             lparse::Node::Parent(__node_1),
             ],
-        ) if true && __node_0.rule == ParseRule::ReservedNodeKleene
-            && __node_1.rule == ParseRule::Node => {
-            let first = __rule_factory_function_reserved_node_kleene(__node_0);
-            let tail = __rule_factory_function_node(__node_1);
+        ) if true && __node_0.rule == ParseRule::ReservedLNodeKleene
+            && __node_1.rule == ParseRule::LNode => {
+            let first = __rule_factory_function_reserved_l_node_kleene(__node_0);
+            let tail = __rule_factory_function_l_node(__node_1);
             let mut all = first;
             all.push(tail);
             all
@@ -501,20 +537,22 @@ fn __rule_factory_function_reserved_node_kleene(
         _ => panic!("Unreachable"),
     }
 }
-fn __rule_factory_function_reserved_production_kleene(
+fn __rule_factory_function_reserved_production_definition_kleene(
     node: &lparse::Parent<ParseRule>,
 ) -> Vec<ProductionDefinition> {
     match (&node.rule, node.children.as_slice()) {
-        (ParseRule::ReservedProductionKleene, []) if true => Vec::new(),
+        (ParseRule::ReservedProductionDefinitionKleene, []) if true => Vec::new(),
         (
-            ParseRule::ReservedProductionKleene,
+            ParseRule::ReservedProductionDefinitionKleene,
             [lparse::Node::Parent(__node_0),
             lparse::Node::Parent(__node_1),
             ],
-        ) if true && __node_0.rule == ParseRule::ReservedProductionKleene
-            && __node_1.rule == ParseRule::Production => {
-            let first = __rule_factory_function_reserved_production_kleene(__node_0);
-            let tail = __rule_factory_function_production(__node_1);
+        ) if true && __node_0.rule == ParseRule::ReservedProductionDefinitionKleene
+            && __node_1.rule == ParseRule::ProductionDefinition => {
+            let first = __rule_factory_function_reserved_production_definition_kleene(
+                __node_0,
+            );
+            let tail = __rule_factory_function_production_definition(__node_1);
             let mut all = first;
             all.push(tail);
             all
@@ -543,20 +581,20 @@ fn __rule_factory_function_reserved_preamble_kleene(
         _ => panic!("Unreachable"),
     }
 }
-fn __rule_factory_function_reserved_rule_kleene(
+fn __rule_factory_function_reserved_l_rule_kleene(
     node: &lparse::Parent<ParseRule>,
 ) -> Vec<LRule> {
     match (&node.rule, node.children.as_slice()) {
-        (ParseRule::ReservedRuleKleene, []) if true => Vec::new(),
+        (ParseRule::ReservedLRuleKleene, []) if true => Vec::new(),
         (
-            ParseRule::ReservedRuleKleene,
+            ParseRule::ReservedLRuleKleene,
             [lparse::Node::Parent(__node_0),
             lparse::Node::Parent(__node_1),
             ],
-        ) if true && __node_0.rule == ParseRule::ReservedRuleKleene
-            && __node_1.rule == ParseRule::Rule => {
-            let first = __rule_factory_function_reserved_rule_kleene(__node_0);
-            let tail = __rule_factory_function_rule(__node_1);
+        ) if true && __node_0.rule == ParseRule::ReservedLRuleKleene
+            && __node_1.rule == ParseRule::LRule => {
+            let first = __rule_factory_function_reserved_l_rule_kleene(__node_0);
+            let tail = __rule_factory_function_l_rule(__node_1);
             let mut all = first;
             all.push(tail);
             all
