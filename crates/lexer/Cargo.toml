@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-lox_core = { path = "../lox_core" }
+lox_core.workspace = true
 bitvec = { version = "1" }
 thiserror.workspace = true
 itertools.workspace = true

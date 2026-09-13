@@ -18,6 +18,11 @@ clap = { version = "4.6.1", features = ["derive"] }
 env_logger = {  version = "0.11.11" }
 heck = { version = "0.5.0" }
 
+lox_core = { path = "crates/lox_core" }
+lox_derive = { path = "crates/lox_derive" }
+lexer = { path = "crates/lexer" }
+lparse = { path = "crates/lparse" }
+
 [package]
 name = "lox_rs"
 version = "0.1.0"
@@ -39,12 +44,12 @@ strum.workspace = true
 clap.workspace = true
 env_logger.workspace = true
 nonempty = "0.10"
-
-lox_derive = { path = "crates/lox_derive" }
-lox_core = { path = "crates/lox_core" }
-lexer = { path = "crates/lexer" }
-lparse = { path = "crates/lparse" }
 quote.workspace = true
+
+lox_derive.workspace = true
+lox_core.workspace = true
+lexer.workspace = true
+lparse.workspace = true
 
 [features]
 stress_test_gc = []
