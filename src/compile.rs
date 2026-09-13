@@ -399,8 +399,23 @@ impl<'a, 'vm> Compiler<'a, 'vm> {
 
   fn lit(&mut self, lit: &Literal) {
     match lit {
-      &Literal::Num(x) => self.constant(Value::Num(x)),
-      Literal::String(x) => {
+      Literal::Num(x) => self.constant(Value::Num(
+        self
+          .ast
+          .lexeme_arena
+          .resolve(x)
+          .parse()
+          .expect("Int token incorrectly defined"),
+      )),
+      Literal::String(string_ident) => {
+        let x = self
+          .ast
+          .lexeme_arena
+          .resolve(string_ident)
+          .strip_prefix("\"")
+          .and_then(|s| s.strip_suffix("\""))
+          .unwrap()
+          .to_string();
         let string_val = Value::Obj(self.rt.alloc(ObjData::LoxString(LoxString::new(x.clone()))));
         self.constant(string_val);
       }

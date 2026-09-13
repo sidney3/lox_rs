@@ -118,10 +118,10 @@ pub struct Unary {
 
 #[derive(Debug)]
 pub enum Literal {
-  Num(f64),
-  String(String),
+  Num(Ident),
+  String(Ident),
   Bool(bool),
-  Var(lasso::Spur),
+  Var(Ident),
 }
 
 #[derive(Debug)]
@@ -1288,9 +1288,9 @@ impl Expression {
         rule: LoxRule::Literal,
         children,
       }) => match children.as_slice() {
-        [Node::Leaf(num)] if num.token_type == LoxTokenKind::Number => Expression::Lit(
-          Literal::Num(root.lexeme_arena.resolve(&num.lexeme).parse().unwrap()),
-        ),
+        [Node::Leaf(num)] if num.token_type == LoxTokenKind::Number => {
+          Expression::Lit(Literal::Num(num.lexeme))
+        }
         [Node::Leaf(num)] if num.token_type == LoxTokenKind::True => {
           Expression::Lit(Literal::Bool(true))
         }
@@ -1311,15 +1311,7 @@ impl Expression {
         [Node::Leaf(ident)] if ident.token_type == LoxTokenKind::Nil => Expression::Nil,
 
         [Node::Leaf(s)] if s.token_type == LoxTokenKind::String => {
-          let inner = root
-            .lexeme_arena
-            .resolve(&s.lexeme)
-            .strip_prefix("\"")
-            .and_then(|s| s.strip_suffix("\""))
-            .unwrap()
-            .to_string();
-
-          Expression::Lit(Literal::String(inner))
+          Expression::Lit(Literal::String(s.lexeme))
         }
         _ => panic!("unreachable literal"),
       },
