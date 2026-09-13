@@ -1,14 +1,212 @@
 use crate::frontend::token::LoxTokenKind;
-use crate::frontend::ast::Ast;
+use crate::frontend::ast::UnaryOp;
+use crate::frontend::ast::BinOp;
+use crate::frontend::ast::Binary;
+use crate::frontend::ast::Unary;
+use crate::frontend::ast::Literal;
+use crate::frontend::ast::Call;
+use crate::frontend::ast::Member;
+use crate::frontend::ast::Expression;
+use crate::frontend::ast::WhileStatement;
+use crate::frontend::ast::ForLoop;
+use crate::frontend::ast::IfStatement;
+use crate::frontend::ast::ElseTail;
+use crate::frontend::ast::Block;
+use crate::frontend::ast::Return;
+use crate::frontend::ast::Statement;
+use crate::frontend::ast::FuncDecl;
+use crate::frontend::ast::VarDeclaration;
+use crate::frontend::ast::ExprStatement;
+use crate::frontend::ast::ClassDeclaration;
+use crate::frontend::ast::Declaration;
+use crate::frontend::ast::LValue;
+use crate::frontend::ast::Assign;
+use crate::frontend::ast::Program;
+use crate::frontend::token::Ident;
 use lasso::Rodeo;
 use lexer::Tokens;
 use lox_derive::Ordinal;
 use strum::Display;
 use lparse;
 
-goal_rule = Ast;
+goal_rule = Program;
 token_type = LoxTokenKind;
 
-Ast: %usize% {
+Program {
+	<declarations: Declaration*> => % Program { declarations } %,
+};
 
+Declaration {
+	<var_decl: VarDeclaration>[_:Semicolon] => % Declaration::Var(var_decl) %,
+	[_:Fun] <func:FuncDecl> => % Declaration::Fun(func) %,
+	[_:Class] <class:ClassDeclaration> => % Declaration::Class(class) %,
+	<stmnt: Statement> => % Declaration::Statement(stmnt) %,
+};
+
+VarDeclaration {
+	[_:Var] [ident:Ident]	[_:Equal] <assign: Expression> => % VarDeclaration{ ident, assign } %,
+};
+
+FuncDecl {
+	[name:Ident] [_:LParen] <args:FuncArgs> [_:RParen] [_:LBracket] <body:Block> [_:RBracket] => % FuncDecl { name, body, args } %,
+};
+
+ClassDeclaration {
+	[ident: Ident] <inherits:ClassInherits> [_:LBracket] <methods:FuncDecl*> [_:RBracket] => % ClassDeclaration { ident, methods, inherits } %,
+};
+
+ClassInherits: %Option<Ident>% {
+	=> % None %,
+	[_:Less] [inherits: Ident] => % Some(inherits) %,
+};
+
+FuncArgs: % Vec<Ident> % {
+	=> % Vec::new() %,
+	[first: Ident] <rest:TrailingFuncArg*> => %
+	{
+		let mut out = vec![first];
+		out.extend(rest.into_iter());
+		out
+	}
+	%,
+};
+
+TrailingFuncArg: % Ident % {
+	[_:Comma] [ident:Ident] => % ident %,
+};
+
+Statement {
+	<expr: Expression> [_:Semicolon] => % Statement::Expr(ExprStatement{ expr }) %,
+	[_:LBracket] <block: Block> [_:RBracket] => % Statement::Block(block) %,
+	<if_statement: IfStatement> => % Statement::If(if_statement) %,
+	[_:Break] [_:Semicolon] => % Statement::Break %,
+	<return_statement:Return> => % Statement::Return(return_statement) %,
+	<for_statement: ForLoop> => % Statement::For(for_statement) %,
+	<while_statement: WhileStatement> => % Statement::While(while_statement) %,
+};
+
+Block {
+	<declarations: Declaration*> => % Block { declarations } %,
+};
+
+IfStatement {
+	[_:If] <cond:Expression> [_:LBracket] <body:Block> [_:RBracket] => % IfStatement::Trivial{ cond, body: Box::new(body), } %,
+	[_:If] <cond:Expression> [_:LBracket] <true_case:Block> [_:RBracket] [_:Else] <false_case:ElseTail> => %
+		IfStatement::Fork{
+			cond,
+			true_case: Box::new(true_case),
+			false_case,
+		}
+	%,
+};
+
+ElseTail {
+	[_:LBracket] <body: Block> [_:RBracket] => % ElseTail::Trivial(Box::new(body)) %,
+	<if_statement: IfStatement> => % ElseTail::If(Box::new(if_statement)) %,
+};
+
+WhileStatement {
+	[_:While] <cond: Expression> [_:LBracket] <body: Block> [_:RBracket] => % WhileStatement{ cond, body: Box::new(body) } %,
+};
+
+ForLoop {
+	[_:For] [_:LParen] <init: VarDeclaration> [_:Semicolon] <condition: Expression> [_:Semicolon] <increment: Expression> [_:RParen] [_:LBracket] <body: Block> [_:RBracket] => %
+		ForLoop {
+			init: Box::new(init),
+			condition,
+			increment,
+			body: Box::new(body),
+		}
+	%,
+};
+
+Return {
+	[_:Return] [_:Semicolon] => % Return { expr: Expression::Nil } %,
+	[_:Return] <expr:Expression> [_:Semicolon] => % Return { expr } %,
+};
+
+Expression {
+	<assign:Assign> => %assign%,
+};
+
+Assign: %Expression% {
+	<assignee:LValue> [_:Equal] <assign:Expression> => %
+		Expression::Assign(
+			Assign{
+				assignee,
+				assign: Box::new(assign),
+			}
+		)
+	%,
+	<compare: Compare> => % compare %,
+};
+
+LValue {
+	[ident:Ident] => % LValue::Var(ident) %,
+	<accessee: Call> [_:Dot] [property: Ident] => %
+		LValue::Member(Member{
+			accessee: Box::new(accessee),
+			property,
+		})
+	%,
+};
+
+Compare: %Expression% {
+ <lhs:Term> [_:EqualEqual]	<rhs: Compare> => % Expression::Bin(Binary::new(lhs, BinOp::Equals, rhs)) %,
+ <lhs:Term> [_:LessEqual]	<rhs: Compare> => % Expression::Bin(Binary::new(lhs, BinOp::Leq, rhs)) %,
+ <lhs:Term> [_:Less]	<rhs: Compare> => % Expression::Bin(Binary::new(lhs, BinOp::Less, rhs)) %,
+ <lhs:Term> [_:GreaterEqual]	<rhs: Compare> => % Expression::Bin(Binary::new(lhs, BinOp::Geq, rhs)) %,
+ <lhs:Term> [_:Greater]	<rhs: Compare> => % Expression::Bin(Binary::new(lhs, BinOp::Greater, rhs)) %,
+ <lhs:Term> [_:BangEqual]	<rhs: Compare> => % Expression::Bin(Binary::new(lhs, BinOp::Neq, rhs)) %,
+ <lhs:Term> [_:And]	<rhs: Compare> => % Expression::Bin(Binary::new(lhs, BinOp::And, rhs)) %,
+ <lhs:Term> [_:Or]	<rhs: Compare> => % Expression::Bin(Binary::new(lhs, BinOp::Or, rhs)) %,
+ <term:Term> => % term %,
+};
+
+Term: %Expression% {
+	<lhs:Term> [_:Plus] <rhs:Product> => % Expression::Bin(Binary::new(lhs, BinOp::Plus, rhs)) %,
+	<lhs:Term> [_:Minus] <rhs:Product> => % Expression::Bin(Binary::new(lhs, BinOp::Minus, rhs)) %,
+	<product: Product> => % product %,
+};
+
+Product: %Expression% {
+	<lhs: Product> [_:Star] <rhs: Unary> => % Expression::Bin(Binary::new(lhs, BinOp::Times, rhs)) %,
+	<lhs: Product> [_:Slash] <rhs: Unary> => % Expression::Bin(Binary::new(lhs, BinOp::Divide, rhs)) %,
+	<unary: Unary> => % unary %,
+};
+
+Unary: %Expression% {
+	[_:Bang] <unary: Unary> => % Expression::Unary(Unary::new(UnaryOp::Not, unary)) %,
+	[_:Minus] <unary: Unary> => % Expression::Unary(Unary::new(UnaryOp::Minus, unary)) %,
+	<call: Call> => % call %,
+};
+
+Call: %Expression% {
+	<callee:Call> [_:LParen] <args: CallArgs> [_:RParen] => % Expression::Call(Call { callee: Box::new(callee), args }) %,
+	<accessee:Call> [_:Dot] [property: Ident] => % Expression::Member(Member { accessee: Box::new(accessee), property }) %,
+	[_:Super] [_:Dot] [access: Ident] => % Expression::SuperMember(access) %,
+	<literal: Literal> => % literal %,
+};
+
+CallArgs: %Vec<Expression>% {
+	=> % Vec::new() %,
+	<first:Expression> <rest: TrailingCallArg*> => %{
+		let mut res = vec![first];
+		res.extend(rest.into_iter());
+		res
+	}%,
+};
+
+TrailingCallArg: %Expression% {
+	[_:Comma] <expr:Expression> => %expr%,
+};
+
+Literal: %Expression% {
+	[num:Number] => % Expression::Lit(Literal::Num(num)) %,
+	[s:String] => % Expression::Lit(Literal::String(s)) %,
+	[ident:Ident] => % Expression::Lit(Literal::Var(ident)) %,
+	[_:True] => % Expression::Lit(Literal::Bool(true)) %,
+	[_:False] => % Expression::Lit(Literal::Bool(false)) %,
+	[_:Nil] => % Expression::Nil %,
+	[_:LParen] <expr:Expression> [_:RParen] => % expr %,
 };
