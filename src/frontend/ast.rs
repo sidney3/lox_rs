@@ -1,7 +1,6 @@
 use std::vec;
 
 use lox_derive::Ordinal;
-use nonempty::{NonEmpty, nonempty};
 use strum::Display;
 
 use super::token::LoxTokenKind;
@@ -253,7 +252,7 @@ pub struct Assign {
 
 #[derive(Debug)]
 pub struct Program {
-  pub declarations: NonEmpty<Declaration>,
+  pub declarations: Vec<Declaration>,
 }
 
 type P = Production<LoxRule>;
@@ -1172,7 +1171,7 @@ impl Declaration {
 impl Program {
   pub fn new(last: Declaration) -> Self {
     Self {
-      declarations: nonempty![last],
+      declarations: vec![last],
     }
   }
 
